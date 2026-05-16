@@ -1,7 +1,10 @@
 package com.dndweapons.compat
 
-import com.dndweapons.DndWeaponsMod
 import com.dndweapons.catalog.WeaponSpec
+import net.minecraft.item.Item
+
+//? if MC >= 1.21 {
+import com.dndweapons.DndWeaponsMod
 import com.google.common.collect.ImmutableMultimap
 import com.google.common.collect.Multimap
 import net.minecraft.component.DataComponentTypes
@@ -11,13 +14,11 @@ import net.minecraft.entity.EquipmentSlot
 import net.minecraft.entity.attribute.EntityAttribute
 import net.minecraft.entity.attribute.EntityAttributeModifier
 import net.minecraft.entity.attribute.EntityAttributes
-import net.minecraft.item.Item
 import net.minecraft.util.Identifier
 
 /**
  * Per-epoch attribute-modifier builder. Stonecutter directives select the body
- * at build time. Task 12 of Phase 2a adds the //? if MC >= 1.21 / else branches;
- * this initial file is the 1.21+ (Epoch C) body only.
+ * at build time.
  *
  * Epoch C (1.21+): writes attributes into the ATTRIBUTE_MODIFIERS data component
  * on Item.Settings. No Item.getAttributeModifiers override needed.
@@ -60,7 +61,60 @@ object AttributeCompat {
     }
 
     /** Empty on Epoch C (attributes resolved via data component). Epoch A returns the cached pair. */
+    fun modifiersFor(spec: WeaponSpec, slot: EquipmentSlot): Multimap<EntityAttribute, EntityAttributeModifier> =
+        ImmutableMultimap.of()
+}
+//?} else {
+/*
+import com.google.common.collect.ImmutableMultimap
+import com.google.common.collect.Multimap
+import net.minecraft.entity.EquipmentSlot
+import net.minecraft.entity.attribute.EntityAttribute
+import net.minecraft.entity.attribute.EntityAttributeModifier
+import net.minecraft.entity.attribute.EntityAttributes
+import java.util.UUID
+
+object AttributeCompat {
+
+    private data class CachedMods(
+        val damage: EntityAttributeModifier,
+        val speed: EntityAttributeModifier,
+    )
+
+    private val store = mutableMapOf<String, CachedMods>()
+
+    fun applyTo(settings: Item.Settings, spec: WeaponSpec): Item.Settings {
+        storeFor(spec)
+        return settings.maxDamage(spec.baseDurability)
+    }
+
+    fun storeFor(spec: WeaponSpec) {
+        store.getOrPut(spec.id) {
+            CachedMods(
+                damage = EntityAttributeModifier(
+                    UUID.nameUUIDFromBytes("dndweapons:dmg:${spec.id}".toByteArray()),
+                    "Weapon base attack damage",
+                    (spec.attackDamage - 1).toDouble(),
+                    EntityAttributeModifier.Operation.ADDITION,
+                ),
+                speed = EntityAttributeModifier(
+                    UUID.nameUUIDFromBytes("dndweapons:spd:${spec.id}".toByteArray()),
+                    "Weapon base attack speed",
+                    (spec.attackSpeed - 4.0).toDouble(),
+                    EntityAttributeModifier.Operation.ADDITION,
+                ),
+            )
+        }
+    }
+
     fun modifiersFor(spec: WeaponSpec, slot: EquipmentSlot): Multimap<EntityAttribute, EntityAttributeModifier> {
-        return ImmutableMultimap.of()
+        if (slot != EquipmentSlot.MAINHAND) return ImmutableMultimap.of()
+        val cached = store[spec.id] ?: return ImmutableMultimap.of()
+        return ImmutableMultimap.builder<EntityAttribute, EntityAttributeModifier>()
+            .put(EntityAttributes.GENERIC_ATTACK_DAMAGE, cached.damage)
+            .put(EntityAttributes.GENERIC_ATTACK_SPEED, cached.speed)
+            .build()
     }
 }
+*/
+//?}
