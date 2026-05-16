@@ -1,0 +1,11 @@
+{
+  "wave_id": 10,
+  "verifier_status": "CLEAN",
+  "agent_statuses": {
+    "wave-10-agent-1": "CLEAN",
+    "wave-10-agent-2": "CLEAN",
+    "wave-10-agent-3": "CLEAN",
+    "wave-10-agent-4": "CLEAN"
+  },
+  "bugs": []
+}
