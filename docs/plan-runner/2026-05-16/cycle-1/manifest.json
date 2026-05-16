@@ -43,6 +43,16 @@
       "wave_bug_count": 0,
       "commit_sha": "d024792b292476f3e5502c3e36d7fe6b92345be3",
       "skipped_reason": null
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {"agent_id": "wave-4-agent-1", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "7e13307d3dec6bd37a20a3b809605a64d3109e9d",
+      "skipped_reason": null
     }
   ],
   "total_bugs": 4,
