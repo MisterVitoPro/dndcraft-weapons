@@ -30,7 +30,7 @@ object AttributeCompat {
     fun applyTo(settings: Item.Settings, spec: WeaponSpec): Item.Settings {
         val mods = AttributeModifiersComponent.builder()
             .add(
-                EntityAttributes.GENERIC_ATTACK_DAMAGE,
+                EntityAttributes.ATTACK_DAMAGE,
                 EntityAttributeModifier(
                     Identifier.of(DndWeaponsMod.MOD_ID, "base_attack_damage_${spec.id}"),
                     spec.attackDamage - 1.0,
@@ -39,7 +39,7 @@ object AttributeCompat {
                 AttributeModifierSlot.MAINHAND,
             )
             .add(
-                EntityAttributes.GENERIC_ATTACK_SPEED,
+                EntityAttributes.ATTACK_SPEED,
                 EntityAttributeModifier(
                     Identifier.of(DndWeaponsMod.MOD_ID, "base_attack_speed_${spec.id}"),
                     spec.attackSpeed - 4.0,

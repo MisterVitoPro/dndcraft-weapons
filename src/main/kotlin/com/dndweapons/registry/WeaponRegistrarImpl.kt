@@ -7,6 +7,8 @@ import com.dndweapons.item.DndWeaponItem
 import net.minecraft.item.Item
 import net.minecraft.registry.Registries
 import net.minecraft.registry.Registry
+import net.minecraft.registry.RegistryKey
+import net.minecraft.registry.RegistryKeys
 import net.minecraft.util.Identifier
 
 /**
@@ -22,10 +24,11 @@ class WeaponRegistrarImpl : WeaponRegistrar {
         }
 
         val itemId = Identifier.of(DndWeaponsMod.MOD_ID, spec.id)
-        val settings = AttributeCompat.applyTo(Item.Settings(), spec)
+        val itemKey = RegistryKey.of(RegistryKeys.ITEM, itemId)
+        val settings = AttributeCompat.applyTo(Item.Settings().registryKey(itemKey), spec)
         val item = DndWeaponItem(spec, settings)
 
-        Registry.register(Registries.ITEM, itemId, item)
+        Registry.register(Registries.ITEM, itemKey, item)
         DndWeaponsMod.LOGGER.info("Registered weapon: {}", itemId)
     }
 }

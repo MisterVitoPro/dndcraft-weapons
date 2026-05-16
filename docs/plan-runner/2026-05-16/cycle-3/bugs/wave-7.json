@@ -1,0 +1,65 @@
+{
+  "wave_id": 7,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-7-agent-1": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-7-agent-1-bug-1",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Plan-specified Gradle wrapper version (8.10) too old for fabric-loom 1.10-SNAPSHOT",
+      "file": "gradle/wrapper/gradle-wrapper.properties",
+      "line": 3,
+      "evidence": "distributionUrl=gradle-8.10-bin.zip; fabric-loom 1.10-SNAPSHOT requires Gradle 8.12+",
+      "expected": "Gradle 8.12+ wrapper",
+      "suggested_fix": "Bump distributionUrl to gradle-8.12-bin.zip (orchestrator already applied inline)"
+    },
+    {
+      "bug_id": "wave-7-agent-1-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Plan-specified FLK version 1.13.5+kotlin.2.0.21 does not exist on Fabric Maven",
+      "file": "versions/1.21.4/gradle.properties",
+      "line": 5,
+      "evidence": "Maven 404 on https://maven.fabricmc.net/net/fabricmc/fabric-language-kotlin/1.13.5+kotlin.2.0.21/. Latest published version is 1.13.11+kotlin.2.3.21.",
+      "expected": "Valid FLK Maven coordinate",
+      "suggested_fix": "Bump kotlin_version to 2.3.21 in root gradle.properties; bump flk_version to 1.13.11+kotlin.2.3.21 in versions/1.21.4/gradle.properties; bump Kotlin plugin in build.gradle.kts to 2.3.21 (orchestrator applied inline)"
+    },
+    {
+      "bug_id": "wave-7-agent-1-bug-3",
+      "severity": "P0",
+      "category": "incorrect_implementation",
+      "title": "EntityAttributes.GENERIC_ATTACK_DAMAGE/SPEED renamed in Yarn 1.21.4",
+      "file": "src/main/kotlin/com/dndweapons/compat/AttributeCompat.kt",
+      "line": 33,
+      "evidence": "e: Unresolved reference 'GENERIC_ATTACK_DAMAGE' at AttributeCompat.kt:33:34",
+      "expected": "Valid Yarn 1.21.4 attribute field names",
+      "suggested_fix": "Replace GENERIC_ATTACK_DAMAGE with ATTACK_DAMAGE and GENERIC_ATTACK_SPEED with ATTACK_SPEED (orchestrator applied inline)"
+    },
+    {
+      "bug_id": "wave-7-agent-1-bug-4",
+      "severity": "P0",
+      "category": "incorrect_implementation",
+      "title": "Item.Settings requires registryKey() before Item construction in 1.21.4",
+      "file": "src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt",
+      "line": 26,
+      "evidence": "Runtime NPE: 'Item id not set' at Item$Settings.getTranslationKey when DndWeaponItem super(settings) is called",
+      "expected": "Settings should know its RegistryKey before Item.<init> runs",
+      "suggested_fix": "Build RegistryKey<Item> first, call Item.Settings().registryKey(itemKey), then construct DndWeaponItem and pass the key to Registry.register (orchestrator applied inline)"
+    },
+    {
+      "bug_id": "wave-7-agent-1-bug-5",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "Longsword recipe JSON fails to parse on 1.21.4 (missing fabric:type discriminator)",
+      "file": "src/main/resources/data/dndweapons/recipe/longsword.json",
+      "line": null,
+      "evidence": "Server log: 'Map entry I : Input does not contain a key [fabric:type]: MapLike[{tag:c:ingots/iron}]'",
+      "expected": "Recipe loads cleanly on MC 1.21.4 datapack reload",
+      "suggested_fix": "Either upgrade the ingredient schema to include fabric:type discriminator, or use raw vanilla minecraft:ingredient form. Address in Wave 11 (final verification) once full schema is confirmed via runtime testing."
+    }
+  ],
+  "orchestrator_note": "All 4 P0/P1 bugs were caught by the wave 7 smoke test and inline-fixed by the orchestrator before continuing to wave 8. Bug 5 (recipe JSON schema) is deferred to wave 11 verification."
+}
