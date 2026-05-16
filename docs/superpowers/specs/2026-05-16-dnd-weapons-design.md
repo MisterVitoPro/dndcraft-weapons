@@ -47,7 +47,7 @@ A Fabric Minecraft mod that adds the simple and martial weapons from the 2024 *D
 | 13 | Vanilla-mapped weapons | Shortsword, Shortbow, Light Crossbow, Trident | Avoid duplicate items; vanilla fills the role |
 | 14 | Vanilla mapping treatment | Tooltip injection + combat hooks; smithing upgrade NOT applied | Vanilla material tier system handles their progression |
 | 15 | Wiki platform | GitHub Wiki | Free, integrated, easy to clone/sync |
-| 16 | Wiki content | Auto-generated weapon pages + hand-authored overview pages | Single source of truth from `Weapons.java` |
+| 16 | Wiki content | Auto-generated weapon pages + hand-authored overview pages | Single source of truth from `Weapons.kt` |
 
 ---
 
@@ -65,9 +65,11 @@ A Fabric Minecraft mod that adds the simple and martial weapons from the 2024 *D
 ### Tech stack
 | Concern | Choice | Notes |
 |---|---|---|
+| Mod source language | Kotlin | Pivoted from Java on 2026-05-16; FLK (`fabric-language-kotlin`) handles entrypoint adapter |
 | Multi-version build | Stonecutter | Single `src/`, comment directives, one Gradle subproject per MC version |
 | Fabric build plugin | Fabric Loom 1.15+ | Loom version pinned per subproject |
 | Mappings | Yarn for legacy branches, Mojang mappings for 26.1+ (forced) | Stonecutter abstracts |
+| Java release target | 17 for 1.20.1; 21 for everything else | JDK to build with is always 21 |
 | Recipe gating | Fabric Recipe Conditions (FRC) | `fabric:tags_populated` keeps recipes inert when tags empty |
 | Material references | `c:` Common item tags | `c:ingots/iron`, `c:gems/diamond`, etc. |
 | Reach attribute | Vanilla `entity_interaction_range` on 1.20.5+; Reach Entity Attributes lib on 1.20.1 only | Only runtime dep beyond Fabric API |
@@ -88,37 +90,37 @@ dnd-weapons/
     1.21.4/
     26.1.2/
     1.21.11/
-  src/main/java/com/dndweapons/
-    DndWeaponsMod.java               # mod init
+  src/main/kotlin/com/dndweapons/
+    DndWeaponsMod.kt                 # mod init
     catalog/
-      Weapons.java                   # ALL 34 weapon records + 4 vanilla-mapped role specs
-      WeaponSpec.java                # record type
-      WeaponProperty.java            # enum: REACH, TWO_HANDED, THROWN, VERSATILE, ...
-      DamageType.java                # SLASHING, PIERCING, BLUDGEONING
-      Category.java                  # SIMPLE_MELEE, SIMPLE_RANGED, MARTIAL_MELEE, MARTIAL_RANGED
-      RangeKind.java                 # NONE, THROWN, BOW, CROSSBOW, FIREARM, SLING, BLOWGUN
+      Weapons.kt                     # ALL 34 weapon specs + 4 vanilla-mapped role specs (Kotlin object)
+      WeaponSpec.kt                  # data class
+      Property.kt                    # enum: REACH, TWO_HANDED, THROWN, VERSATILE, ...
+      DamageType.kt                  # SLASHING, PIERCING, BLUDGEONING
+      Category.kt                    # SIMPLE_MELEE, SIMPLE_RANGED, MARTIAL_MELEE, MARTIAL_RANGED
+      RangeKind.kt                   # NONE, THROWN, BOW, CROSSBOW, FIREARM, SLING, BLOWGUN
     registry/
-      WeaponRegistrar.java           # interface
-      WeaponRegistrarImpl.java       # //? per-epoch
+      WeaponRegistrar.kt             # interface
+      WeaponRegistrarImpl.kt         # thin; delegates to AttributeCompat
     compat/
-      AttributeCompat.java           # UUID-vs-Identifier modifier shim
-      ReachCompat.java               # vanilla vs Reach Entity Attributes
-      TradeCompat.java               # three trade flavors
-      LootCompat.java                # loot v2/v3 shim
-      TooltipCompat.java             # 1.20.x appendTooltip vs 1.21+ data-component approach
+      AttributeCompat.kt             # //? UUID-vs-Identifier modifier shim
+      ReachCompat.kt                 # vanilla vs Reach Entity Attributes
+      TradeCompat.kt                 # three trade flavors via //?
+      LootCompat.kt                  # loot v2/v3 shim via //?
+      TooltipCompat.kt               # 1.20.x appendTooltip vs 1.21+ data-component approach
     item/
-      DndWeaponItem.java             # base class
-      DndThrownWeaponItem.java       # extends/wraps trident
-      DndBowItem.java
-      DndCrossbowItem.java
-      DndSlingItem.java
-      DndBlowgunItem.java
-      DndFirearmItem.java
+      DndWeaponItem.kt               # base class
+      DndThrownWeaponItem.kt         # extends/wraps trident
+      DndBowItem.kt
+      DndCrossbowItem.kt
+      DndSlingItem.kt
+      DndBlowgunItem.kt
+      DndFirearmItem.kt
     combat/
-      WeaponAttackHandler.java       # single AttackEntityCallback subscriber; modifyDamage()
+      WeaponAttackHandler.kt         # single AttackEntityCallback subscriber; modifyDamage()
     tooltip/
-      WeaponTooltipInjector.java     # ItemTooltipCallback; works for registered + vanilla-mapped
-    ModCompat.java                   # isModLoaded helpers
+      WeaponTooltipInjector.kt       # ItemTooltipCallback; works for registered + vanilla-mapped
+    ModCompat.kt                     # isModLoaded helpers
   src/main/resources/
     fabric.mod.json                  # //? per-version mod metadata
     assets/dndweapons/               # textures + en_us.json + models
@@ -247,71 +249,89 @@ dnd-weapons/
 
 ## 5. Data Model & Per-Epoch Registration Layer
 
-### `WeaponSpec` record — single source of truth
+### `WeaponSpec` data class — single source of truth
 
-```java
-public record WeaponSpec(
-    String id,                  // "longsword"
-    String displayName,         // "Longsword"
-    Category category,
-    DamageType damageType,
-    String diceText,            // "1d8"
-    String versatileDice,       // "1d10" or null
-    int attackDamage,
-    int versatileBonus,         // +1 when offhand empty; 0 if not versatile
-    float attackSpeed,
-    float reachBonus,           // 0.0 or 1.0
-    int knockbackBonus,         // 0 or 1 (for Heavy)
-    Set<Property> properties,
-    RangeKind ranged,           // NONE, THROWN, BOW, CROSSBOW, FIREARM, SLING, BLOWGUN
-    int baseDurability,         // 250 iron-tier baseline
-    String vanillaRoleTag       // nullable; e.g., "dndweapons:role/shortsword"
-                                // when non-null, NO item is registered;
-                                // the named tag determines which vanilla items
-                                // get DnD treatment (lookup happens at runtime)
-) {}
+```kotlin
+data class WeaponSpec(
+    val id: String,                    // "longsword"
+    val displayName: String,           // "Longsword"
+    val category: Category,
+    val damageType: DamageType,
+    val diceText: String,              // "1d8"
+    val versatileDice: String?,        // "1d10" or null
+    val attackDamage: Int,
+    val versatileBonus: Int,           // +1 when offhand empty; 0 if not versatile
+    val attackSpeed: Float,
+    val reachBonus: Float,             // 0.0 or 1.0
+    val knockbackBonus: Int,           // 0 or 1 (for Heavy)
+    val properties: Set<Property>,
+    val ranged: RangeKind,             // NONE, THROWN, BOW, CROSSBOW, FIREARM, SLING, BLOWGUN
+    val baseDurability: Int,           // 250 iron-tier baseline
+    val vanillaRoleTag: String?        // nullable; e.g., "dndweapons:role/shortsword"
+                                       // when non-null, NO item is registered;
+                                       // the named tag determines which vanilla items
+                                       // get DnD treatment (lookup happens at runtime)
+) {
+    init {
+        require(id.isNotBlank()) { "WeaponSpec id must be non-blank" }
+        require(displayName.isNotBlank()) { "WeaponSpec displayName must be non-blank" }
+    }
+
+    val isVanillaMapped: Boolean get() = vanillaRoleTag != null
+}
 ```
 
 Note: `vanillaRoleTag` is a `String`, not an `Item` or `TagKey<Item>`. On 26.1+, item/registry references made during static initialization would crash (registries are only available after world load). String lookup is deferred to first use.
 
-### `Weapons.java` — example entries
+### `Weapons.kt` — example entries
 
-```java
-public final class Weapons {
-    public static final WeaponSpec LONGSWORD = new WeaponSpec(
-        "longsword", "Longsword", MARTIAL_MELEE, SLASHING,
-        "1d8", "1d10",
-        6, 1, 1.5f, 0.0f, 0,
-        Set.of(VERSATILE),
-        RangeKind.NONE, 250, null
-    );
+```kotlin
+object Weapons {
+    val LONGSWORD = WeaponSpec(
+        id = "longsword", displayName = "Longsword",
+        category = MARTIAL_MELEE, damageType = SLASHING,
+        diceText = "1d8", versatileDice = "1d10",
+        attackDamage = 6, versatileBonus = 1,
+        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+        properties = setOf(VERSATILE),
+        ranged = RangeKind.NONE, baseDurability = 250,
+        vanillaRoleTag = null,
+    )
 
-    public static final WeaponSpec SHORTSWORD = new WeaponSpec(
-        "shortsword", "Shortsword", MARTIAL_MELEE, PIERCING,
-        "1d6", null,
-        5, 0, 1.8f, 0.0f, 0,
-        Set.of(LIGHT, FINESSE),
-        RangeKind.NONE, 250,
-        "dndweapons:role/shortsword"   // vanilla-mapped; tag lists vanilla swords
-    );
+    val SHORTSWORD = WeaponSpec(
+        id = "shortsword", displayName = "Shortsword",
+        category = MARTIAL_MELEE, damageType = PIERCING,
+        diceText = "1d6", versatileDice = null,
+        attackDamage = 5, versatileBonus = 0,
+        attackSpeed = 1.8f, reachBonus = 0.0f, knockbackBonus = 0,
+        properties = setOf(LIGHT, FINESSE),
+        ranged = RangeKind.NONE, baseDurability = 250,
+        vanillaRoleTag = "dndweapons:role/shortsword",   // vanilla-mapped; tag lists vanilla swords
+    )
 
-    public static final WeaponSpec GREATSWORD = new WeaponSpec(
-        "greatsword", "Greatsword", MARTIAL_MELEE, SLASHING,
-        "2d6", null,
-        9, 0, 0.9f, 0.0f, 1,
-        Set.of(HEAVY, TWO_HANDED),
-        RangeKind.NONE, 250, null
-    );
+    val GREATSWORD = WeaponSpec(
+        id = "greatsword", displayName = "Greatsword",
+        category = MARTIAL_MELEE, damageType = SLASHING,
+        diceText = "2d6", versatileDice = null,
+        attackDamage = 9, versatileBonus = 0,
+        attackSpeed = 0.9f, reachBonus = 0.0f, knockbackBonus = 1,
+        properties = setOf(HEAVY, TWO_HANDED),
+        ranged = RangeKind.NONE, baseDurability = 250,
+        vanillaRoleTag = null,
+    )
 
-    public static final WeaponSpec LANCE = new WeaponSpec(
-        "lance", "Lance", MARTIAL_MELEE, PIERCING,
-        "1d10", null,
-        7, 0, 1.0f, 1.0f, 1,
-        Set.of(HEAVY, REACH, TWO_HANDED, SPECIAL_LANCE),
-        RangeKind.NONE, 250, null
-    );
+    val LANCE = WeaponSpec(
+        id = "lance", displayName = "Lance",
+        category = MARTIAL_MELEE, damageType = PIERCING,
+        diceText = "1d10", versatileDice = null,
+        attackDamage = 7, versatileBonus = 0,
+        attackSpeed = 1.0f, reachBonus = 1.0f, knockbackBonus = 1,
+        properties = setOf(HEAVY, REACH, TWO_HANDED, SPECIAL_LANCE),
+        ranged = RangeKind.NONE, baseDurability = 250,
+        vanillaRoleTag = null,
+    )
 
-    public static final List<WeaponSpec> ALL = List.of(/* all 38 */);
+    val ALL: List<WeaponSpec> = listOf(/* all 38 */)
 }
 ```
 
@@ -319,86 +339,85 @@ Note: `vanillaRoleTag` is stored as a String. The actual tag and its member item
 
 ### Per-epoch registration
 
-`WeaponRegistrar.java` (interface, version-independent):
-```java
-public interface WeaponRegistrar {
-    void register(WeaponSpec spec);
-    void registerAll(List<WeaponSpec> specs);
-}
-```
-
-`WeaponRegistrarImpl.java` (Stonecutter-forked):
-```java
-public class WeaponRegistrarImpl implements WeaponRegistrar {
-    public void register(WeaponSpec spec) {
-        if (spec.vanillaRoleTag() != null) {
-            // Vanilla-mapped: no item registered.
-            // SpecRegistry will later resolve the named tag to its items
-            // and route lookups (combat hooks, tooltip injector) through it.
-            SpecRegistry.bindRoleTag(spec);
-            return;
-        }
-        Item.Settings settings = new Item.Settings();
-        //? if MC >= 1.21 {
-        settings = settings.attributeModifiers(buildAttributesIdentifierKeyed(spec));
-        //?} else if MC >= 1.20.5 {
-        /*settings = settings.attributeModifiers(buildAttributesUuidKeyed(spec));*/
-        //?} else {
-        /* pre-1.20.5: attributes set via Item subclass override */
-        //?}
-        Item item = createItemForSpec(spec, settings);
-        Registry.register(Registries.ITEM, id(spec.id()), item);
+`WeaponRegistrar.kt` (interface, version-independent):
+```kotlin
+interface WeaponRegistrar {
+    fun register(spec: WeaponSpec)
+    fun registerAll(specs: List<WeaponSpec>) {
+        specs.forEach(::register)
     }
 }
 ```
 
-Per-epoch compat files (3 of them):
-- `compat/AttributeCompat_v1201.java` — UUID-keyed modifiers; `Item.getAttributeModifiers()` override
-- `compat/AttributeCompat_v1205.java` — UUID-keyed on data components
-- `compat/AttributeCompat_v121.java` — Identifier-keyed on data components
+`WeaponRegistrarImpl.kt` (thin; per-epoch logic delegated to `AttributeCompat`):
+```kotlin
+class WeaponRegistrarImpl : WeaponRegistrar {
+    override fun register(spec: WeaponSpec) {
+        if (spec.isVanillaMapped) {
+            // Vanilla-mapped: no item registered.
+            // SpecRegistry will later resolve the named tag to its items
+            // and route lookups (combat hooks, tooltip injector) through it.
+            SpecRegistry.bindRoleTag(spec)
+            return
+        }
+
+        val itemId = Identifier.of(DndWeaponsMod.MOD_ID, spec.id)
+        val settings = AttributeCompat.applyTo(Item.Settings(), spec)
+        val item = createItemForSpec(spec, settings)
+        Registry.register(Registries.ITEM, itemId, item)
+    }
+}
+```
+
+Per-epoch logic lives in a single `compat/AttributeCompat.kt` with Stonecutter `//?` directives selecting between epochs:
+- Epoch A (`MC < 1.20.5`): UUID-keyed modifiers; `DndWeaponItem.getAttributeModifiers` override returns a `Multimap`
+- Epoch B (`MC >= 1.20.5 && MC < 1.21`): UUID-keyed in `DataComponentTypes.ATTRIBUTE_MODIFIERS` (unused — no current targets)
+- Epoch C (`MC >= 1.21`): Identifier-keyed in `DataComponentTypes.ATTRIBUTE_MODIFIERS`
+
+Naming like "AttributeCompat_v1201/v1205/v121" is conceptual; the physical layout collapses to one file with `//?` directives — that's the Stonecutter-native pattern.
 
 ### Item subclass tree
 
 | Class | Used by | Behavior |
 |---|---|---|
-| `DndWeaponItem extends Item` | All melee | Attack damage/speed/reach via settings; Heavy knockback; Versatile/Finesse/Light hooks |
-| `DndThrownWeaponItem extends TridentItem` | Dagger, Handaxe, Javelin, Light Hammer, Spear | Right-click throws; retrievable. Stonecutter-forked (TridentItem changed) |
-| `DndBowItem extends BowItem` | Longbow | Vanilla bow behavior; max damage capped by spec |
-| `DndCrossbowItem extends CrossbowItem` | Heavy Crossbow, Hand Crossbow | Vanilla crossbow + per-spec reload time |
-| `DndSlingItem extends Item` | Sling | Custom — fires pebbles, no draw |
-| `DndBlowgunItem extends Item` | Blowgun | Custom — fires darts |
-| `DndFirearmItem extends Item` | Musket, Pistol | Custom — fires lead balls, slow reload |
+| `DndWeaponItem : Item` | All melee | Attack damage/speed/reach via settings; Heavy knockback; Versatile/Finesse/Light hooks |
+| `DndThrownWeaponItem : TridentItem` | Dagger, Handaxe, Javelin, Light Hammer, Spear | Right-click throws; retrievable. Stonecutter-forked (TridentItem changed) |
+| `DndBowItem : BowItem` | Longbow | Vanilla bow behavior; max damage capped by spec |
+| `DndCrossbowItem : CrossbowItem` | Heavy Crossbow, Hand Crossbow | Vanilla crossbow + per-spec reload time |
+| `DndSlingItem : Item` | Sling | Custom — fires pebbles, no draw |
+| `DndBlowgunItem : Item` | Blowgun | Custom — fires darts |
+| `DndFirearmItem : Item` | Musket, Pistol | Custom — fires lead balls, slow reload |
 
 ### Combat-hook handler
 
 One file, ~80 lines, handles every runtime damage modifier:
 
-```java
-public final class WeaponAttackHandler {
-    public static float modifyDamage(PlayerEntity attacker, Entity target, float base, WeaponSpec mainhand) {
-        float dmg = base;
-        if (mainhand.properties().contains(VERSATILE) && attacker.getOffHandStack().isEmpty()) {
-            dmg += mainhand.versatileBonus();
+```kotlin
+object WeaponAttackHandler {
+    fun modifyDamage(attacker: PlayerEntity, target: Entity, base: Float, mainhand: WeaponSpec): Float {
+        var dmg = base
+        if (VERSATILE in mainhand.properties && attacker.offHandStack.isEmpty) {
+            dmg += mainhand.versatileBonus
         }
-        if (mainhand.properties().contains(FINESSE) && attacker.isSprinting()) {
-            dmg *= 1.20f;
+        if (FINESSE in mainhand.properties && attacker.isSprinting) {
+            dmg *= 1.20f
         }
-        if (mainhand.properties().contains(LIGHT)) {
-            ItemStack off = attacker.getOffHandStack();
-            if (off != null && SpecRegistry.lookup(off.getItem())
-                    .map(s -> s.properties().contains(LIGHT)).orElse(false)) {
-                dmg += 1.0f;
+        if (LIGHT in mainhand.properties) {
+            val off = attacker.offHandStack
+            val offSpec = SpecRegistry.lookup(off.item)
+            if (offSpec != null && LIGHT in offSpec.properties) {
+                dmg += 1.0f
             }
         }
-        if (mainhand.properties().contains(SPECIAL_LANCE) && !attacker.hasVehicle()) {
-            dmg *= 0.50f;
+        if (SPECIAL_LANCE in mainhand.properties && !attacker.hasVehicle()) {
+            dmg *= 0.50f
         }
-        return dmg;
+        return dmg
     }
 }
 ```
 
-Wired into `AttackEntityCallback.EVENT.register(...)` in `DndWeaponsMod.init()`. `SpecRegistry.lookup(Item)` checks the item registry AND the role tags — so the same handler fires for registered DnD weapons and for vanilla-mapped items.
+Wired into `AttackEntityCallback.EVENT.register(...)` in `DndWeaponsMod.onInitialize()`. `SpecRegistry.lookup(Item)` checks the item registry AND the role tags — so the same handler fires for registered DnD weapons and for vanilla-mapped items.
 
 ### Tooltip injection
 
@@ -498,7 +517,7 @@ Per-tier stats:
 | Diamond | base + 2 | 1561 | base | - |
 | Netherite | base + 3 | 2031 | base + 1 | Fire-resistant |
 
-`Weapons.java` generates all three tier variants from one `WeaponSpec` programmatically. **Vanilla-mapped weapons do NOT have these upgrade variants.**
+`Weapons.kt` generates all three tier variants from one `WeaponSpec` programmatically. **Vanilla-mapped weapons do NOT have these upgrade variants.**
 
 ### Material gating
 
@@ -593,29 +612,29 @@ Mobs do NOT spawn pre-wielding these weapons. Drops only.
 
 ### Implementation: per-epoch shims
 
-**Loot injection** (`compat/LootCompat.java`):
-```java
+**Loot injection** (`compat/LootCompat.kt`):
+```kotlin
 //? if MC >= 1.21.1 {
-import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
+import net.fabricmc.fabric.api.loot.v3.LootTableEvents
 //?} else {
-/*import net.fabricmc.fabric.api.loot.v2.LootTableEvents;*/
+/*import net.fabricmc.fabric.api.loot.v2.LootTableEvents*/
 //?}
 
-public final class LootCompat {
-    public static void registerInjections() {
-        LootTableEvents.MODIFY.register((key, builder, source) -> {
-            LootInjections.forKey(key).ifPresent(builder::pool);
-        });
+object LootCompat {
+    fun registerInjections() {
+        LootTableEvents.MODIFY.register { key, builder, source ->
+            LootInjections.forKey(key)?.let(builder::pool)
+        }
     }
 }
 ```
 
 `LootInjections` is a single declarative table mapping vanilla loot table IDs to injected `LootPool.Builder`s. Built from the catalog.
 
-**Villager trade injection** — three forks:
-- `compat/TradeCompat_v1201_through_v1214.java`: `TradeOfferHelper.registerVillagerOffers(VillagerProfession, level, factories)`
-- `compat/TradeCompat_v1215_through_v12111.java`: `TradeOfferHelper.registerVillagerOffers(RegistryKey<VillagerProfession>, level, factories)`
-- `compat/TradeCompat_v261plus.java`: no-op (trades shipped as JSON under `data/dndweapons/trade/`)
+**Villager trade injection** — three forks in one `compat/TradeCompat.kt`, selected by Stonecutter `//?` directives:
+- `MC < 1.21.5`: `TradeOfferHelper.registerVillagerOffers(VillagerProfession, level, factories)`
+- `1.21.5 <= MC < 26.1`: `TradeOfferHelper.registerVillagerOffers(RegistryKey<VillagerProfession>, level, factories)`
+- `MC >= 26.1`: no-op (trades shipped as JSON under `data/dndweapons/trade/`)
 
 For 26.1+, trade JSONs are generated at build time by a Gradle task that reads the same catalog.
 
@@ -669,7 +688,7 @@ jobs:
           path: versions/${{ matrix.mc }}/build/libs/*.jar
 ```
 
-Java 21 covers all targets. Local one-shot: `./gradlew chiseledBuild`.
+Build JDK is 21 across the board. 1.20.1's `javaCompile.options.release` and Kotlin `jvmTarget` are pinned to 17 per its `gradle.properties`; all other subprojects target 21. Local one-shot: `./gradlew chiseledBuild`.
 
 ### Release & distribution
 
@@ -687,7 +706,7 @@ When a new MC version drops:
 4. Run gametests + manual checklist
 5. Tag a release
 
-The catalog (`Weapons.java`) only changes if WotC publishes new PHB content.
+The catalog (`Weapons.kt`) only changes if WotC publishes new PHB content.
 
 ---
 
@@ -700,7 +719,7 @@ GitHub Wiki — sidecar git repo (`<repo>.wiki.git`). Markdown pages, sidebar/fo
 - **Per-weapon pages: auto-generated** from `Weapons.ALL` via Gradle task
 - **Narrative/overview pages: hand-authored** in `wiki/handwritten/`
 - Both flow into the published wiki via one publish script
-- Single source of truth: `Weapons.java`
+- Single source of truth: `Weapons.kt`
 
 ### Page layout
 ```
