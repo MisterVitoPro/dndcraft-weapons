@@ -1,0 +1,9 @@
+{
+  "wave_id": 3,
+  "verifier_status": "CLEAN",
+  "agent_statuses": {
+    "wave-3-agent-1": "PASS",
+    "wave-3-agent-2": "PASS"
+  },
+  "bugs": []
+}
