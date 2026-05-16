@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# Fabric Loom run dir
+run/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Stonecutter cache
+.stonecutter/
+versions/*/build/
+versions/*/.gradle/
+versions/*/run/

@@ -1,0 +1,58 @@
+{
+  "wave_id": 1,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-1-agent-1": "CLEAN",
+    "wave-1-agent-2": "BUGS_FOUND",
+    "wave-1-agent-3": "CLEAN",
+    "wave-1-agent-4": "CLEAN",
+    "wave-1-agent-5": "CLEAN",
+    "wave-1-agent-6": "CLEAN"
+  },
+  "bugs": [
+    {
+      "bug_id": "W1-001",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "gradlew shell script not created",
+      "file": "D:/minecraft/mods/dnd-weapons/gradlew",
+      "line": null,
+      "evidence": "ls: cannot access 'D:/minecraft/mods/dnd-weapons/gradlew': No such file or directory",
+      "expected": "Unix shell wrapper script gradlew must exist so CI and developers can invoke Gradle without a pre-installed installation",
+      "suggested_fix": "Run `gradle wrapper --gradle-version 8.10` in the project root, or manually create gradlew from the standard Gradle wrapper template and make it executable"
+    },
+    {
+      "bug_id": "W1-002",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "gradlew.bat Windows batch script not created",
+      "file": "D:/minecraft/mods/dnd-weapons/gradlew.bat",
+      "line": null,
+      "evidence": "ls: cannot access 'D:/minecraft/mods/dnd-weapons/gradlew.bat': No such file or directory",
+      "expected": "Windows batch wrapper gradlew.bat must exist so Windows developers and CI pipelines can invoke Gradle without a pre-installed installation",
+      "suggested_fix": "Run `gradle wrapper --gradle-version 8.10` in the project root, or manually create gradlew.bat from the standard Gradle wrapper template"
+    },
+    {
+      "bug_id": "W1-003",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "gradle-wrapper.jar binary not created",
+      "file": "D:/minecraft/mods/dnd-weapons/gradle/wrapper/gradle-wrapper.jar",
+      "line": null,
+      "evidence": "ls: cannot access 'D:/minecraft/mods/dnd-weapons/gradle/wrapper/gradle-wrapper.jar': No such file or directory",
+      "expected": "gradle-wrapper.jar must be present alongside gradle-wrapper.properties for the Gradle wrapper to bootstrap itself",
+      "suggested_fix": "Run `gradle wrapper --gradle-version 8.10` in the project root to generate both the JAR and shell scripts; alternatively copy the JAR from any Gradle 8.10 distribution"
+    },
+    {
+      "bug_id": "W1-004",
+      "severity": "P2",
+      "category": "missing_requirement",
+      "title": "gradle.properties missing minecraft_version, yarn_mappings, loader_version, and fabric_version properties",
+      "file": "D:/minecraft/mods/dnd-weapons/gradle.properties",
+      "line": null,
+      "evidence": "gradle.properties contains only modId, modGroup, modVersion, and JVM/parallel flags. build.gradle.kts references property(\"minecraft_version\"), property(\"yarn_mappings\"), property(\"loader_version\"), and property(\"fabric_version\") which will cause a runtime error when Gradle evaluates the dependencies block.",
+      "expected": "gradle.properties should include minecraft_version=1.21.4, yarn_mappings=<appropriate yarn build>, loader_version=<fabricloader version >=0.16.0>, and fabric_version=<fabric-api version> so the build resolves dependencies correctly",
+      "suggested_fix": "Add lines such as:\nminecraft_version=1.21.4\nyarn_mappings=1.21.4+build.8\nloader_version=0.16.9\nfabric_version=0.110.0+1.21.4"
+    }
+  ]
+}

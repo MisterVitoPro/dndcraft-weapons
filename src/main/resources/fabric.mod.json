@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "dndweapons",
+  "version": "${version}",
+  "name": "DnD Weapons",
+  "description": "Adds the simple and martial weapons from the 2024 D&D Player's Handbook.",
+  "authors": ["MisterVitoPro"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.dndweapons.DndWeaponsMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

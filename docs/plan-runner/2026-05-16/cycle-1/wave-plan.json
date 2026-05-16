@@ -1,0 +1,257 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/superpowers/plans/2026-05-16-dnd-weapons-phase-1-foundation.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Task 0: Initialize Git Repository",
+          "task_excerpt_lines": "70-125",
+          "owned_files": [
+            ".gitignore"
+          ],
+          "acceptance_criteria": [
+            ".gitignore file created with correct patterns for Gradle, IDEA, Eclipse, Fabric Loom, and Stonecutter",
+            "Git repository initialized successfully",
+            "Initial commit created with message 'chore: init repo + gitignore'"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Task 1: Gradle Bootstrap + Stonecutter Setup",
+          "task_excerpt_lines": "129-276",
+          "owned_files": [
+            "settings.gradle.kts",
+            "stonecutter.gradle.kts",
+            "build.gradle.kts",
+            "gradle.properties",
+            "gradlew",
+            "gradlew.bat",
+            "gradle/wrapper/"
+          ],
+          "acceptance_criteria": [
+            "Gradle wrapper installed with version 8.10+",
+            "settings.gradle.kts configured with Stonecutter plugin and 1.21.4 as active version",
+            "build.gradle.kts configured with Fabric Loom, Java 21, and JUnit 5 dependencies",
+            "gradle.properties contains modId, modGroup, modVersion properties",
+            "Build system resolves without errors: ./gradlew :1.21.4:dependencies succeeds"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "Task 3: fabric.mod.json + Mod Main Class Stub",
+          "task_excerpt_lines": "326-400",
+          "owned_files": [
+            "src/main/resources/fabric.mod.json",
+            "src/main/java/com/dndweapons/DndWeaponsMod.java"
+          ],
+          "acceptance_criteria": [
+            "fabric.mod.json created with schema version 1, correct entrypoint, and depends section",
+            "DndWeaponsMod.java implements ModInitializer with MOD_ID constant and LOGGER",
+            "Mod builds successfully: ./gradlew :1.21.4:build produces JAR",
+            "Mod loads in client: ./gradlew :1.21.4:runClient shows initialization log message"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-4",
+          "task_title": "Task 4: Catalog Enums",
+          "task_excerpt_lines": "404-489",
+          "owned_files": [
+            "src/main/java/com/dndweapons/catalog/Category.java",
+            "src/main/java/com/dndweapons/catalog/DamageType.java",
+            "src/main/java/com/dndweapons/catalog/Property.java",
+            "src/main/java/com/dndweapons/catalog/RangeKind.java"
+          ],
+          "acceptance_criteria": [
+            "Category.java enum has exactly 4 constants: SIMPLE_MELEE, SIMPLE_RANGED, MARTIAL_MELEE, MARTIAL_RANGED",
+            "DamageType.java enum has exactly 3 constants: SLASHING, PIERCING, BLUDGEONING",
+            "Property.java enum has exactly 10 constants: LIGHT, HEAVY, FINESSE, REACH, TWO_HANDED, VERSATILE, THROWN, AMMUNITION, LOADING, SPECIAL_LANCE",
+            "RangeKind.java enum has exactly 7 constants: NONE, THROWN, BOW, CROSSBOW, FIREARM, SLING, BLOWGUN",
+            "All enums compile successfully: ./gradlew :1.21.4:compileJava succeeds"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-1-agent-5",
+          "task_title": "Task 10: Crafting Recipe for Longsword",
+          "task_excerpt_lines": "1016-1064",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/recipe/longsword.json"
+          ],
+          "acceptance_criteria": [
+            "longsword.json is valid JSON with type 'minecraft:crafting_shaped'",
+            "Recipe pattern is 3x1 (I, I, S vertically)",
+            "Key defines I as c:ingots/iron and S as c:rods/wooden",
+            "Result specifies dndweapons:longsword with count 1",
+            "Recipe compiles into JAR successfully"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-1-agent-6",
+          "task_title": "Task 11: Localization + Item Model + Placeholder Texture",
+          "task_excerpt_lines": "1068-1132",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/lang/en_us.json",
+            "src/main/resources/assets/dndweapons/models/item/longsword.json",
+            "src/main/resources/assets/dndweapons/textures/item/longsword.png"
+          ],
+          "acceptance_criteria": [
+            "en_us.json contains entries for 'itemGroup.dndweapons.main' and 'item.dndweapons.longsword'",
+            "longsword.json item model is valid JSON parented to minecraft:item/generated with layer0 texture",
+            "longsword.png placeholder texture is copied from vanilla iron_sword.png or equivalent",
+            "All asset files compile into JAR with correct paths"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Task 2: Per-Version Properties (1.21.4)",
+          "task_excerpt_lines": "280-322",
+          "owned_files": [
+            "versions/1.21.4/gradle.properties"
+          ],
+          "acceptance_criteria": [
+            "versions/1.21.4/gradle.properties created with minecraft_version, yarn_mappings, loader_version, fabric_version",
+            "Minecraft version is 1.21.4, Yarn is 1.21.4+build.8, Loader is 0.16.10, Fabric API is 0.115.0+1.21.4",
+            "Stonecutter materializes the subproject: ./gradlew 'Set active project' -PccVersion=1.21.4 succeeds",
+            "Dependency tree resolves: ./gradlew :1.21.4:dependencies succeeds"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-2-agent-2",
+          "task_title": "Task 5: WeaponSpec Record + Unit Tests (TDD)",
+          "task_excerpt_lines": "493-647",
+          "owned_files": [
+            "src/main/java/com/dndweapons/catalog/WeaponSpec.java",
+            "src/test/java/com/dndweapons/catalog/WeaponSpecTest.java"
+          ],
+          "acceptance_criteria": [
+            "WeaponSpec is a Java record with 15 parameters including id, displayName, category, damageType, diceText, versatileDice, attackDamage, versatileBonus, attackSpeed, reachBonus, knockbackBonus, properties, ranged, baseDurability, vanillaRoleTag",
+            "WeaponSpec validates non-blank id and displayName in constructor",
+            "WeaponSpec properties are defensively copied to immutable Set",
+            "isVanillaMapped() returns true when vanillaRoleTag is non-null",
+            "WeaponSpecTest has 4 passing tests covering construction, validation, vanilla mapping"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-3",
+          "task_title": "Task 7: DndWeaponItem Class",
+          "task_excerpt_lines": "758-804",
+          "owned_files": [
+            "src/main/java/com/dndweapons/item/DndWeaponItem.java"
+          ],
+          "acceptance_criteria": [
+            "DndWeaponItem extends Item and stores a WeaponSpec reference",
+            "Constructor takes WeaponSpec and Item.Settings, calls super(settings)",
+            "spec() getter returns the stored WeaponSpec",
+            "Class compiles successfully with no errors"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {
+          "agent_id": "wave-3-agent-1",
+          "task_title": "Task 6: Weapons Catalog + Integrity Test (TDD)",
+          "task_excerpt_lines": "651-754",
+          "owned_files": [
+            "src/main/java/com/dndweapons/catalog/Weapons.java",
+            "src/test/java/com/dndweapons/catalog/WeaponsTest.java"
+          ],
+          "acceptance_criteria": [
+            "Weapons class is final with private constructor (utility class pattern)",
+            "Weapons.LONGSWORD is a static final WeaponSpec with correct specs (1d8/1d10, attackDamage=6, versatileBonus=1, attackSpeed=1.5, VERSATILE property, Category.MARTIAL_MELEE, DamageType.SLASHING)",
+            "Weapons.ALL is a static List containing only LONGSWORD in Phase 1",
+            "WeaponsTest has 3 passing tests: allIsNonEmpty, allIdsAreUnique, longswordIsPresentAndCorrect"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-3-agent-2",
+          "task_title": "Task 8: WeaponRegistrar Interface + 1.21.4 Implementation",
+          "task_excerpt_lines": "808-913",
+          "owned_files": [
+            "src/main/java/com/dndweapons/registry/WeaponRegistrar.java",
+            "src/main/java/com/dndweapons/registry/WeaponRegistrarImpl.java"
+          ],
+          "acceptance_criteria": [
+            "WeaponRegistrar interface has register(WeaponSpec) method and default registerAll(List<WeaponSpec>)",
+            "WeaponRegistrarImpl.register() skips vanilla-mapped specs silently",
+            "WeaponRegistrarImpl creates Identifier for non-vanilla specs with format 'dndweapons:{spec.id()}'",
+            "WeaponRegistrarImpl builds AttributeModifiersComponent with ATTACK_DAMAGE (setting - 1) and ATTACK_SPEED (setting - 4) modifiers",
+            "WeaponRegistrarImpl registers DndWeaponItem via Registry.register(Registries.ITEM, itemId, item)",
+            "Logging output shows registered weapons with format 'Registered weapon: {itemId}'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {
+          "agent_id": "wave-4-agent-1",
+          "task_title": "Task 9: Wire Registration in Mod Init + Creative Tab",
+          "task_excerpt_lines": "917-1012",
+          "owned_files": [
+            "src/main/java/com/dndweapons/DndWeaponsMod.java"
+          ],
+          "acceptance_criteria": [
+            "DndWeaponsMod.onInitialize() creates WeaponRegistrarImpl and calls registrar.registerAll(Weapons.ALL)",
+            "CREATIVE_TAB is a RegistryKey<ItemGroup> keyed to 'dndweapons:main'",
+            "ItemGroup is registered with displayName translatable key 'itemGroup.dndweapons.main' and icon from Longsword",
+            "ItemGroupEvents.modifyEntriesEvent(CREATIVE_TAB) adds all non-vanilla-mapped specs to creative inventory",
+            "Build succeeds: ./gradlew :1.21.4:build produces JAR",
+            "Client test passes: Longsword appears in creative inventory with correct tooltip (6 Attack Damage, 1.5 Attack Speed)",
+            "Tooltip damage calculation is verified (vanilla sword does 6 damage minimum)"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 5,
+      "agents": [
+        {
+          "agent_id": "wave-5-agent-1",
+          "task_title": "Task 12: Gametest — Longsword Registered",
+          "task_excerpt_lines": "1136-1211",
+          "owned_files": [
+            "src/main/resources/fabric.mod.json",
+            "src/main/java/com/dndweapons/test/RegistrationGametest.java"
+          ],
+          "acceptance_criteria": [
+            "fabric.mod.json 'entrypoints' object contains both 'main' and 'fabric-gametest' entries",
+            "fabric-gametest entrypoint points to 'com.dndweapons.test.RegistrationGametest'",
+            "RegistrationGametest implements FabricGameTest with longswordIsRegistered(TestContext) method",
+            "GameTest annotation uses template 'fabric-gametest-api-v1:empty'",
+            "Test verifies Identifier.of(MOD_ID, 'longsword') resolves to non-AIR item",
+            "Test calls ctx.complete() on success",
+            "Gametest passes: ./gradlew :1.21.4:runGametest reports PASSED",
+            "Gametest report file is generated at build/gametest-report.xml"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": [
+    "Task 13: Final Verification + Tag Phase 1 (lines 1215-1259) — pure verification with no file changes; includes full build, client smoke test, and git tagging"
+  ]
+}
