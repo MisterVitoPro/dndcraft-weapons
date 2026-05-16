@@ -1,0 +1,48 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-16/cycle-1/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Fix W1-001: create gradlew shell script",
+          "task_excerpt_lines": "6-17",
+          "owned_files": ["D:/minecraft/mods/dnd-weapons/gradlew"],
+          "acceptance_criteria": [
+            "gradlew shell script is created and executable",
+            "Script bootstraps Gradle 8.10+",
+            "Unix developers and CI can invoke ./gradlew without pre-installed Gradle"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Fix W1-002: create gradlew.bat Windows batch script",
+          "task_excerpt_lines": "19-30",
+          "owned_files": ["D:/minecraft/mods/dnd-weapons/gradlew.bat"],
+          "acceptance_criteria": [
+            "gradlew.bat batch script is created",
+            "Script bootstraps Gradle 8.10+",
+            "Windows developers and CI can invoke gradlew.bat without pre-installed Gradle"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "Fix W1-003: create gradle-wrapper.jar binary",
+          "task_excerpt_lines": "32-44",
+          "owned_files": ["D:/minecraft/mods/dnd-weapons/gradle/wrapper/gradle-wrapper.jar"],
+          "acceptance_criteria": [
+            "gradle/wrapper/gradle-wrapper.jar is present and valid",
+            "JAR is compatible with Gradle 8.10+",
+            "Gradle wrapper can bootstrap itself using this JAR"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": ["Note on W1-004 (informational only, no action required)"]
+}
