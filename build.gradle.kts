@@ -18,8 +18,9 @@ group = modGroup
 base.archivesName.set(modId)
 
 java {
-    sourceCompatibility = JavaVersion.toVersion(javaRelease)
-    targetCompatibility = JavaVersion.toVersion(javaRelease)
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(javaRelease))
+    }
     withSourcesJar()
 }
 

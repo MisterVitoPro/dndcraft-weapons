@@ -43,8 +43,7 @@ object AttributeCompat {
             .component(DataComponentTypes.ATTRIBUTE_MODIFIERS, mods)
     }
 
-    fun storeFor(spec: WeaponSpec) {
-    }
+    fun storeFor(spec: WeaponSpec) {}
 
     fun modifiersFor(spec: WeaponSpec, slot: EquipmentSlot): Multimap<EntityAttribute, EntityAttributeModifier> =
         ImmutableMultimap.of()
