@@ -2,9 +2,21 @@
   "cycle": 3,
   "input_plan": "D:/minecraft/mods/dnd-weapons/docs/superpowers/plans/2026-05-16-dnd-weapons-phase-2a-versions-and-kotlin.md",
   "started_at": "2026-05-16T13:53:29-07:00",
-  "completed_at": null,
+  "completed_at": "2026-05-16T14:34:00-07:00",
   "context7_available": true,
-  "waves": [],
-  "total_bugs": 0,
-  "next_cycle_plan": null
+  "waves": [
+    {"wave_id": 1,  "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "3ce5ed522e8bb5aa3e12bd9a7aad1018f6d6283c"},
+    {"wave_id": 2,  "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "a1202d5971a4dd57a7e0394c728643742909faf8"},
+    {"wave_id": 3,  "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "487dc81aa92156ae2e616adb226f1e8052a39fd5"},
+    {"wave_id": 4,  "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "94ba81a3bb569160e9f0cd64f786afac6d393804"},
+    {"wave_id": 5,  "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "be0543375ba87486a3fd8f7fd99bbef20e7604b3"},
+    {"wave_id": 6,  "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "533b32fcfd952fbc3681b4f98611b37fac24f36b"},
+    {"wave_id": 7,  "wave_verifier_status": "BUGS_FOUND",  "wave_bug_count": 5, "commit_sha": "2f82643e093b0d3c882f6dcf403d0bf6ea84e3c8"},
+    {"wave_id": 8,  "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "509de0ea33c99ad25542c760645379fe88704859"},
+    {"wave_id": 9,  "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "0476eca71536b6cfc991515deebdd59b7778eb3a"},
+    {"wave_id": 10, "wave_verifier_status": "CLEAN",       "wave_bug_count": 0, "commit_sha": "37250f8d0730d77a5f49619a7a2eb9bc7c21260f"},
+    {"wave_id": 11, "wave_verifier_status": "BUGS_FOUND",  "wave_bug_count": 5, "commit_sha": "5e45610deac0955655179aac54b230622c82bb48"}
+  ],
+  "total_bugs": 6,
+  "next_cycle_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-16/cycle-3/fix-plan.md"
 }
