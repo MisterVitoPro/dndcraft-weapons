@@ -2,9 +2,36 @@
   "cycle": 4,
   "input_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-16/cycle-3/fix-plan.md",
   "started_at": "2026-05-16T14:42:55-07:00",
-  "completed_at": null,
   "context7_available": true,
-  "waves": [],
-  "total_bugs": 0,
-  "next_cycle_plan": null
+  "waves": [
+    {
+      "wave_id": 1,
+      "duration_seconds": 171,
+      "agents": [
+        {"agent_id": "wave-1-agent-1", "dev_status": "DONE_WITH_CONCERNS"},
+        {"agent_id": "wave-1-agent-2", "dev_status": "DONE_WITH_CONCERNS"},
+        {"agent_id": "wave-1-agent-3", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-4", "dev_status": "DONE_WITH_CONCERNS"}
+      ],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 5,
+      "commit_sha": "123a26280c5fb98ee0b4acbeee9cbb2c7dae6252",
+      "skipped_reason": null
+    },
+    {
+      "wave_id": 2,
+      "duration_seconds": 69,
+      "agents": [
+        {"agent_id": "wave-2-agent-1", "dev_status": "BLOCKED"},
+        {"agent_id": "wave-2-agent-2", "dev_status": "DONE_WITH_CONCERNS"}
+      ],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 3,
+      "commit_sha": "76d7300fb67123132c5f6385cd111d221dc01c27",
+      "skipped_reason": null
+    }
+  ],
+  "total_bugs": 8,
+  "next_cycle_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-16/cycle-4/fix-plan.md",
+  "completed_at": "2026-05-16T14:50:00-07:00"
 }
