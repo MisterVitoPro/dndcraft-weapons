@@ -8,13 +8,18 @@
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.dndweapons.DndWeaponsMod"],
-    "fabric-gametest": ["com.dndweapons.test.RegistrationGametest"]
+    "main": [
+      { "adapter": "kotlin", "value": "com.dndweapons.DndWeaponsMod" }
+    ],
+    "fabric-gametest": [
+      { "adapter": "kotlin", "value": "com.dndweapons.test.RegistrationGametest" }
+    ]
   },
   "depends": {
     "fabricloader": ">=0.16.0",
     "minecraft": "~1.21.4",
     "java": ">=21",
-    "fabric-api": "*"
+    "fabric-api": "*",
+    "fabric-language-kotlin": ">=1.13.0"
   }
 }

@@ -1,0 +1,396 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/superpowers/plans/2026-05-16-dnd-weapons-phase-2a-versions-and-kotlin.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Add Kotlin Gradle plugin + FLK runtime dependency",
+          "task_excerpt_lines": "75-231",
+          "owned_files": [
+            "build.gradle.kts",
+            "gradle.properties",
+            "versions/1.21.4/gradle.properties",
+            "src/main/resources/fabric.mod.json"
+          ],
+          "acceptance_criteria": [
+            "kotlin_version=2.0.21 added to gradle.properties",
+            "build.gradle.kts contains Kotlin plugin id and jvmTarget configuration",
+            "flk_version=1.13.5+kotlin.2.0.21 added to versions/1.21.4/gradle.properties",
+            "fabric.mod.json includes Kotlin adapter on main and fabric-gametest entrypoints",
+            "./gradlew :1.21.4:build succeeds (BUILD SUCCESSFUL)"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Convert catalog enums from Java to Kotlin",
+          "task_excerpt_lines": "235-326",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/catalog/Category.kt",
+            "src/main/kotlin/com/dndweapons/catalog/DamageType.kt",
+            "src/main/kotlin/com/dndweapons/catalog/Property.kt",
+            "src/main/kotlin/com/dndweapons/catalog/RangeKind.kt",
+            "src/main/java/com/dndweapons/catalog/Category.java",
+            "src/main/java/com/dndweapons/catalog/DamageType.java",
+            "src/main/java/com/dndweapons/catalog/Property.java",
+            "src/main/java/com/dndweapons/catalog/RangeKind.java"
+          ],
+          "acceptance_criteria": [
+            "Category.kt created with 4 enum constants (SIMPLE_MELEE, SIMPLE_RANGED, MARTIAL_MELEE, MARTIAL_RANGED)",
+            "DamageType.kt created with 3 enum constants (SLASHING, PIERCING, BLUDGEONING)",
+            "Property.kt created with 10 enum constants",
+            "RangeKind.kt created with 7 enum constants",
+            "All four Java enum files deleted from src/main/java/com/dndweapons/catalog/"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-2-agent-2",
+          "task_title": "Create AttributeCompat.kt (Epoch C only, no Stonecutter directives yet)",
+          "task_excerpt_lines": "661-746",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/compat/AttributeCompat.kt"
+          ],
+          "acceptance_criteria": [
+            "AttributeCompat.kt created in src/main/kotlin/com/dndweapons/compat/",
+            "object AttributeCompat contains applyTo, storeFor, and modifiersFor functions",
+            "applyTo builds AttributeModifiersComponent with attack damage and attack speed modifiers",
+            "Epoch C (1.21+) implementation uses DataComponentTypes.ATTRIBUTE_MODIFIERS",
+            "File compiles without Stonecutter directives (pure 1.21+ code)"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {
+          "agent_id": "wave-3-agent-1",
+          "task_title": "Convert WeaponSpec to Kotlin data class + tests",
+          "task_excerpt_lines": "329-474",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/catalog/WeaponSpec.kt",
+            "src/test/kotlin/com/dndweapons/catalog/WeaponSpecTest.kt",
+            "src/main/java/com/dndweapons/catalog/WeaponSpec.java",
+            "src/test/java/com/dndweapons/catalog/WeaponSpecTest.java"
+          ],
+          "acceptance_criteria": [
+            "WeaponSpec.kt is a data class with 13 parameters",
+            "WeaponSpec includes init block validating non-blank id and displayName",
+            "isVanillaMapped computed property returns (vanillaRoleTag != null)",
+            "WeaponSpecTest.kt contains 4 test methods (canConstructMinimalMeleeSpec, blankIdIsRejected, vanillaRoleTagWhenSetMakesItVanillaMapped, nullVanillaRoleTagMeansRegisteredItem)",
+            "Java WeaponSpec.java and WeaponSpecTest.java deleted"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-3-agent-2",
+          "task_title": "Convert WeaponRegistrar interface to Kotlin",
+          "task_excerpt_lines": "623-657",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/registry/WeaponRegistrar.kt",
+            "src/main/java/com/dndweapons/registry/WeaponRegistrar.java"
+          ],
+          "acceptance_criteria": [
+            "WeaponRegistrar.kt created as interface with two methods",
+            "register(spec: WeaponSpec) function defined",
+            "registerAll(specs: List<WeaponSpec>) default implementation added",
+            "Java WeaponRegistrar.java deleted",
+            "File compiles with WeaponSpec dependency"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {
+          "agent_id": "wave-4-agent-1",
+          "task_title": "Convert Weapons to Kotlin object + tests",
+          "task_excerpt_lines": "478-567",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/catalog/Weapons.kt",
+            "src/test/kotlin/com/dndweapons/catalog/WeaponsTest.kt",
+            "src/main/java/com/dndweapons/catalog/Weapons.java",
+            "src/test/java/com/dndweapons/catalog/WeaponsTest.java"
+          ],
+          "acceptance_criteria": [
+            "Weapons.kt created as object with LONGSWORD constant and ALL list",
+            "LONGSWORD is a WeaponSpec with id='longsword', diceText='1d8', versatileDice='1d10'",
+            "ALL property contains LONGSWORD in a list",
+            "WeaponsTest.kt contains 3 tests (allIsNonEmpty, allIdsAreUnique, longswordIsPresentAndCorrect)",
+            "Java Weapons.java and WeaponsTest.java deleted"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-4-agent-2",
+          "task_title": "Convert DndWeaponItem to Kotlin",
+          "task_excerpt_lines": "571-619",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/item/DndWeaponItem.kt",
+            "src/main/java/com/dndweapons/item/DndWeaponItem.java"
+          ],
+          "acceptance_criteria": [
+            "DndWeaponItem.kt created as open class extending Item",
+            "Class has spec: WeaponSpec parameter in constructor",
+            "init block calls AttributeCompat.storeFor(spec)",
+            "No getAttributeModifiers override present (will be added in Task 13)",
+            "Java DndWeaponItem.java deleted"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 5,
+      "agents": [
+        {
+          "agent_id": "wave-5-agent-1",
+          "task_title": "Convert WeaponRegistrarImpl to Kotlin using AttributeCompat",
+          "task_excerpt_lines": "749-803",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt",
+            "src/main/java/com/dndweapons/registry/WeaponRegistrarImpl.java"
+          ],
+          "acceptance_criteria": [
+            "WeaponRegistrarImpl.kt created as class implementing WeaponRegistrar",
+            "register(spec) method creates Item.Settings and calls AttributeCompat.applyTo",
+            "Item registered to Registries.ITEM with Identifier.of(MOD_ID, spec.id)",
+            "Logging statement includes itemId",
+            "Java WeaponRegistrarImpl.java deleted"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 6,
+      "agents": [
+        {
+          "agent_id": "wave-6-agent-1",
+          "task_title": "Convert DndWeaponsMod to Kotlin object",
+          "task_excerpt_lines": "807-881",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/DndWeaponsMod.kt",
+            "src/main/java/com/dndweapons/DndWeaponsMod.java"
+          ],
+          "acceptance_criteria": [
+            "DndWeaponsMod.kt created as object implementing ModInitializer",
+            "MOD_ID constant = 'dndweapons'",
+            "LOGGER property uses LoggerFactory",
+            "CREATIVE_TAB RegistryKey created",
+            "onInitialize() creates WeaponRegistrarImpl, calls registerAll(Weapons.ALL), creates FabricItemGroup, registers ItemGroupEvents modifier",
+            "Java DndWeaponsMod.java deleted"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-6-agent-2",
+          "task_title": "Convert RegistrationGametest to Kotlin",
+          "task_excerpt_lines": "885-929",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/RegistrationGametest.kt",
+            "src/main/java/com/dndweapons/test/RegistrationGametest.java"
+          ],
+          "acceptance_criteria": [
+            "RegistrationGametest.kt created as class implementing FabricGameTest",
+            "longswordIsRegistered test method created with @GameTest annotation",
+            "Test verifies Registries.ITEM.get(longsword) is not AIR",
+            "ctx.complete() called on success",
+            "Java RegistrationGametest.java deleted"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 7,
+      "agents": [
+        {
+          "agent_id": "wave-7-agent-1",
+          "task_title": "Smoke-test the Kotlin conversion on 1.21.4",
+          "task_excerpt_lines": "933-1003",
+          "owned_files": [
+            "docs/plan-runner-out/phase-2a-kotlin-smoke.md"
+          ],
+          "acceptance_criteria": [
+            "./gradlew :1.21.4:build succeeds (BUILD SUCCESSFUL)",
+            "./gradlew :1.21.4:test passes with 7 tests (4 WeaponSpecTest + 3 WeaponsTest)",
+            "./gradlew :1.21.4:runGametest passes with longswordIsRegistered PASSED",
+            "docs/plan-runner-out/phase-2a-kotlin-smoke.md created with date, results table, and notes",
+            "Smoke test report documents all three test outcomes"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 8,
+      "agents": [
+        {
+          "agent_id": "wave-8-agent-1",
+          "task_title": "Add Epoch A (1.20.1) branch to AttributeCompat.kt via Stonecutter directives",
+          "task_excerpt_lines": "1007-1134",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/compat/AttributeCompat.kt"
+          ],
+          "acceptance_criteria": [
+            "AttributeCompat.kt modified to include //? if MC >= 1.21 directive block",
+            "Epoch C (1.21+) code remains uncommented in active branch",
+            "Epoch A (1.20.1) code inside /* */ block with UUID-keyed CachedMods",
+            "applyTo and modifiersFor implementations differ between epochs",
+            "Stonecutter comment syntax correct: //?} closes block, //?} else opens Epoch A branch",
+            "File follows Stonecutter 0.6 directive format"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-8-agent-2",
+          "task_title": "Add Epoch A override to DndWeaponItem.kt",
+          "task_excerpt_lines": "1138-1178",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/item/DndWeaponItem.kt"
+          ],
+          "acceptance_criteria": [
+            "DndWeaponItem.kt modified to include //? if MC < 1.20.5 directive block",
+            "getAttributeModifiers override inside /* */ block (commented out on 1.21+)",
+            "Override delegates to AttributeCompat.modifiersFor(spec, slot)",
+            "Method signature matches Epoch A API with EquipmentSlot and Multimap return",
+            "File compiles on 1.21+ without the override"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 9,
+      "agents": [
+        {
+          "agent_id": "wave-9-agent-1",
+          "task_title": "Declare all 5 versions in settings.gradle.kts",
+          "task_excerpt_lines": "1182-1234",
+          "owned_files": [
+            "settings.gradle.kts"
+          ],
+          "acceptance_criteria": [
+            "settings.gradle.kts contains dev.kikugie.stonecutter plugin",
+            "versions() list contains '1.20.1', '1.21.1', '1.21.4', '26.1.2', '1.21.11'",
+            "vcsVersion set to '1.21.4'",
+            "kotlinController = true and centralScript = 'build.gradle.kts'",
+            "./gradlew 'Set active project' -PccVersion=1.21.4 succeeds and materializes subproject dirs"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 10,
+      "agents": [
+        {
+          "agent_id": "wave-10-agent-1",
+          "task_title": "Add versions/1.21.1/gradle.properties",
+          "task_excerpt_lines": "1238-1262",
+          "owned_files": [
+            "versions/1.21.1/gradle.properties"
+          ],
+          "acceptance_criteria": [
+            "versions/1.21.1/gradle.properties created",
+            "minecraft_version=1.21.1",
+            "yarn_mappings=1.21.1+build.3",
+            "flk_version=1.13.5+kotlin.2.0.21",
+            "java_release=21"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-10-agent-2",
+          "task_title": "Add versions/1.21.11/gradle.properties",
+          "task_excerpt_lines": "1266-1290",
+          "owned_files": [
+            "versions/1.21.11/gradle.properties"
+          ],
+          "acceptance_criteria": [
+            "versions/1.21.11/gradle.properties created",
+            "minecraft_version=1.21.11",
+            "yarn_mappings=1.21.11+build.1",
+            "loader_version=0.17.0",
+            "flk_version=1.14.0+kotlin.2.0.21",
+            "java_release=21"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-10-agent-3",
+          "task_title": "Add versions/26.1.2/gradle.properties (Mojang mappings)",
+          "task_excerpt_lines": "1294-1323",
+          "owned_files": [
+            "versions/26.1.2/gradle.properties"
+          ],
+          "acceptance_criteria": [
+            "versions/26.1.2/gradle.properties created",
+            "minecraft_version=26.1.2",
+            "yarn_mappings=unused-mojang-mappings (placeholder for Stonecutter //? directive)",
+            "loader_version=0.17.0",
+            "fabric_version=0.130.0+26.1",
+            "java_release=21"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-10-agent-4",
+          "task_title": "Add versions/1.20.1/gradle.properties + per-version recipe overlay",
+          "task_excerpt_lines": "1327-1379",
+          "owned_files": [
+            "versions/1.20.1/gradle.properties",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/longsword.json"
+          ],
+          "acceptance_criteria": [
+            "versions/1.20.1/gradle.properties created",
+            "minecraft_version=1.20.1",
+            "yarn_mappings=1.20.1+build.10",
+            "flk_version=1.10.20+kotlin.2.0.21",
+            "java_release=17",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/longsword.json created",
+            "Recipe uses 'recipes/' (plural) folder and 'item' (not 'id') result key",
+            "Recipe references dndweapons:longsword with count=1"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 11,
+      "agents": [
+        {
+          "agent_id": "wave-11-agent-1",
+          "task_title": "Final verification — build, test, gametest on all 5 versions",
+          "task_excerpt_lines": "1383-1502",
+          "owned_files": [
+            "docs/plan-runner-out/phase-2a-verification.md"
+          ],
+          "acceptance_criteria": [
+            "./gradlew chiseledBuild succeeds on all 5 subprojects (1.20.1, 1.21.1, 1.21.4, 26.1.2, 1.21.11)",
+            "./gradlew chiseledTest passes 7 tests per subproject (35 total)",
+            "./gradlew chiseledRunGametest passes longswordIsRegistered on all 5 subprojects",
+            "docs/plan-runner-out/phase-2a-verification.md created with build/test/gametest results table",
+            "Verification report documents caveats and version adjustments if any",
+            "Phase 2a tag created if all 15 cells (5 versions × 3 tasks) are PASS"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}
