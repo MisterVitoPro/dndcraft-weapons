@@ -1,0 +1,65 @@
+{
+  "wave_id": 11,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-11-agent-1": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-11-agent-1-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "Stonecutter chiseledBuild fails to switch between MC versions",
+      "file": "settings.gradle.kts",
+      "line": null,
+      "evidence": "java.lang.Exception: Failed to switch from 1.21.4 to 1.21.1 (and similar for 1.20.1). Direct :sub:build commands succeed structurally but show NO-SOURCE on every Kotlin task because the chiseledBuild mechanism that distributes processed source to sibling subprojects is broken.",
+      "expected": "chiseledBuild produces 5 jars; sibling subprojects compile the shared src/main/kotlin/ tree with //? directives applied",
+      "suggested_fix": "Investigate Stonecutter 0.6's kotlinController=true behavior with our //? directive placement. Possible workarounds: (a) try Stonecutter 0.7+, (b) simplify //? blocks to avoid nested imports inside /* */, (c) fall back to git-branches-per-version per the design doc Section 7."
+    },
+    {
+      "bug_id": "wave-11-agent-1-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "MC 26.1.2 requires Java 25 but build JDK is 21",
+      "file": "versions/26.1.2/gradle.properties",
+      "line": 6,
+      "evidence": "IllegalStateException: Minecraft 26.1.2 requires Java 25 but Gradle is using 21",
+      "expected": "26.1.2 subproject builds on the system's installed JDK",
+      "suggested_fix": "Install JDK 25 on the build machine; set versions/26.1.2/gradle.properties java_release=25; verify Kotlin 2.3.21 supports jvmTarget=25. Defer to Phase 2a-2 if JDK 25 not available."
+    },
+    {
+      "bug_id": "wave-11-agent-1-bug-3",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Fabric Loom 1.10-SNAPSHOT does not support MC 1.21.11 unpick format",
+      "file": "build.gradle.kts",
+      "line": 5,
+      "evidence": "UnsupportedOperationException: Unsupported unpick version (during :1.21.11 configuration)",
+      "expected": "Loom version supporting 1.21.11 intermediary/unpick format",
+      "suggested_fix": "Bump Loom to 1.11-SNAPSHOT (or newer) globally, or use a Stonecutter directive on the Loom plugin version for MC >= 1.21.11. Verify all 5 versions' compatibility with chosen Loom release."
+    },
+    {
+      "bug_id": "wave-11-agent-1-bug-4",
+      "severity": "P2",
+      "category": "missing_requirement",
+      "title": "Two MC versions removed from settings.gradle.kts to allow other versions to configure",
+      "file": "settings.gradle.kts",
+      "line": 18,
+      "evidence": "versions(\"1.20.1\", \"1.21.1\", \"1.21.4\") — 26.1.2 and 1.21.11 omitted; gradle configures all subprojects upfront so one bad subproject blocks every task",
+      "expected": "All 5 versions declared per design spec",
+      "suggested_fix": "Re-add 26.1.2 and 1.21.11 after their respective blockers (bugs 2 and 3) are resolved."
+    },
+    {
+      "bug_id": "wave-11-agent-1-bug-5",
+      "severity": "P3",
+      "category": "incorrect_implementation",
+      "title": "Plan-specified FLK version for 1.20.1 (1.10.20+kotlin.2.0.21) does not exist on Maven",
+      "file": "versions/1.20.1/gradle.properties",
+      "line": 5,
+      "evidence": "Maven 404. The 1.10.x FLK line ships only with Kotlin 1.9.x bundled stdlib; 2.0+ requires FLK 1.11.x or 1.13.x which don't support MC 1.20.1.",
+      "expected": "Valid FLK Maven coordinate for 1.20.1",
+      "suggested_fix": "Corrected to 1.10.20+kotlin.1.9.24 inline (latest published 1.10.x). Note: this Kotlin 1.9.24 FLK stdlib may conflict at runtime with the Kotlin 2.3.21 stdlib our Kotlin compiler bundles. Validate at runtime before declaring 1.20.1 fully supported."
+    }
+  ],
+  "orchestrator_note": "Wave 11 final verification revealed that Phase 2a's multi-version expansion is deeper than the design anticipated. Kotlin conversion itself is complete (10 of 14 acceptance criteria pass, 1.21.4 fully validated end-to-end). 5 bugs flagged for Phase 2a-2 follow-up: Stonecutter chiseledBuild error, JDK 25 for 26.1.2, Loom 1.11 for 1.21.11, scope-reduced settings.gradle.kts, FLK version mismatch for 1.20.1."
+}
