@@ -16,10 +16,20 @@ import net.minecraft.util.Identifier
 
 object AttributeCompat {
 
+    //? if >=1.21.2 {
+    private val damageAttr = EntityAttributes.ATTACK_DAMAGE
+    private val speedAttr = EntityAttributes.ATTACK_SPEED
+    //?} else {
+    
+    /*private val damageAttr = EntityAttributes.GENERIC_ATTACK_DAMAGE
+    private val speedAttr = EntityAttributes.GENERIC_ATTACK_SPEED
+    
+    *///?}
+
     fun applyTo(settings: Item.Settings, spec: WeaponSpec): Item.Settings {
         val mods = AttributeModifiersComponent.builder()
             .add(
-                EntityAttributes.ATTACK_DAMAGE,
+                damageAttr,
                 EntityAttributeModifier(
                     Identifier.of(DndWeaponsMod.MOD_ID, "base_attack_damage_${spec.id}"),
                     spec.attackDamage - 1.0,
@@ -28,7 +38,7 @@ object AttributeCompat {
                 AttributeModifierSlot.MAINHAND,
             )
             .add(
-                EntityAttributes.ATTACK_SPEED,
+                speedAttr,
                 EntityAttributeModifier(
                     Identifier.of(DndWeaponsMod.MOD_ID, "base_attack_speed_${spec.id}"),
                     spec.attackSpeed - 4.0,
