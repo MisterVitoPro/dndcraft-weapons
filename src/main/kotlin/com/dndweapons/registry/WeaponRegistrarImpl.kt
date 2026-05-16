@@ -1,0 +1,31 @@
+package com.dndweapons.registry
+
+import com.dndweapons.DndWeaponsMod
+import com.dndweapons.catalog.WeaponSpec
+import com.dndweapons.compat.AttributeCompat
+import com.dndweapons.item.DndWeaponItem
+import net.minecraft.item.Item
+import net.minecraft.registry.Registries
+import net.minecraft.registry.Registry
+import net.minecraft.util.Identifier
+
+/**
+ * Thin registrar. All per-epoch knowledge is in AttributeCompat; this class
+ * is identical across all 5 MC versions.
+ */
+class WeaponRegistrarImpl : WeaponRegistrar {
+
+    override fun register(spec: WeaponSpec) {
+        if (spec.isVanillaMapped) {
+            // Phase 2b wires this up via role tags. For now skip silently.
+            return
+        }
+
+        val itemId = Identifier.of(DndWeaponsMod.MOD_ID, spec.id)
+        val settings = AttributeCompat.applyTo(Item.Settings(), spec)
+        val item = DndWeaponItem(spec, settings)
+
+        Registry.register(Registries.ITEM, itemId, item)
+        DndWeaponsMod.LOGGER.info("Registered weapon: {}", itemId)
+    }
+}
