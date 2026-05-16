@@ -1,0 +1,43 @@
+{
+  "wave_id": 2,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-2-agent-1": "BUGS_FOUND",
+    "wave-2-agent-2": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-2-agent-1-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "Dev agent BLOCKED: JDK 25 not installed on build machine",
+      "file": "versions/26.1.2/gradle.properties",
+      "line": null,
+      "evidence": "Dev agent could not satisfy AC1 'JDK 25 installed on build machine' because the build environment has JDK 21 only; orchestrator constraint forbids installing JDK 25 in this cycle.",
+      "expected": "JDK 25 installed, :26.1.2:build succeeds with BUILD SUCCESSFUL, Kotlin 2.3.21 compiles to jvmTarget=25 without warnings.",
+      "suggested_fix": "Defer MC 26.1.2 build verification to Phase 3 per plan Notes section. Track JDK 25 install as a prerequisite ticket. In the interim, consider scoping settings.gradle.kts to exclude 26.1.2 via a feature flag (e.g., -Pinclude26=true) or document the expected failure in README. Severity downgraded from P0 to P1 because the block is environmental, not algorithmic, and the dev agent correctly recorded the file-level work it could complete (java_release=25)."
+    },
+    {
+      "bug_id": "wave-2-agent-2-bug-1",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "Re-adding 26.1.2 to versions() will fail configuration without JDK 25",
+      "file": "settings.gradle.kts",
+      "line": 18,
+      "evidence": "versions(\"1.20.1\", \"1.21.1\", \"1.21.4\", \"1.21.11\", \"26.1.2\") — :26.1.2 subproject will trigger 'Minecraft 26.1.2 requires Java 25 but Gradle is using 21' at configuration time, breaking AC3 (./gradlew tasks -q succeeds).",
+      "expected": "AC3 './gradlew tasks -q succeeds and lists subprojects (may show skipped tasks for unresolved bugs, but no configuration errors)' — adding 26.1.2 to the list with no JDK 25 toolchain WILL cause a configuration error, not just skipped tasks.",
+      "suggested_fix": "Either (a) gate 26.1.2 via a project property (e.g., conditional `if (project.findProperty(\"include26\") == \"true\") versions += \"26.1.2\"`), OR (b) keep 26.1.2 in the list and add a `java.toolchain { languageVersion.set(JavaLanguageVersion.of(javaRelease)) }` block so Gradle auto-provisions JDK 25 from Adoptium. Approach (b) is preferred for forward-compatibility but requires confirming Gradle auto-provision works in this environment."
+    },
+    {
+      "bug_id": "wave-2-agent-2-bug-2",
+      "severity": "P3",
+      "category": "incorrect_implementation",
+      "title": "1.21.11 added to versions() without confirming Loom 1.11-SNAPSHOT availability",
+      "file": "settings.gradle.kts",
+      "line": 18,
+      "evidence": "versions(\"1.20.1\", \"1.21.1\", \"1.21.4\", \"1.21.11\", \"26.1.2\") — :1.21.11 depends on the Loom 1.11 bump (wave-1-agent-2) which is unverified.",
+      "expected": "AC3 './gradlew tasks -q succeeds' on the full 5-version set.",
+      "suggested_fix": "Verify Loom 1.11-SNAPSHOT resolution by running `./gradlew :1.21.11:tasks --refresh-dependencies` after wave 2 commit. If Loom 1.11 is not yet published, pin to last-known-good (1.10) and revisit when 1.11 lands."
+    }
+  ]
+}
