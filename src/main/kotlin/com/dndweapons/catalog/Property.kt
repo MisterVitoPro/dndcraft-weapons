@@ -1,6 +1,6 @@
-package com.dndweapons.catalog;
+package com.dndweapons.catalog
 
-public enum Property {
+enum class Property {
     LIGHT,
     HEAVY,
     FINESSE,
@@ -10,5 +10,5 @@ public enum Property {
     THROWN,
     AMMUNITION,
     LOADING,
-    SPECIAL_LANCE
+    SPECIAL_LANCE,
 }

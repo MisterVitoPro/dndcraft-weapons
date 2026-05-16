@@ -1,11 +1,11 @@
-package com.dndweapons.catalog;
+package com.dndweapons.catalog
 
-public enum RangeKind {
+enum class RangeKind {
     NONE,
     THROWN,
     BOW,
     CROSSBOW,
     FIREARM,
     SLING,
-    BLOWGUN
+    BLOWGUN,
 }
