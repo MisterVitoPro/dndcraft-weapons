@@ -64,7 +64,7 @@ object AttributeCompat {
     fun modifiersFor(spec: WeaponSpec, slot: EquipmentSlot): Multimap<EntityAttribute, EntityAttributeModifier> =
         ImmutableMultimap.of()
 }
-//?} else {
+//? } else {
 /*
 import com.google.common.collect.ImmutableMultimap
 import com.google.common.collect.Multimap
@@ -117,4 +117,4 @@ object AttributeCompat {
     }
 }
 */
-//?}
+//? }

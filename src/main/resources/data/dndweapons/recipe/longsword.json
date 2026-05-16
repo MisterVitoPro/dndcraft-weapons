@@ -7,8 +7,8 @@
     "S"
   ],
   "key": {
-    "I": { "tag": "c:ingots/iron" },
-    "S": { "tag": "c:rods/wooden" }
+    "I": { "fabric:type": "fabric:tag", "tag": "c:ingots/iron" },
+    "S": { "fabric:type": "fabric:tag", "tag": "c:rods/wooden" }
   },
   "result": {
     "id": "dndweapons:longsword",

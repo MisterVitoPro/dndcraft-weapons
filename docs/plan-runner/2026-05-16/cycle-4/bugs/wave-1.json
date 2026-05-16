@@ -1,0 +1,67 @@
+{
+  "wave_id": 1,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-1-agent-1": "BUGS_FOUND",
+    "wave-1-agent-2": "BUGS_FOUND",
+    "wave-1-agent-3": "BUGS_FOUND",
+    "wave-1-agent-4": "CLEAN"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-1-agent-1-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "Residual inconsistent //? directive spacing in build.gradle.kts not normalized",
+      "file": "build.gradle.kts",
+      "line": 35,
+      "evidence": "//? if MC >= 26.1 {\n/*mappings(loom.officialMojangMappings())*/\n//?} else {\nmappings(\"net.fabricmc:yarn:...\")\n//?}",
+      "expected": "Directive markers `//?}` and `//?} else {` should be normalized to `//? }` and `//? } else {` to match the canonical Stonecutter form applied in AttributeCompat.kt / DndWeaponItem.kt; inconsistent spacing inside the central script is a candidate trigger for the controller 'Failed to switch from X to Y' error.",
+      "suggested_fix": "Normalize lines 33-37 of build.gradle.kts to use `//? }` (with space) consistently. Note build.gradle.kts was not in agent-1's owned_files but IS the central script for kotlinController; this needs to be addressed in a follow-up wave or by widening agent-1's scope."
+    },
+    {
+      "bug_id": "wave-1-agent-1-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "chiseledBuild fix not verified end-to-end",
+      "file": "src/main/kotlin/com/dndweapons/compat/AttributeCompat.kt",
+      "line": 67,
+      "evidence": "Directive spacing normalized from `//?}` to `//? }` on lines 67 and 120, plus DndWeaponItem.kt line 26. Dev agent could not execute chiseledBuild from build environment.",
+      "expected": "AC2 'Stonecutter does not error with Failed to switch from X to Y' — must be empirically verified by running `./gradlew chiseledBuild` and observing no switch errors.",
+      "suggested_fix": "Run `./gradlew clean chiseledBuild` after wave commit; if errors persist, apply fallback per agent concerns: split AttributeCompat into per-epoch source files under versions/<mc>/src/main/kotlin/, removing all //? directives from the shared file."
+    },
+    {
+      "bug_id": "wave-1-agent-1-bug-3",
+      "severity": "P3",
+      "category": "missing_requirement",
+      "title": "settings.gradle.kts not updated to declare all 5 versions",
+      "file": "settings.gradle.kts",
+      "line": 18,
+      "evidence": "versions(\"1.20.1\", \"1.21.1\", \"1.21.4\")  // 26.1.2 and 1.21.11 still omitted",
+      "expected": "AC1 explicitly: 'chiseledBuild succeeds when settings.gradle.kts declares all 5 versions'.",
+      "suggested_fix": "Acceptable to defer to wave-2-agent-2 (Task 6) which explicitly owns this re-add and depends on Tasks 2+3 landing first; do not treat as a blocker for wave 1 commit."
+    },
+    {
+      "bug_id": "wave-1-agent-2-bug-1",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "Loom 1.11-SNAPSHOT availability and backward compatibility unverified",
+      "file": "build.gradle.kts",
+      "line": 5,
+      "evidence": "id(\"fabric-loom\") version \"1.11-SNAPSHOT\"  // upgraded from 1.10-SNAPSHOT",
+      "expected": "AC2 ':1.21.11:build succeeds (unpick format recognized)' and AC3 'All 5 subprojects configure without UnsupportedOperationException' — both require empirical configuration check on each version.",
+      "suggested_fix": "Run `./gradlew :1.20.1:tasks :1.21.1:tasks :1.21.4:tasks :1.21.11:tasks` and confirm each subproject configures. If Loom 1.11 fails on legacy versions, gate plugin version with Stonecutter directive per plan suggestion 5."
+    },
+    {
+      "bug_id": "wave-1-agent-3-bug-1",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "Kotlin stdlib mismatch on 1.20.1 unresolved at runtime",
+      "file": "versions/1.20.1/gradle.properties",
+      "line": 5,
+      "evidence": "flk_version=1.10.20+kotlin.1.9.24  // FLK ships Kotlin 1.9.24 stdlib while compiler is 2.3.21",
+      "expected": "AC3 'no ClassCastException or NoSuchMethodError from Kotlin stdlib conflicts' at runtime.",
+      "suggested_fix": "Add a constraint to dependencies to force Kotlin 2.3.21 stdlib at the top of the dependency graph for 1.20.1, OR fall back to FLK 1.13.x with Kotlin 1.9.24 compiler scoped to 1.20.1 only via Stonecutter directive. Defer empirical verification until runGametest can be run on 1.20.1."
+    }
+  ]
+}

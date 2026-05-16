@@ -1,0 +1,112 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-16/cycle-3/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Resolve Stonecutter chiseledBuild switching error",
+          "task_excerpt_lines": "18-46",
+          "owned_files": [
+            "settings.gradle.kts",
+            "src/main/kotlin/com/dndweapons/compat/AttributeCompat.kt",
+            "src/main/kotlin/com/dndweapons/item/DndWeaponItem.kt"
+          ],
+          "acceptance_criteria": [
+            "chiseledBuild succeeds when settings.gradle.kts declares all 5 versions",
+            "Stonecutter does not error with 'Failed to switch from X to Y'",
+            "Each subproject's Kotlin tasks show NO-SOURCE resolved",
+            "At least 3 of 5 versions configure cleanly enough to pass a structural build check"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Upgrade Fabric Loom to support MC 1.21.11",
+          "task_excerpt_lines": "80-111",
+          "owned_files": [
+            "build.gradle.kts",
+            "versions/1.21.11/gradle.properties"
+          ],
+          "acceptance_criteria": [
+            "Fabric Loom updated to 1.11-SNAPSHOT or newer",
+            ":1.21.11:build configures (unpick format recognized)",
+            "All subprojects configure without UnsupportedOperationException"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "Resolve FLK version mismatch for MC 1.20.1",
+          "task_excerpt_lines": "115-140",
+          "owned_files": [
+            "versions/1.20.1/gradle.properties"
+          ],
+          "acceptance_criteria": [
+            "versions/1.20.1/gradle.properties specifies a valid FLK version (1.10.20+kotlin.1.9.24)",
+            ":1.20.1:build completes (may show runtime warnings about Kotlin stdlib version mismatch)",
+            "No ClassCastException or NoSuchMethodError from Kotlin stdlib conflicts"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-1-agent-4",
+          "task_title": "Validate and fix longsword recipe JSON schema",
+          "task_excerpt_lines": "144-171",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/recipe/longsword.json",
+            "src/main/resources/data/dndweapons/recipes/longsword.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/longsword.json"
+          ],
+          "acceptance_criteria": [
+            "longsword.json loads without 'Map entry I' errors on all applicable MC versions",
+            "Recipe returns a dndweapons:longsword item with count=1",
+            "Datapack reload log shows no recipe parse errors"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Enable MC 26.1.2 support with JDK 25",
+          "task_excerpt_lines": "50-76",
+          "owned_files": [
+            "versions/26.1.2/gradle.properties",
+            "build.gradle.kts"
+          ],
+          "acceptance_criteria": [
+            "versions/26.1.2/gradle.properties sets java_release=25",
+            ":26.1.2:build succeeds with BUILD SUCCESSFUL (if JDK 25 available) OR defer with documented constraint",
+            "Kotlin 2.3.21 compiles to jvmTarget=25 without warnings"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-2",
+          "task_title": "Re-add removed MC versions to settings.gradle.kts",
+          "task_excerpt_lines": "175-198",
+          "owned_files": [
+            "settings.gradle.kts"
+          ],
+          "acceptance_criteria": [
+            "settings.gradle.kts declares all 5 versions: 1.20.1, 1.21.1, 1.21.4, 26.1.2, 1.21.11",
+            "vcsVersion remains 1.21.4 (primary baseline)",
+            "./gradlew tasks -q succeeds and lists subprojects"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": [
+    "Overview",
+    "Verification sequence",
+    "Notes"
+  ]
+}

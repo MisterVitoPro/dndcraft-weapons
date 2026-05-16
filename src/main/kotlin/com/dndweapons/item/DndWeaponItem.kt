@@ -23,5 +23,5 @@ open class DndWeaponItem(val spec: WeaponSpec, settings: Settings) : Item(settin
         return AttributeCompat.modifiersFor(spec, slot)
     }
     */
-    //?}
+    //? }
 }
