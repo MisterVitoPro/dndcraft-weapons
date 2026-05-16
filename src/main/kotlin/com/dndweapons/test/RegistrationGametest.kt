@@ -11,9 +11,17 @@ class RegistrationGametest : FabricGameTest {
 
     @GameTest(templateName = "fabric-gametest-api-v1:empty")
     fun longswordIsRegistered(ctx: TestContext) {
+        //? if >=1.21 {
         val id = Identifier.of(DndWeaponsMod.MOD_ID, "longsword")
+        val airId = Identifier.ofVanilla("air")
+        //?} else {
+        
+        /*val id = Identifier(DndWeaponsMod.MOD_ID, "longsword")
+        val airId = Identifier("minecraft", "air")
+        
+        *///?}
         val item = Registries.ITEM.get(id)
-        if (item == Registries.ITEM.get(Identifier.ofVanilla("air"))) {
+        if (item == Registries.ITEM.get(airId)) {
             throw AssertionError("Longsword not registered (resolved to AIR)")
         }
         ctx.complete()
