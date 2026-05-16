@@ -11,17 +11,10 @@ import net.minecraft.registry.RegistryKey
 import net.minecraft.registry.RegistryKeys
 import net.minecraft.util.Identifier
 
-/**
- * Thin registrar. All per-epoch knowledge is in AttributeCompat; this class
- * is identical across all 5 MC versions.
- */
 class WeaponRegistrarImpl : WeaponRegistrar {
 
     override fun register(spec: WeaponSpec) {
-        if (spec.isVanillaMapped) {
-            // Phase 2b wires this up via role tags. For now skip silently.
-            return
-        }
+        if (spec.isVanillaMapped) return
 
         val itemId = Identifier.of(DndWeaponsMod.MOD_ID, spec.id)
         val itemKey = RegistryKey.of(RegistryKeys.ITEM, itemId)
