@@ -1,0 +1,39 @@
+{
+  "source_plan": "docs/superpowers/plans/2026-05-17-dnd-weapons-phase-3-combat-hooks.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {"agent_id": "wave-1-agent-1", "task_title": "WeaponAttackHandler - pure damage modifier", "task_excerpt_lines": "29-242", "owned_files": ["src/main/kotlin/com/dndweapons/combat/WeaponAttackHandler.kt", "src/test/kotlin/com/dndweapons/combat/WeaponAttackHandlerTest.kt"], "acceptance_criteria": ["WeaponAttackHandler.kt implements modifyDamage(base, mainhand, ctx) correctly", "WeaponAttackHandlerTest.kt contains 12 passing tests covering all property combinations", "All 12 unit tests pass with ./gradlew :1.21.4:test"], "recommended_model": "sonnet"},
+        {"agent_id": "wave-1-agent-2", "task_title": "WeaponTooltipBuilder - pure tooltip line builder", "task_excerpt_lines": "245-504", "owned_files": ["src/main/kotlin/com/dndweapons/tooltip/TooltipLine.kt", "src/main/kotlin/com/dndweapons/tooltip/WeaponTooltipBuilder.kt", "src/test/kotlin/com/dndweapons/tooltip/WeaponTooltipBuilderTest.kt"], "acceptance_criteria": ["TooltipLine data class created with translationKey and args", "WeaponTooltipBuilder.build() returns correct TooltipLine list", "All 10 unit tests pass with ./gradlew :1.21.4:test", "Stat block line and bonus lines emitted in Property declaration order"], "recommended_model": "sonnet"},
+        {"agent_id": "wave-1-agent-3", "task_title": "SpecRegistry - Item to WeaponSpec resolver", "task_excerpt_lines": "507-705", "owned_files": ["src/main/kotlin/com/dndweapons/registry/SpecRegistry.kt", "src/test/kotlin/com/dndweapons/registry/SpecRegistryTest.kt"], "acceptance_criteria": ["SpecRegistry.kt has byItem, byRoleTag, and roleCache", "bindRegistered, bindRoleTag, lookup, invalidateRoleCache methods exist", "All 5 unit tests pass with ./gradlew :1.21.4:test", "Role cache invalidation on CommonLifecycleEvents.TAGS_LOADED"], "recommended_model": "sonnet"},
+        {"agent_id": "wave-1-agent-4", "task_title": "AttributeCompat - emit ATTACK_KNOCKBACK for HEAVY weapons", "task_excerpt_lines": "708-862", "owned_files": ["src/main/kotlin/com/dndweapons/compat/AttributeCompat.kt"], "acceptance_criteria": ["Epoch C branch (>=1.20.5) adds HEAVY knockback to ItemAttributeModifiers builder", "Epoch A branch (<1.20.5) extends CachedMods with nullable knockback field", "Property import added outside any /? block", "Build succeeds on 1.21.4 with ./gradlew :1.21.4:build"], "recommended_model": "sonnet"},
+        {"agent_id": "wave-1-agent-5", "task_title": "Mixin scaffolding - config + fabric.mod.json", "task_excerpt_lines": "865-942", "owned_files": ["src/main/resources/dndweapons.mixins.json", "src/main/resources/fabric.mod.json"], "acceptance_criteria": ["dndweapons.mixins.json created with PlayerAttackMixin reference", "fabric.mod.json updated with mixins key", "Build succeeds with ./gradlew :1.21.4:build"], "recommended_model": "haiku"},
+        {"agent_id": "wave-1-agent-6", "task_title": "PlayerAttackMixin + wiring + lang keys", "task_excerpt_lines": "945-1269", "owned_files": ["src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt", "src/main/kotlin/com/dndweapons/tooltip/WeaponTooltipInjector.kt", "src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt", "src/main/kotlin/com/dndweapons/DndWeaponsMod.kt", "src/main/resources/assets/dndweapons/lang/en_us.json"], "acceptance_criteria": ["PlayerAttackMixin.kt created with @ModifyVariable on Player.attack", "WeaponTooltipInjector.kt registers ItemTooltipCallback", "WeaponRegistrarImpl.register() calls SpecRegistry.bindRegistered/bindRoleTag", "DndWeaponsMod.onInitialize() calls SpecRegistry.init() and WeaponTooltipInjector.register()", "en_us.json has all 8 tooltip keys", "Build succeeds with ./gradlew :1.21.4:build"], "recommended_model": "sonnet"}
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {"agent_id": "wave-2-agent-1", "task_title": "CombatHooks + TooltipInjection gametests + fabric.mod.json", "task_excerpt_lines": "1274-1751", "owned_files": ["src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt", "src/main/kotlin/com/dndweapons/test/TooltipInjectionGametest.kt", "src/main/resources/fabric.mod.json"], "acceptance_criteria": ["CombatHooksGametest.kt created with 6 passing mechanics gametests", "TooltipInjectionGametest.kt created with 2 passing tooltip gametests", "fabric.mod.json updated with both gametest entrypoints in fabric-gametest list", "All 9 gametests pass with ./gradlew :1.21.4:runGametest"], "recommended_model": "sonnet"},
+        {"agent_id": "wave-2-agent-2", "task_title": "1.21.4 acceptance - full build + test + gametest", "task_excerpt_lines": "1755-1796", "owned_files": [], "acceptance_criteria": ["./gradlew :1.21.4:build succeeds", "All 36 unit tests pass with ./gradlew :1.21.4:test", "All 9 gametests pass with ./gradlew :1.21.4:runGametest", "In-game spot-check passes: all 34 weapons visible, tooltips render correctly, Greataxe shows Attack Knockback"], "recommended_model": "sonnet"}
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {"agent_id": "wave-3-agent-1", "task_title": "chiseledBuild - fix per-version compilation issues", "task_excerpt_lines": "1801-1850", "owned_files": ["src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt", "src/main/kotlin/com/dndweapons/tooltip/WeaponTooltipInjector.kt"], "acceptance_criteria": ["./gradlew chiseledBuild succeeds across all 5 subprojects (1.20.1, 1.21.1, 1.21.4, 26.1.2, 1.21.11)", "PlayerAttackMixin.kt has version-specific @At target forks if needed", "WeaponTooltipInjector.kt has version-specific ItemTooltipCallback import forks if needed", "All per-version compilation issues documented and fixed"], "recommended_model": "sonnet"}
+      ]
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {"agent_id": "wave-4-agent-1", "task_title": "chiseledTest - fix per-version unit-test issues", "task_excerpt_lines": "1853-1869", "owned_files": [], "acceptance_criteria": ["./gradlew chiseledTest succeeds across all 5 subprojects", "Unit-test suite passes identically on all versions", "Any per-version classpath issues identified and fixed"], "recommended_model": "haiku"},
+        {"agent_id": "wave-4-agent-2", "task_title": "chiseledRunGametest - fix per-version mixin/runtime issues", "task_excerpt_lines": "1871-1923", "owned_files": ["src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt", "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt", "src/main/kotlin/com/dndweapons/tooltip/WeaponTooltipInjector.kt"], "acceptance_criteria": ["./gradlew chiseledRunGametest succeeds across all 5 subprojects", "All 9 gametests pass on all 5 versions (45 passing tests total)", "Mixin local-variable naming/ordinal forks added if needed", "Per-version mixin and runtime issues documented and fixed"], "recommended_model": "sonnet"},
+        {"agent_id": "wave-4-agent-3", "task_title": "Final acceptance - verify all 14 spec criteria", "task_excerpt_lines": "1925-2009", "owned_files": [], "acceptance_criteria": ["Full matrix passes: chiseledBuild + chiseledTest + chiseledRunGametest", "All 14 acceptance criteria from Phase 3 spec verified", "Phase 3 tagged with 'phase-3-combat-hooks'", "Tree left clean or cleanup commit created"], "recommended_model": "haiku"}
+      ]
+    }
+  ],
+  "uncovered_plan_sections": ["Plan header (lines 1-13)", "Wave structure explanation (lines 15-25)"]
+}

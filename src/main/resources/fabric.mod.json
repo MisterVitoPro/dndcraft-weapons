@@ -21,5 +21,8 @@
     "java": ">=17",
     "fabric-api": "*",
     "fabric-language-kotlin": ">=1.10.0"
-  }
+  },
+  "mixins": [
+    "dndweapons.mixins.json"
+  ]
 }

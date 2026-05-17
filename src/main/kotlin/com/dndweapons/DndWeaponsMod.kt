@@ -1,7 +1,9 @@
 package com.dndweapons
 
 import com.dndweapons.catalog.Weapons
+import com.dndweapons.registry.SpecRegistry
 import com.dndweapons.registry.WeaponRegistrarImpl
+import com.dndweapons.tooltip.WeaponTooltipInjector
 import net.fabricmc.api.ModInitializer
 //? if <26 {
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
@@ -48,6 +50,9 @@ object DndWeaponsMod : ModInitializer {
 
         val registrar = WeaponRegistrarImpl()
         registrar.registerAll(Weapons.ALL)
+
+        SpecRegistry.init()
+        WeaponTooltipInjector.register()
 
         //? if <26 {
         Registry.register(

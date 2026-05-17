@@ -1,6 +1,7 @@
 package com.dndweapons.compat
 
 import com.dndweapons.DndWeaponsMod
+import com.dndweapons.catalog.Property
 import com.dndweapons.catalog.WeaponSpec
 import com.google.common.collect.ImmutableMultimap
 import com.google.common.collect.Multimap
@@ -46,7 +47,7 @@ object AttributeCompat {
 
     //? if >=1.20.5 {
     fun applyTo(settings: Item.Properties, spec: WeaponSpec): Item.Properties {
-        val mods = ItemAttributeModifiers.builder()
+        val builder = ItemAttributeModifiers.builder()
             .add(
                 damageAttr,
                 AttributeModifier(
@@ -65,7 +66,18 @@ object AttributeCompat {
                 ),
                 EquipmentSlotGroup.MAINHAND,
             )
-            .build()
+        if (Property.HEAVY in spec.properties) {
+            builder.add(
+                Attributes.ATTACK_KNOCKBACK,
+                AttributeModifier(
+                    ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "base_attack_knockback_${spec.id}"),
+                    1.0,
+                    AttributeModifier.Operation.ADD_VALUE,
+                ),
+                EquipmentSlotGroup.MAINHAND,
+            )
+        }
+        val mods = builder.build()
         return settings
             .durability(spec.baseDurability)
             .component(DataComponents.ATTRIBUTE_MODIFIERS, mods)
@@ -82,6 +94,7 @@ object AttributeCompat {
     /*private data class CachedMods(
         val damage: AttributeModifier,
         val speed: AttributeModifier,
+        val knockback: AttributeModifier?,
     )
 
     private val store = mutableMapOf<String, CachedMods>()
@@ -106,6 +119,14 @@ object AttributeCompat {
                     (spec.attackSpeed - 4.0).toDouble(),
                     AttributeModifier.Operation.ADDITION,
                 ),
+                knockback = if (Property.HEAVY in spec.properties) {
+                    AttributeModifier(
+                        UUID.nameUUIDFromBytes("dndweapons:kb:${spec.id}".toByteArray()),
+                        "Weapon base attack knockback",
+                        1.0,
+                        AttributeModifier.Operation.ADDITION,
+                    )
+                } else null,
             )
         }
     }
@@ -113,11 +134,14 @@ object AttributeCompat {
     fun modifiersFor(spec: WeaponSpec, slot: EquipmentSlot): Multimap<Attribute, AttributeModifier> {
         if (slot != EquipmentSlot.MAINHAND) return ImmutableMultimap.of()
         val cached = store[spec.id] ?: return ImmutableMultimap.of()
-        return ImmutableMultimap.builder<Attribute, AttributeModifier>()
+        val mm = ImmutableMultimap.builder<Attribute, AttributeModifier>()
             .put(damageAttr, cached.damage)
             .put(speedAttr, cached.speed)
-            .build()
+        if (cached.knockback != null) {
+            mm.put(Attributes.ATTACK_KNOCKBACK, cached.knockback)
+        }
+        return mm.build()
     }
-    
+
     *///?}
 }

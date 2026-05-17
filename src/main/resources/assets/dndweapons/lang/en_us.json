@@ -42,5 +42,16 @@
   "item.dndweapons.heavy_crossbow": "Heavy Crossbow",
   "item.dndweapons.longbow": "Longbow",
   "item.dndweapons.musket": "Musket",
-  "item.dndweapons.pistol": "Pistol"
+  "item.dndweapons.pistol": "Pistol",
+
+  "tooltip.dndweapons.stat_block": "%s %s%s",
+
+  "tooltip.dndweapons.damage_type.slashing": "slashing",
+  "tooltip.dndweapons.damage_type.piercing": "piercing",
+  "tooltip.dndweapons.damage_type.bludgeoning": "bludgeoning",
+
+  "tooltip.dndweapons.bonus.finesse_sprint": "+20%% damage while sprinting",
+  "tooltip.dndweapons.bonus.light_dual": "+1 damage when dual-wielding Light",
+  "tooltip.dndweapons.bonus.versatile_empty": "+%d damage when offhand empty",
+  "tooltip.dndweapons.bonus.lance_foot": "Half damage when on foot"
 }

@@ -19,7 +19,10 @@ import net.minecraft.world.item.Item
 class WeaponRegistrarImpl : WeaponRegistrar {
 
     override fun register(spec: WeaponSpec) {
-        if (spec.isVanillaMapped) return
+        if (spec.isVanillaMapped) {
+            SpecRegistry.bindRoleTag(spec)
+            return
+        }
 
         //? if >=1.21 {
         val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, spec.id)
@@ -36,6 +39,7 @@ class WeaponRegistrarImpl : WeaponRegistrar {
 
         val item = DndWeaponItem(spec, settings)
         Registry.register(BuiltInRegistries.ITEM, itemKey, item)
+        SpecRegistry.bindRegistered(item, spec)
         DndWeaponsMod.LOGGER.info("Registered weapon: {}", itemId)
     }
 }
