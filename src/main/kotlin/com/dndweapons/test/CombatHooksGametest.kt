@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 
@@ -92,6 +93,38 @@ class CombatHooksGametest {
 
 // ---- Shared test bodies (compiled in both branches) ----
 
+private fun primeAttackStrength(entity: LivingEntity) {
+    entity.attackStrengthTicker = 100
+    applyMainHandModifiers(entity)
+}
+
+// Mock players spawned via GameTestHelper.makeMockPlayer have a fresh AttributeMap
+// with no equipment modifiers applied. setItemInHand only updates the inventory;
+// the ATTACK_DAMAGE/ATTACK_SPEED bonuses from the held weapon are normally folded
+// into the AttributeMap by LivingEntity.aiStep() -> collectEquipmentChanges() on
+// the next tick. Gametests don't tick the player between spawn and attack, so we
+// apply the held-item modifiers explicitly here.
+private fun applyMainHandModifiers(entity: LivingEntity) {
+    val stack = entity.mainHandItem
+    if (stack.isEmpty) return
+    //? if >=1.20.5 {
+    val mods = stack.get(net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS) ?: return
+    val map = com.google.common.collect.HashMultimap.create<net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute>, net.minecraft.world.entity.ai.attributes.AttributeModifier>()
+    for (entry in mods.modifiers()) {
+        if (entry.slot() == net.minecraft.world.entity.EquipmentSlotGroup.MAINHAND ||
+            entry.slot() == net.minecraft.world.entity.EquipmentSlotGroup.HAND ||
+            entry.slot() == net.minecraft.world.entity.EquipmentSlotGroup.ANY) {
+            map.put(entry.attribute(), entry.modifier())
+        }
+    }
+    entity.attributes.addTransientAttributeModifiers(map)
+    //?} else {
+    /*val item = stack.item
+    val mm = item.getDefaultAttributeModifiers(net.minecraft.world.entity.EquipmentSlot.MAINHAND)
+    entity.attributes.addTransientAttributeModifiers(mm)
+    *///?}
+}
+
 private fun dndItem(id: String): ItemStack {
     val resId = makeRl(DndWeaponsMod.MOD_ID, id)
     //? if >=1.21.2 {
@@ -127,7 +160,7 @@ private fun runFinesseSprintCase(ctx: GameTestHelper, weapon: ItemStack) {
     val pig = ctx.spawn(EntityType.PIG, pos) as Pig
 
     val before = pig.health
-    player.attackStrengthTicker = 100
+    primeAttackStrength(player)
     player.attack(pig)
     val after = pig.health
     val dealt = before - after
@@ -155,7 +188,7 @@ private fun runLightDualCase(ctx: GameTestHelper) {
     val pig = ctx.spawn(EntityType.PIG, pos) as Pig
 
     val before = pig.health
-    player.attackStrengthTicker = 100
+    primeAttackStrength(player)
     player.attack(pig)
     val after = pig.health
     val dealt = before - after
@@ -182,7 +215,7 @@ private fun runVersatileCase(ctx: GameTestHelper) {
     val pig = ctx.spawn(EntityType.PIG, pos) as Pig
 
     val before = pig.health
-    player.attackStrengthTicker = 100
+    primeAttackStrength(player)
     player.attack(pig)
     val after = pig.health
     val dealt = before - after
@@ -210,7 +243,7 @@ private fun runLanceOnFootCase(ctx: GameTestHelper) {
     val pig = ctx.spawn(EntityType.PIG, pos) as Pig
 
     val before = pig.health
-    player.attackStrengthTicker = 100
+    primeAttackStrength(player)
     player.attack(pig)
     val after = pig.health
     val dealt = before - after
@@ -244,7 +277,7 @@ private fun runHeavyKnockbackCase(ctx: GameTestHelper) {
     // doubles the horizontal kick).
     val beforeVel = pig.deltaMovement.lengthSqr()
 
-    player.attackStrengthTicker = 100
+    primeAttackStrength(player)
     player.attack(pig)
 
     val afterVel = pig.deltaMovement.lengthSqr()
@@ -283,7 +316,7 @@ private fun runLanceMountedCase(ctx: GameTestHelper) {
     val target = ctx.spawn(EntityType.PIG, targetPos) as Pig
 
     val before = target.health
-    player.attackStrengthTicker = 100
+    primeAttackStrength(player)
     player.attack(target)
     val after = target.health
     val dealt = before - after
@@ -347,7 +380,7 @@ private fun runHeavySweepGuardCase(ctx: GameTestHelper) {
     val secondaryBefore = secondary.health
 
     // Fully charge the attack so cooldown multiplier = 1.0 (same fix as Task 1).
-    player.attackStrengthTicker = 100
+    primeAttackStrength(player)
     player.attack(primary)
 
     val primaryDealt = primaryBefore - primary.health
