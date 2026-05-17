@@ -1,4 +1,46 @@
 {
   "itemGroup.dndweapons.main": "DnD Weapons",
-  "item.dndweapons.longsword": "Longsword"
+
+  "item.dndweapons.longsword": "Longsword",
+
+  "item.dndweapons.club": "Club",
+  "item.dndweapons.dagger": "Dagger",
+  "item.dndweapons.greatclub": "Greatclub",
+  "item.dndweapons.handaxe": "Handaxe",
+  "item.dndweapons.javelin": "Javelin",
+  "item.dndweapons.light_hammer": "Light Hammer",
+  "item.dndweapons.mace": "Mace",
+  "item.dndweapons.quarterstaff": "Quarterstaff",
+  "item.dndweapons.sickle": "Sickle",
+  "item.dndweapons.spear": "Spear",
+
+  "item.dndweapons.dart": "Dart",
+  "item.dndweapons.sling": "Sling",
+  "item.dndweapons.shortbow": "Shortbow",
+  "item.dndweapons.light_crossbow": "Light Crossbow",
+
+  "item.dndweapons.battleaxe": "Battleaxe",
+  "item.dndweapons.flail": "Flail",
+  "item.dndweapons.glaive": "Glaive",
+  "item.dndweapons.greataxe": "Greataxe",
+  "item.dndweapons.greatsword": "Greatsword",
+  "item.dndweapons.halberd": "Halberd",
+  "item.dndweapons.lance": "Lance",
+  "item.dndweapons.maul": "Maul",
+  "item.dndweapons.morningstar": "Morningstar",
+  "item.dndweapons.pike": "Pike",
+  "item.dndweapons.rapier": "Rapier",
+  "item.dndweapons.scimitar": "Scimitar",
+  "item.dndweapons.shortsword": "Shortsword",
+  "item.dndweapons.trident": "Trident",
+  "item.dndweapons.war_pick": "War Pick",
+  "item.dndweapons.warhammer": "Warhammer",
+  "item.dndweapons.whip": "Whip",
+
+  "item.dndweapons.blowgun": "Blowgun",
+  "item.dndweapons.hand_crossbow": "Hand Crossbow",
+  "item.dndweapons.heavy_crossbow": "Heavy Crossbow",
+  "item.dndweapons.longbow": "Longbow",
+  "item.dndweapons.musket": "Musket",
+  "item.dndweapons.pistol": "Pistol"
 }

@@ -16,6 +16,22 @@
       "wave_bug_count": 0,
       "commit_sha": "54779fa8df3ccbb223a565761b194f295b58ec83",
       "skipped_reason": null
+    },
+    {
+      "wave_id": 2,
+      "duration_seconds": 344,
+      "agents": [
+        {"agent_id": "wave-2-agent-1", "dev_status": "DONE"},
+        {"agent_id": "wave-2-agent-2", "dev_status": "DONE"},
+        {"agent_id": "wave-2-agent-3", "dev_status": "DONE"},
+        {"agent_id": "wave-2-agent-4", "dev_status": "DONE_WITH_CONCERNS"},
+        {"agent_id": "wave-2-agent-5", "dev_status": "DONE"},
+        {"agent_id": "wave-2-agent-6", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "371797d66cde756d908535b6cd0b8dec13181bea",
+      "skipped_reason": null
     }
   ],
   "total_bugs": 0,
