@@ -1,0 +1,20 @@
+{
+  "wave_id": 6,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-6-agent-1": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-6-agent-1-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "phase-3-combat-hooks git tag intentionally NOT created - Phase 3 acceptance not fully green",
+      "file": "(git tag)",
+      "line": null,
+      "evidence": "phase-3-verification.md shows 7 of 14 spec acceptance criteria FAIL. Tagging here would misrepresent phase state.",
+      "expected": "phase-3-combat-hooks tag created at the tip of green Phase 3 work.",
+      "suggested_fix": "Defer tag creation to cycle 3 (or later) once chiseledRunGametest reaches 9/9 pass per version. Cycle 2 fix-plan task 12 prerequisite ('Task 7 confirms the full matrix is green') is unmet, which by the task's own AC 'This task runs last, after Task 7 confirms the full matrix is green' means the tag step is BLOCKED at this cycle."
+    }
+  ]
+}

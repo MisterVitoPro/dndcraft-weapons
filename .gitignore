@@ -28,3 +28,6 @@ Thumbs.db
 versions/*/build/
 versions/*/.gradle/
 versions/*/run/
+
+# Per-version server log output from runGametest / runServer / runClient
+versions/*/logs/
