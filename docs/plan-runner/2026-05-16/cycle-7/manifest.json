@@ -2,9 +2,24 @@
   "cycle": 7,
   "input_plan": "docs/plan-runner/2026-05-16/cycle-6/fix-plan.md",
   "started_at": "2026-05-16T22:23:35-07:00",
-  "completed_at": null,
+  "completed_at": "2026-05-16T23:01:30-07:00",
   "context7_available": true,
-  "waves": [],
+  "analyzer_model": "haiku",
+  "verbose": false,
+  "waves": [
+    {
+      "wave_id": 1,
+      "duration_seconds": 2165,
+      "agents": [
+        {"agent_id": "wave-1-agent-1", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-2", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "dd93cffb9ced940359e9879de3e3520b9d019dae",
+      "skipped_reason": null
+    }
+  ],
   "total_bugs": 0,
   "next_cycle_plan": null
 }
