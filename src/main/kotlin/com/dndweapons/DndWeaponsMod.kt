@@ -14,8 +14,8 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 //?}
 //? if >=1.21.11 {
-/*import net.minecraft.resources.Identifier as ResourceLocation*/
-//?}
+/*import net.minecraft.resources.Identifier as ResourceLocation
+*///?}
 import net.minecraft.world.item.CreativeModeTab
 import net.minecraft.world.item.ItemStack
 import org.slf4j.Logger
@@ -25,8 +25,8 @@ private fun rl(namespace: String, path: String): ResourceLocation {
     //? if >=1.21 {
     return ResourceLocation.fromNamespaceAndPath(namespace, path)
     //?} else {
-    /*return ResourceLocation(namespace, path)*/
-    //?}
+    /*return ResourceLocation(namespace, path)
+    *///?}
 }
 
 object DndWeaponsMod : ModInitializer {
@@ -62,25 +62,24 @@ object DndWeaponsMod : ModInitializer {
     }
 
     private fun iconStack(): ItemStack {
-        //? if >=1.21.2 && <1.21.11 {
+        //? if >=1.21.2 {
         return BuiltInRegistries.ITEM
             .get(rl(MOD_ID, "longsword"))
             .map { ItemStack(it) }
             .orElse(ItemStack.EMPTY)
         //?} else {
-        /*return ItemStack(BuiltInRegistries.ITEM.get(rl(MOD_ID, "longsword")))*/
-        //?}
+        /*return ItemStack(BuiltInRegistries.ITEM.get(rl(MOD_ID, "longsword")))
+        *///?}
     }
 
     private fun addToEntries(entries: net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroupEntries, spec: com.dndweapons.catalog.WeaponSpec) {
         val itemId = rl(MOD_ID, spec.id)
-        //? if >=1.21.2 && <1.21.11 {
+        //? if >=1.21.2 {
         BuiltInRegistries.ITEM.get(itemId).ifPresent { entries.accept(it.value()) }
         //?} else {
-        /*
-        val item = BuiltInRegistries.ITEM.get(itemId)
+
+        /*val item = BuiltInRegistries.ITEM.get(itemId)
         if (item != null) entries.accept(item)
-        */
-        //?}
+        *///?}
     }
 }

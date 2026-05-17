@@ -18,38 +18,31 @@ import net.minecraft.world.item.component.ItemAttributeModifiers
 import net.minecraft.resources.ResourceLocation
 //?}
 //? if >=1.21.11 {
-/*import net.minecraft.resources.Identifier as ResourceLocation*/
-//?}
+/*import net.minecraft.resources.Identifier as ResourceLocation
+*///?}
 //?}
 
 //? if <1.20.5 {
-/*
-import java.util.UUID
-*/
-//?}
+
+/*import java.util.UUID
+
+*///?}
 
 /**
  * Per-epoch attribute-modifier builder.
  *
  * Epoch C (1.20.5+): bakes an `ItemAttributeModifiers` data component into Item.Properties.
- *   On 1.21.2+ the attribute fields are `ATTACK_DAMAGE` / `ATTACK_SPEED`;
- *   on 1.20.5-1.21.1 they retain the `GENERIC_` prefix.
- *   Modifier IDs are ResourceLocation-based; Operation.ADD_VALUE.
+ *   Mojang official mappings use `ATTACK_DAMAGE` / `ATTACK_SPEED` on all versions (no GENERIC_ prefix).
+ *   Modifier IDs are ResourceLocation/Identifier-based; Operation.ADD_VALUE.
  *
  * Epoch A (<1.20.5): caches UUID-keyed modifiers per spec via Operation.ADDITION;
- *   DndWeaponItem.getAttributeModifiers(slot) override returns them at runtime.
+ *   DndWeaponItem.getDefaultAttributeModifiers(slot) override returns them at runtime.
  */
 object AttributeCompat {
 
-    //? if >=1.21.2 {
+    // Mojang official mappings use ATTACK_DAMAGE / ATTACK_SPEED on all supported versions (no GENERIC_ prefix)
     private val damageAttr = Attributes.ATTACK_DAMAGE
     private val speedAttr = Attributes.ATTACK_SPEED
-    //?} else {
-    /*
-    private val damageAttr = Attributes.GENERIC_ATTACK_DAMAGE
-    private val speedAttr = Attributes.GENERIC_ATTACK_SPEED
-    */
-    //?}
 
     //? if >=1.20.5 {
     fun applyTo(settings: Item.Properties, spec: WeaponSpec): Item.Properties {
@@ -85,8 +78,8 @@ object AttributeCompat {
     //?}
 
     //? if <1.20.5 {
-    /*
-    private data class CachedMods(
+    
+    /*private data class CachedMods(
         val damage: AttributeModifier,
         val speed: AttributeModifier,
     )
@@ -125,6 +118,6 @@ object AttributeCompat {
             .put(speedAttr, cached.speed)
             .build()
     }
-    */
-    //?}
+    
+    *///?}
 }

@@ -11,12 +11,12 @@ open class DndWeaponItem(val spec: WeaponSpec, settings: Properties) : Item(sett
     }
 
     //? if <1.20.5 {
-    /*
-    override fun getAttributeModifiers(
+
+    /*override fun getDefaultAttributeModifiers(
         slot: net.minecraft.world.entity.EquipmentSlot,
     ): com.google.common.collect.Multimap<net.minecraft.world.entity.ai.attributes.Attribute, net.minecraft.world.entity.ai.attributes.AttributeModifier> {
         return AttributeCompat.modifiersFor(spec, slot)
     }
-    */
-    //?}
+
+    *///?}
 }
