@@ -24,7 +24,7 @@ object WeaponTooltipInjector {
             val newLines = WeaponTooltipBuilder.build(spec)
             if (newLines.isEmpty()) return@ItemTooltipCallback
             val components = newLines.map { it.toComponent() }
-            lines.addAll(1, components)
+            lines.addAll(minOf(1, lines.size), components)
         })
         //?} else {
         /*ItemTooltipCallback.EVENT.register(ItemTooltipCallback { stack, _, lines ->
@@ -32,7 +32,7 @@ object WeaponTooltipInjector {
             val newLines = WeaponTooltipBuilder.build(spec)
             if (newLines.isEmpty()) return@ItemTooltipCallback
             val components = newLines.map { it.toComponent() }
-            lines.addAll(1, components)
+            lines.addAll(minOf(1, lines.size), components)
         })
         *///?}
     }

@@ -1,0 +1,143 @@
+{
+  "wave_id": 4,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-4-agent-1": "BUGS_FOUND",
+    "wave-4-agent-2": "BUGS_FOUND",
+    "wave-4-agent-3": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-4-agent-1-bug-1",
+      "severity": "P0",
+      "category": "missing_requirement",
+      "title": "chiseledTest Stonecutter task does not exist",
+      "file": "stonecutter.gradle.kts",
+      "line": null,
+      "evidence": "stonecutter.gradle.kts and stonecutter.gradle both define only chiseledBuild and chiseledRunGametest. No chiseledTest task is registered.",
+      "expected": "./gradlew chiseledTest invokes test task across all 5 subprojects.",
+      "suggested_fix": "Add chiseledTest task to both stonecutter.gradle.kts and stonecutter.gradle mirroring the chiseledBuild pattern using ofTask(\"test\")."
+    },
+    {
+      "bug_id": "wave-4-agent-1-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "startRiding() argument count compile error on 1.21.4 — status unclear",
+      "file": "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+      "line": 223,
+      "evidence": "Wave-4-agent-1 reported a compile failure at line 223 for 1.21.4. Reading the file shows lines 222-226 ARE correctly Stonecutter-forked. Either the report was stale OR Stonecutter substitution isn't being applied to test sources. Unverified without a build run.",
+      "expected": "CombatHooksGametest.kt compiles on all 5 versions.",
+      "suggested_fix": "Re-run ./gradlew chiseledBuild and ./gradlew :1.21.4:build to confirm status. If failure persists, debug Stonecutter substitution of test/gametest sources."
+    },
+    {
+      "bug_id": "wave-4-agent-1-bug-3",
+      "severity": "P0",
+      "category": "missing_requirement",
+      "title": "Test sources not picked up by Stonecutter — chiseledSrc/test not populated",
+      "file": "build.gradle.kts",
+      "line": null,
+      "evidence": "src/test/kotlin tree exists with 5 JUnit test files but no per-version build/chiseledSrc/test directory is created. Stonecutter only processes source sets registered with it.",
+      "expected": "src/test source set is registered with Stonecutter so per-version chiseledSrc/test directories are populated.",
+      "suggested_fix": "Register the test source set in build.gradle.kts so Stonecutter stamps it per-version."
+    },
+    {
+      "bug_id": "wave-4-agent-1-bug-4",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "1.20.1 SpecRegistry bootstrap failure in unit tests unverified",
+      "file": "src/main/kotlin/com/dndweapons/registry/SpecRegistry.kt",
+      "line": 78,
+      "evidence": "Wave-4-agent-3 confirmed criterion 12 partially fails: chiseledTest (1.20.1) throws SpecRegistry 'Not bootstrapped'. Wave-4-agent-1 could not verify due to compile/task blockers.",
+      "expected": "SpecRegistry unit tests run on 1.20.1 without requiring MC Bootstrap.",
+      "suggested_fix": "Lazy-resolve Registries.ITEM reference into a companion-object property only touched post-bootstrap, OR accept TagKey<Item> directly in bindRoleTag and move string parsing to call sites guaranteed to run post-bootstrap."
+    },
+    {
+      "bug_id": "wave-4-agent-2-bug-1",
+      "severity": "P0",
+      "category": "scope_drift",
+      "title": "stonecutter.gradle.kts and stonecutter.gradle modified outside owned_files without disclosure",
+      "file": "stonecutter.gradle.kts",
+      "line": null,
+      "evidence": "wave-4-agent-2's owned_files were PlayerAttackMixin.kt, CombatHooksGametest.kt, WeaponTooltipInjector.kt. The agent also wrote stonecutter.gradle.kts and stonecutter.gradle (adding chiseledRunGametest task) and listed them in files_written but NOT in files_unexpectedly_modified.",
+      "expected": "files outside owned_files must be listed in files_unexpectedly_modified with reasoning in concerns.",
+      "suggested_fix": "Process violation; not a code fix. The additive task registration is correct and not breaking. Note for future agent-discipline tracking."
+    },
+    {
+      "bug_id": "wave-4-agent-2-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "PlayerAttackMixin target rewritten to Entity.hurt/hurtOrSimulate @ModifyArg — unverified at runtime",
+      "file": "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt",
+      "line": null,
+      "evidence": "Mixin architecturally rewritten: target now @ModifyArg(index=1) on Entity.hurt (<1.21.4) / Entity.hurtOrSimulate (>=1.21.4) inside Player.attack(Entity). Plausible per static bytecode analysis but no gametest run confirms injection fires.",
+      "expected": "Mixin injection fires and modifies damage on all 5 MC versions; gametests verify.",
+      "suggested_fix": "Run chiseledRunGametest. Add a logger/breakpoint to confirm @ModifyArg fires. Verify on 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2."
+    },
+    {
+      "bug_id": "wave-4-agent-2-bug-3",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "chiseledRunGametest never actually executed — acceptance criterion unmet",
+      "file": null,
+      "line": null,
+      "evidence": "Acceptance criterion: './gradlew chiseledRunGametest succeeds across all 5 subprojects' and 'All 9 gametests pass on all 5 versions (45 passing tests total)'. Agent explicitly states 'chiseledRunGametest was not actually run — fixes are static-bytecode-inspection-based.'",
+      "expected": "chiseledRunGametest task is run and all gametests pass on all 5 versions.",
+      "suggested_fix": "Run ./gradlew chiseledRunGametest. Triage and fix any runtime failures."
+    },
+    {
+      "bug_id": "wave-4-agent-2-bug-4",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "Sweep entities receive DnD modifier — potential unintended behavior",
+      "file": "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt",
+      "line": null,
+      "evidence": "@ModifyArg on the INVOKE inside Player.attack(Entity) fires for every entity hit, including sweep targets. Spec does not explicitly state whether sweep entities should get the modifier.",
+      "expected": "Determine intended behavior; if sweep should NOT get modifier, add a filter.",
+      "suggested_fix": "Consult the design spec. If sweep entities should be exempt, switch to @ModifyVariable on the primary damage local, or guard the modification."
+    },
+    {
+      "bug_id": "wave-4-agent-2-bug-5",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "26.1.2 identity mapping for mixin bytecode descriptor is novel and untested",
+      "file": "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt",
+      "line": null,
+      "evidence": "26.1.2 uses identity tiny v2 stub (no intermediary remapping). Mixin descriptor resolution at runtime may behave differently on this novel mapping config.",
+      "expected": "Mixin works on 26.1.2 same as other versions.",
+      "suggested_fix": "Smoke-test the mixin on 26.1.2 specifically. May need additional descriptor fork if behavior differs."
+    },
+    {
+      "bug_id": "wave-4-agent-3-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "Criterion 12 unverified — build/test/gametest matrix not confirmed green",
+      "file": null,
+      "line": null,
+      "evidence": "Criterion 12 requires all 5 MC versions pass chiseledBuild, chiseledTest, and chiseledRunGametest. chiseledTest task missing (P0); chiseledRunGametest not run (P1). Phase structurally present, not runtime-verified.",
+      "expected": "Full matrix passes.",
+      "suggested_fix": "After fixing P0 bugs (chiseledTest task, test source set), run full matrix. Iterate fixes until green."
+    },
+    {
+      "bug_id": "wave-4-agent-3-bug-2",
+      "severity": "P2",
+      "category": "missing_requirement",
+      "title": "phase-3-combat-hooks git tag not created",
+      "file": null,
+      "line": null,
+      "evidence": "Criterion 14 requires phase tagged 'phase-3-combat-hooks'. Agent-3 is static-read-only and could not create the tag.",
+      "expected": "phase-3-combat-hooks tag exists at the tip of the Phase 3 work.",
+      "suggested_fix": "After full matrix is green, manually run: git tag phase-3-combat-hooks && git push --tags."
+    },
+    {
+      "bug_id": "wave-4-agent-3-bug-3",
+      "severity": "P3",
+      "category": "scope_drift",
+      "title": "Uncommitted manifest.json modification and untracked logs/ directory",
+      "file": null,
+      "line": null,
+      "evidence": "Working tree has a modified manifest.json and an untracked versions/1.20.1/logs/ directory.",
+      "expected": "Clean tree at end of phase.",
+      "suggested_fix": "Add versions/*/logs/ to .gitignore. Commit or revert manifest.json changes."
+    }
+  ]
+}
