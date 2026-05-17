@@ -2,9 +2,16 @@
   "cycle": 5,
   "input_plan": "D:/minecraft/mods/dnd-weapons/docs/superpowers/plans/2026-05-16-dnd-weapons-phase-2a-3-mojang-naming.md",
   "started_at": "2026-05-16T19:30:18-07:00",
-  "completed_at": null,
+  "completed_at": "2026-05-16T20:37:00-07:00",
   "context7_available": true,
-  "waves": [],
+  "waves": [
+    {"wave_id": 1, "wave_verifier_status": "CLEAN", "wave_bug_count": 0, "commit_sha": "79eb4f634760091f8b38dd12485f466837d6108f"},
+    {"wave_id": 2, "wave_verifier_status": "BUGS_FOUND", "wave_bug_count": 2, "commit_sha": "c9b837211ccc63ad7e84d085907f76454a4d3645", "note": "Both P3 informational — superseded by Wave 4 inline fixes"},
+    {"wave_id": 3, "wave_verifier_status": "CLEAN", "wave_bug_count": 0, "commit_sha": "238d3cbeaed59f65c1df919105b07668fbc4b0ad"},
+    {"wave_id": 4, "wave_verifier_status": "CLEAN", "wave_bug_count": 0, "commit_sha": "9a3dcc00aaaceef17f561ff4dbd875c4faa3231b", "note": "3 directive bugs caught + inline-fixed (ATTACK_DAMAGE no GENERIC_, Optional<Holder> through 1.21.11, getDefaultAttributeModifiers on 1.20.1)"},
+    {"wave_id": 5, "wave_verifier_status": "CLEAN", "wave_bug_count": 0, "commit_sha": "4fb239618488c08aeba19171f7a2fc90b77c3718", "note": "26.1.2 subproject added; passes build+test+gametest"},
+    {"wave_id": 6, "wave_verifier_status": "CLEAN", "wave_bug_count": 0, "commit_sha": "36f266b98460170c5ffd78edabf21d47c99913cd", "note": "5/5 versions verified; phase tag pushed"}
+  ],
   "total_bugs": 0,
   "next_cycle_plan": null
 }
