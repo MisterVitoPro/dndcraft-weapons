@@ -4,7 +4,19 @@
   "started_at": "2026-05-17T14:16:33-07:00",
   "completed_at": null,
   "context7_available": true,
-  "waves": [],
+  "waves": [
+    {
+      "wave_id": 1,
+      "duration_seconds": 180,
+      "agents": [
+        {"agent_id": "wave-1-agent-1", "dev_status": "DONE_WITH_CONCERNS"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "967a316f1bfe604252a5b29ba5d17255f15fb32a",
+      "skipped_reason": null
+    }
+  ],
   "total_bugs": 0,
   "next_cycle_plan": null
 }
