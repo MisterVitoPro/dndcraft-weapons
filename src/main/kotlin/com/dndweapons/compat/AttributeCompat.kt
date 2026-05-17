@@ -15,11 +15,11 @@ import net.minecraft.core.component.DataComponents
 import net.minecraft.world.entity.EquipmentSlotGroup
 import net.minecraft.world.item.component.ItemAttributeModifiers
 //? if <1.21.11 {
-import net.minecraft.resources.ResourceLocation
-//?}
-//? if >=1.21.11 {
-/*import net.minecraft.resources.Identifier as ResourceLocation
+/*import net.minecraft.resources.ResourceLocation
 *///?}
+//? if >=1.21.11 {
+import net.minecraft.resources.Identifier as ResourceLocation
+//?}
 //?}
 
 //? if <1.20.5 {

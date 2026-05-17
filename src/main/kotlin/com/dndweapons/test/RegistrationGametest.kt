@@ -4,14 +4,14 @@ import com.dndweapons.DndWeaponsMod
 import net.minecraft.core.registries.BuiltInRegistries
 
 //? if <1.21.11 {
-import net.minecraft.resources.ResourceLocation
-//?}
-//? if >=1.21.11 {
-/*import net.minecraft.resources.Identifier as ResourceLocation
+/*import net.minecraft.resources.ResourceLocation
 *///?}
+//? if >=1.21.11 {
+import net.minecraft.resources.Identifier as ResourceLocation
+//?}
 
 //? if <1.21.5 {
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest
+/*import net.fabricmc.fabric.api.gametest.v1.FabricGameTest
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 
@@ -29,11 +29,11 @@ class RegistrationGametest : FabricGameTest {
         ctx.succeed()
     }
 }
-//?}
+*///?}
 
 //? if >=1.21.5 {
 
-/*import net.fabricmc.fabric.api.gametest.v1.GameTest
+import net.fabricmc.fabric.api.gametest.v1.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 
 class RegistrationGametest {
@@ -51,7 +51,7 @@ class RegistrationGametest {
     }
 }
 
-*///?}
+//?}
 
 private fun makeRl(ns: String, path: String): ResourceLocation {
     //? if >=1.21 {

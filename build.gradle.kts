@@ -29,12 +29,15 @@ repositories {
     maven("https://maven.fabricmc.net/")
 }
 
+val isMojangNamed = (property("minecraft_version") as String).startsWith("26.")
+
 dependencies {
     minecraft("com.mojang:minecraft:${property("minecraft_version")}")
-    if ((property("minecraft_version") as String).startsWith("26.")) {
-        // MC 26.x: Mojang stopped obfuscating client.jar; intermediary 0.0.0 is the
-        // no-op stub from Fabric meta API (https://meta.fabricmc.net/v2/versions/intermediary/26.1.2).
-        mappings("net.fabricmc:intermediary:0.0.0:v2")
+    if (isMojangNamed) {
+        // MC 26.x: client.jar ships in source-level (Mojang) names already.
+        // Identity tiny v2 stub (official == named); noIntermediateMappings()
+        // below tells Loom to skip the intermediary remapping step entirely.
+        mappings(files("${rootProject.projectDir}/libs/identity-mappings-26.1.2.jar"))
     } else {
         mappings(loom.officialMojangMappings())
     }
@@ -54,6 +57,59 @@ loom {
             vmArg("-Dfabric-api.gametest")
             vmArg("-Dfabric-api.gametest.report-file=${layout.buildDirectory.get()}/gametest-report.xml")
             runDir = "build/gametest"
+        }
+    }
+}
+
+if (isMojangNamed) {
+    // MC 26.x: source names are already human-readable; remapping sources JAR
+    // is a no-op and fails because the identity stub has no class entries.
+    tasks.named("remapSourcesJar") {
+        enabled = false
+    }
+
+    // Loom writes fabric.defaultModDistributionNamespace=official in launch.cfg because
+    // our identity mappings stub has 'official' as the source namespace. But the remapped
+    // dependency JARs are in 'named' namespace. Patch launch.cfg after configureLaunch so
+    // Fabric Loader accepts ClassTweakers that declare 'named'.
+    fun patchLaunchCfg() {
+        val cfg = file("${projectDir}/.gradle/loom-cache/launch.cfg")
+        if (cfg.exists()) {
+            var text = cfg.readText()
+            // Remap deps are in 'named' namespace (even with identity stub).
+            // fabric.runtimeMappingNamespace controls the ClassTweaker namespace check.
+            // fabric.defaultModDistributionNamespace controls how mods are distributed.
+            var changed = false
+            if ("fabric.defaultModDistributionNamespace=official" in text) {
+                text = text.replace(
+                    "fabric.defaultModDistributionNamespace=official",
+                    "fabric.defaultModDistributionNamespace=named"
+                )
+                changed = true
+            }
+            if ("fabric.runtimeMappingNamespace" !in text) {
+                // Insert after fabric.defaultModDistributionNamespace line
+                text = text.replace(
+                    "fabric.defaultModDistributionNamespace=named",
+                    "fabric.defaultModDistributionNamespace=named\n\tfabric.runtimeMappingNamespace=named"
+                )
+                changed = true
+            }
+            if (changed) {
+                cfg.writeText(text)
+                logger.lifecycle("[dnd-weapons] Patched launch.cfg for MC 26.x: runtimeMappingNamespace=named, defaultModDistributionNamespace=named")
+            }
+        }
+    }
+
+    tasks.named("configureLaunch") {
+        doLast { patchLaunchCfg() }
+    }
+
+    // Patch before any run task in case configureLaunch regenerates the file
+    afterEvaluate {
+        tasks.matching { it.name.startsWith("run") }.configureEach {
+            doFirst { patchLaunchCfg() }
         }
     }
 }
