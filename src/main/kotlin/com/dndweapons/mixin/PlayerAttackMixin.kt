@@ -29,6 +29,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
  *   same FQN under official Mojang mappings. 26.1.2 uses an identity tiny v2
  *   stub so source-level FQN == runtime FQN. No per-version fork on the
  *   DamageSource portion of the @At target string is required.
+ *
+ * 26.1.2 identity-mapping note (cycle-2):
+ *   The 26.1.2 build uses libs/identity-mappings-26.1.2.jar which maps every
+ *   official class/method name to itself (no intermediary remap step). Mixin's
+ *   bytecode transformer evaluates @At target descriptors against the runtime
+ *   class names supplied by Loom's mapping pipeline. With the identity stub
+ *   that pipeline is a no-op, so the source-level descriptor strings here
+ *   resolve to the same runtime FQN as on remapped builds. No additional fork
+ *   for >=26.1.2 is required. (Verified by gametest pass at runtime - see
+ *   cycle-2 task 11 acceptance criteria.)
  */
 @Mixin(Player::class)
 abstract class PlayerAttackMixin {

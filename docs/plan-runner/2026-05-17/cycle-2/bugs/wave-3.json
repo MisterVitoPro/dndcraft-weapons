@@ -1,0 +1,21 @@
+{
+  "wave_id": 3,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-3-agent-1": "CLEAN",
+    "wave-3-agent-2": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-3-agent-2-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "26.1.2 mixin gametest run not actually executed",
+      "file": "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt",
+      "line": null,
+      "evidence": "Agent could not run ./gradlew :26.1.2:runGametest from this context. Decision was reached by static reasoning about identity tiny v2 stub behavior.",
+      "expected": "./gradlew :26.1.2:runGametest shows all 9 gametests passing",
+      "suggested_fix": "Defer to Wave 4 (chiseledRunGametest run) which has gametest execution as its core acceptance criterion."
+    }
+  ]
+}
