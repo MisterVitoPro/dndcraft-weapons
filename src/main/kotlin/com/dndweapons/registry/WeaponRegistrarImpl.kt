@@ -9,11 +9,11 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 //? if <1.21.11 {
-/*import net.minecraft.resources.ResourceLocation
-*///?}
-//? if >=1.21.11 {
-import net.minecraft.resources.Identifier as ResourceLocation
+import net.minecraft.resources.ResourceLocation
 //?}
+//? if >=1.21.11 {
+/*import net.minecraft.resources.Identifier as ResourceLocation
+*///?}
 import net.minecraft.world.item.Item
 
 class WeaponRegistrarImpl : WeaponRegistrar {
