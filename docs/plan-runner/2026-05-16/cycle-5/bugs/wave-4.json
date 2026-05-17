@@ -1,0 +1,9 @@
+{
+  "wave_id": 4,
+  "verifier_status": "CLEAN",
+  "agent_statuses": {
+    "wave-4-agent-1": "CLEAN"
+  },
+  "bugs": [],
+  "orchestrator_note": "Wave 4 per-version smokes PASS on 1.21.1, 1.21.4, 1.21.11, 1.20.1. Three real directive bugs caught and inline-fixed: (1) AttributeCompat ATTACK_DAMAGE has no GENERIC_ prefix on Mojang (Yarn-only convention), (2) Optional<Holder> registry-get persists through 1.21.11 (upper bound dropped), (3) Mojang 1.20.1 method is getDefaultAttributeModifiers not getAttributeModifiers. These fixes superseded the corresponding P3 informational bugs from Wave 2."
+}
