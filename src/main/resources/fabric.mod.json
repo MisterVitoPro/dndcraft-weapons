@@ -29,5 +29,6 @@
   },
   "mixins": [
     "dndweapons.mixins.json"
-  ]
+  ],
+  "accessWidener": "dndweapons.accesswidener"
 }

@@ -50,6 +50,7 @@ dependencies {
 }
 
 loom {
+    accessWidenerPath = file("src/main/resources/dndweapons.accesswidener")
     runs {
         register("gametest") {
             server()

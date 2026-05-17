@@ -1,0 +1,54 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-17/cycle-3/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Fix Player.attackStrengthTicker access in CombatHooksGametest",
+          "task_excerpt_lines": "8-27",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+            "src/main/resources/dndweapons.accesswidener",
+            "build.gradle.kts",
+            "src/main/resources/fabric.mod.json"
+          ],
+          "acceptance_criteria": [
+            "Choose exactly ONE approach (preferred: replace every player.attackStrengthTicker = 100 with player.resetAttackStrengthTicker(); alternative: add accesswidener + loom config + fabric.mod.json entry) and apply consistently to every call site in CombatHooksGametest.kt",
+            "If using widener path: src/main/resources/dndweapons.accesswidener contains exactly 'accessWidener v2 named' followed by 'accessible field net/minecraft/world/entity/player/Player attackStrengthTicker I'; build.gradle.kts loom {} block sets accessWidenerPath = file(\"src/main/resources/dndweapons.accesswidener\"); fabric.mod.json has top-level \"accessWidener\": \"dndweapons.accesswidener\"",
+            "./gradlew chiseledBuild completes without IllegalAccessError or visibility compilation errors on all 5 MC versions",
+            "All 6 single-hit combat gametests (finesseSprintBonusFires, lightDualWieldBonusFires, versatileEmptyOffhandFires, lanceOnFootHalves, lanceMountedFullDamage, vanillaIronSwordCarriesFinesseHook) remain passing"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Rewrite sweep gametest to use FINESSE weapon and safe secondary spawn position",
+          "task_excerpt_lines": "31-60",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "Replace the greataxe in the sweep test with a FINESSE weapon (e.g. dndItem(\"rapier\") or dndItem(\"scimitar\"))",
+            "Set player.isSprinting = true before the attack so the FINESSE sprint bonus (1.20x multiplier) applies",
+            "Update the primary damage assertion to |primaryDealt - base * 1.20f| <= 0.5f",
+            "Spawn the secondary pig at a fractional coordinate within 0.5 blocks of the primary (e.g. Vec3(2.0, 1.0, 1.5)) so it is safely inside sweep range on all 5 MC versions",
+            "Secondary assertion remains secondaryDealt > 0 && secondaryDealt < primaryDealt - tol",
+            "Update the KDoc comment at the top of the sweep test function: remove any wording that implies HEAVY contributes a damage multiplier; clarify the test validates the strike-once guard by demonstrating secondary < primary",
+            "Sweep test passes on all 5 MC versions in ./gradlew chiseledRunGametest",
+            "No other combat gametests are regressed"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}
