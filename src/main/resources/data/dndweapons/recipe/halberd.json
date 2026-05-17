@@ -1,9 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
-  "pattern": ["II ", "IS ", " S "],
+  "pattern": [
+    "II ",
+    "IS ",
+    " S "
+  ],
   "key": {
-    "I": { "tag": "c:ingots/iron" },
-    "S": { "tag": "c:rods/wooden" }
+    "I": "#c:ingots/iron",
+    "S": "#c:rods/wooden"
   },
-  "result": { "id": "dndweapons:halberd", "count": 1 }
+  "result": {
+    "id": "dndweapons:halberd",
+    "count": 1
+  }
 }

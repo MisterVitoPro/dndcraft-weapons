@@ -1,9 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
-  "pattern": [" ST", "S T", " ST"],
+  "pattern": [
+    " ST",
+    "S T",
+    " ST"
+  ],
   "key": {
-    "T": { "tag": "c:string" },
-    "S": { "tag": "c:rods/wooden" }
+    "T": "#c:strings",
+    "S": "#c:rods/wooden"
   },
-  "result": { "id": "dndweapons:longbow", "count": 1 }
+  "result": {
+    "id": "dndweapons:longbow",
+    "count": 1
+  }
 }

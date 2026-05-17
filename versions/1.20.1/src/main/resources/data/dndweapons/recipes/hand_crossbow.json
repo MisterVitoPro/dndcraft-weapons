@@ -3,7 +3,7 @@
   "pattern": ["IT ", "ST ", " S "],
   "key": {
     "I": { "tag": "c:ingots/iron" },
-    "T": { "tag": "c:string" },
+    "T": { "tag": "c:strings" },
     "S": { "tag": "c:rods/wooden" }
   },
   "result": { "item": "dndweapons:hand_crossbow", "count": 1 }

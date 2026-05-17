@@ -129,9 +129,29 @@ tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
 
+// Per-version overlay resources under versions/<mc>/src/main/resources/ may
+// share filenames with the shared src/main/resources/ tree (e.g. recipe JSONs
+// that need a per-version ingredient format because vanilla MC's recipe codec
+// changed across versions). The overlay MUST win over the shared file.
+//
+// Stonecutter wires the per-version `src/main/resources` directory into the
+// `main` source set FIRST (it is the project's own srcDir for `:<mc>`), then
+// the shared `<root>/src/main/resources` is appended later by the central
+// build script. With Gradle's default Copy iteration that means the shared
+// file is the LAST one written for any conflicting path. We need the OVERLAY
+// to win, so we use DuplicatesStrategy.EXCLUDE which keeps the FIRST entry
+// (the per-version overlay) and ignores subsequent duplicates.
 tasks.processResources {
     inputs.property("version", project.version)
     filesMatching("fabric.mod.json") {
         expand("version" to project.version)
     }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// sourcesJar packages all main resources; it hits the same per-version vs shared
+// collision and needs the same first-wins strategy so the overlay's per-version
+// recipe JSON is shipped in the sources artifact, not the shared one.
+tasks.withType<org.gradle.api.tasks.bundling.Jar>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

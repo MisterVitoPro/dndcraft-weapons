@@ -1,9 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
-  "pattern": ["III", " I ", " S "],
+  "pattern": [
+    "III",
+    " I ",
+    " S "
+  ],
   "key": {
-    "I": { "tag": "c:ingots/iron" },
-    "S": { "tag": "c:rods/wooden" }
+    "I": "#c:ingots/iron",
+    "S": "#c:rods/wooden"
   },
-  "result": { "id": "dndweapons:morningstar", "count": 1 }
+  "result": {
+    "id": "dndweapons:morningstar",
+    "count": 1
+  }
 }

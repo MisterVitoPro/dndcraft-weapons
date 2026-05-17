@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "pattern": ["T T", " L "],
   "key": {
-    "T": { "tag": "c:string" },
+    "T": { "tag": "c:strings" },
     "L": { "tag": "c:leathers" }
   },
   "result": { "item": "dndweapons:sling", "count": 1 }

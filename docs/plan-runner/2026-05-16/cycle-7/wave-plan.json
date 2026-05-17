@@ -1,0 +1,47 @@
+{
+  "source_plan": "docs/plan-runner/2026-05-16/cycle-6/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Fix recipe tag-ingredient format on 1.21.4 / 1.21.11 / 26.1.2",
+          "task_excerpt_lines": "8-27",
+          "owned_files": [
+            "versions/1.21.4/src/main/resources/data/dndweapons/recipes/",
+            "versions/1.21.11/src/main/resources/data/dndweapons/recipes/",
+            "versions/26.1.2/src/main/resources/data/dndweapons/recipes/",
+            "src/main/resources/data/dndweapons/recipe/"
+          ],
+          "acceptance_criteria": [
+            "All 34 expanded-catalog weapon recipe files load without ERROR on all 5 MC versions (1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2) during :runGametest.",
+            "Recipe ingredient tag serializer format is correct per MC target: flat {\"tag\":\"...\"} where FAPI accepts it; {\"fabric:type\":\"fabric:tag\",\"tag\":\"...\"} or vanilla 1.21+ {\"ingredient\":{\"tag\":\"...\"}} wrapper for targets that require it.",
+            "A gametest or logged assertion confirms non-zero recipe counts per version after the fix.",
+            "Shared recipe source files under src/main/resources/data/dndweapons/recipe/ are unchanged or updated to canonical format, and per-version overlay files carry correct per-version ingredient format."
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Downscale 33 weapon textures to 16x16 + commit downscale script",
+          "task_excerpt_lines": "31-53",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/textures/item/",
+            "scripts/downscale_textures.py"
+          ],
+          "acceptance_criteria": [
+            "All 33 weapon texture PNG files in src/main/resources/assets/dndweapons/textures/item/ are exactly 16x16 pixels.",
+            "Each file is under 1 KB (consistent with a true 16x16 RGBA PNG, matching the pre-existing longsword.png at 0.1 KB).",
+            "Nearest-neighbor (point) downscaling is used so pixel-art fidelity is preserved -- no bicubic or bilinear blur.",
+            "The pre-existing longsword.png is not modified.",
+            "A post-processing script or Gradle task that performs the downscale is committed alongside the corrected PNG files so the pipeline is repeatable."
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}

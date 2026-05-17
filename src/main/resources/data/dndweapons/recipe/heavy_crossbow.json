@@ -1,10 +1,17 @@
 {
   "type": "minecraft:crafting_shaped",
-  "pattern": ["ITI", "STS", " I "],
+  "pattern": [
+    "ITI",
+    "STS",
+    " I "
+  ],
   "key": {
-    "I": { "tag": "c:ingots/iron" },
-    "T": { "tag": "c:string" },
-    "S": { "tag": "c:rods/wooden" }
+    "I": "#c:ingots/iron",
+    "T": "#c:strings",
+    "S": "#c:rods/wooden"
   },
-  "result": { "id": "dndweapons:heavy_crossbow", "count": 1 }
+  "result": {
+    "id": "dndweapons:heavy_crossbow",
+    "count": 1
+  }
 }

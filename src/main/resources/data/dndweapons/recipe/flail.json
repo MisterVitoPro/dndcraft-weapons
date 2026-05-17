@@ -1,10 +1,17 @@
 {
   "type": "minecraft:crafting_shaped",
-  "pattern": ["I", "T", "S"],
+  "pattern": [
+    "I",
+    "T",
+    "S"
+  ],
   "key": {
-    "I": { "tag": "c:ingots/iron" },
-    "T": { "tag": "c:string" },
-    "S": { "tag": "c:rods/wooden" }
+    "I": "#c:ingots/iron",
+    "T": "#c:strings",
+    "S": "#c:rods/wooden"
   },
-  "result": { "id": "dndweapons:flail", "count": 1 }
+  "result": {
+    "id": "dndweapons:flail",
+    "count": 1
+  }
 }

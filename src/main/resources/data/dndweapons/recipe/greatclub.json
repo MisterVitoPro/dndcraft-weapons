@@ -1,9 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
-  "pattern": ["W", "W", "S"],
+  "pattern": [
+    "W",
+    "W",
+    "S"
+  ],
   "key": {
-    "W": { "tag": "c:wooden_logs" },
-    "S": { "tag": "c:rods/wooden" }
+    "W": "#minecraft:logs",
+    "S": "#c:rods/wooden"
   },
-  "result": { "id": "dndweapons:greatclub", "count": 1 }
+  "result": {
+    "id": "dndweapons:greatclub",
+    "count": 1
+  }
 }

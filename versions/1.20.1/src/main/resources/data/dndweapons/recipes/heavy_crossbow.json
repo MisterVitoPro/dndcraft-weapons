@@ -3,7 +3,7 @@
   "pattern": ["ITI", "STS", " I "],
   "key": {
     "I": { "tag": "c:ingots/iron" },
-    "T": { "tag": "c:string" },
+    "T": { "tag": "c:strings" },
     "S": { "tag": "c:rods/wooden" }
   },
   "result": { "item": "dndweapons:heavy_crossbow", "count": 1 }

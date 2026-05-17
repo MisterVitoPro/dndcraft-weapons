@@ -1,9 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
-  "pattern": ["III", " S ", " S "],
+  "pattern": [
+    "III",
+    " S ",
+    " S "
+  ],
   "key": {
-    "I": { "tag": "c:ingots/iron" },
-    "S": { "tag": "c:rods/wooden" }
+    "I": "#c:ingots/iron",
+    "S": "#c:rods/wooden"
   },
-  "result": { "id": "dndweapons:warhammer", "count": 1 }
+  "result": {
+    "id": "dndweapons:warhammer",
+    "count": 1
+  }
 }
