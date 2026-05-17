@@ -1,0 +1,211 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/superpowers/plans/2026-05-16-dnd-weapons-phase-2a-3-mojang-naming.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Task 1: Switch root build.gradle.kts mappings to Mojang for 1.20.1-1.21.11, intermediary stub for 26.x",
+          "task_excerpt_lines": "48-86",
+          "owned_files": [
+            "build.gradle.kts"
+          ],
+          "acceptance_criteria": [
+            "mappings(...) block replaced with conditional logic for Mojang (1.20.1-1.21.11) vs intermediary (26.x)",
+            "1.21.4 compiles with Mojang mappings active (expected to fail with Unresolved reference errors for Yarn imports)",
+            "Changes committed with message 'phase-2a-3: switch mappings from yarn to Mojang for 1.20.1-1.21.11'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Task 2: Convert DndWeaponsMod.kt to Mojang naming with per-version forks",
+          "task_excerpt_lines": "89-218",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/DndWeaponsMod.kt"
+          ],
+          "acceptance_criteria": [
+            "All Yarn imports replaced with Mojang equivalents (ItemGroup→CreativeModeTab, Text→Component, etc.)",
+            "ResourceLocation aliased as Identifier for 1.21.11+ via //? conditional import",
+            "rl() helper function includes per-version fork for ResourceLocation constructor vs fromNamespaceAndPath",
+            "1.21.4 compiles successfully",
+            "Changes committed with message 'phase-2a-3: convert DndWeaponsMod to Mojang naming with per-version //? forks'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-2",
+          "task_title": "Task 3: Convert WeaponRegistrarImpl.kt to Mojang naming",
+          "task_excerpt_lines": "222-279",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt"
+          ],
+          "acceptance_criteria": [
+            "Imports updated from net.minecraft.registry.* to net.minecraft.core.registries.* and net.minecraft.resources.*",
+            "ResourceLocation aliased for 1.21.11+ compatibility",
+            "Item.Properties.setId(itemKey) applied only for 1.21.2+ via //? directive",
+            "All references use BuiltInRegistries and Registry from new packages",
+            "Changes committed with message 'phase-2a-3: convert WeaponRegistrarImpl to Mojang naming'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-3",
+          "task_title": "Task 4: Convert AttributeCompat.kt to Mojang naming with full Epoch A/C fork",
+          "task_excerpt_lines": "283-428",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/compat/AttributeCompat.kt"
+          ],
+          "acceptance_criteria": [
+            "Epoch C (1.20.5+) path uses DataComponents.ATTRIBUTE_MODIFIERS with ItemAttributeModifiers builder",
+            "Epoch A (<1.20.5) path cached via UUID-keyed modifiers with AttributeModifier.Operation.ADDITION",
+            "Attribute names conditional: ATTACK_DAMAGE/ATTACK_SPEED (1.21.2+) vs GENERIC_ATTACK_DAMAGE/GENERIC_ATTACK_SPEED (<1.21.2)",
+            "ResourceLocation.fromNamespaceAndPath used for modifier IDs (1.20.5+ only)",
+            "EquipmentSlotGroup.MAINHAND applied (Epoch C only)",
+            "Changes committed with message 'phase-2a-3: convert AttributeCompat to Mojang naming with Epoch A/C //? fork'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-4",
+          "task_title": "Task 5: Convert DndWeaponItem.kt to Mojang naming",
+          "task_excerpt_lines": "432-469",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/item/DndWeaponItem.kt"
+          ],
+          "acceptance_criteria": [
+            "Class extends Item with Properties parameter",
+            "AttributeCompat.storeFor(spec) called in init block",
+            "getAttributeModifiers override active only for <1.20.5 via //? directive",
+            "Override returns Multimap<Attribute, AttributeModifier> via AttributeCompat.modifiersFor",
+            "Changes committed with message 'phase-2a-3: convert DndWeaponItem to Mojang naming'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-5",
+          "task_title": "Task 6: Convert RegistrationGametest.kt to Mojang naming with fabric-gametest epoch fork",
+          "task_excerpt_lines": "473-556",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/RegistrationGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "Pre-1.21.5 path implements FabricGameTest, uses @GameTest(template=...), takes GameTestHelper, calls ctx.succeed()",
+            "1.21.5+ path has no FabricGameTest interface, uses @GameTest(structure=...) from Fabric, takes GameTestHelper",
+            "longswordIsRegistered test checks weapon registration by comparing against air",
+            "makeRl helper includes ResourceLocation constructor vs fromNamespaceAndPath fork",
+            "ResourceLocation aliased for 1.21.11+",
+            "Changes committed with message 'phase-2a-3: convert RegistrationGametest to Mojang naming, fabric-gametest epoch fork'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {
+          "agent_id": "wave-3-agent-1",
+          "task_title": "Task 7: Verify 1.21.4 end-to-end (smoke test)",
+          "task_excerpt_lines": "560-576",
+          "owned_files": [
+            "docs/plan-runner-out/phase-2a-3-smoke-1.21.4.md"
+          ],
+          "acceptance_criteria": [
+            "./gradlew :1.21.4:build passes",
+            "./gradlew :1.21.4:test passes",
+            "./gradlew :1.21.4:runGametest passes",
+            "If any failures surface, apply inline fixes to .kt source files and document in smoke report",
+            "Smoke report created documenting build/test/gametest results with timestamps and any fixes applied",
+            "Report and fixes committed"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {
+          "agent_id": "wave-4-agent-1",
+          "task_title": "Task 8/9/10: Verify 1.21.1, 1.21.11, and 1.20.1 per-version smoke tests",
+          "task_excerpt_lines": "580-636",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/DndWeaponsMod.kt",
+            "src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt",
+            "src/main/kotlin/com/dndweapons/compat/AttributeCompat.kt",
+            "src/main/kotlin/com/dndweapons/item/DndWeaponItem.kt",
+            "src/main/kotlin/com/dndweapons/test/RegistrationGametest.kt",
+            "docs/plan-runner-out/phase-2a-3-smoke-1.21.1.md",
+            "docs/plan-runner-out/phase-2a-3-smoke-1.21.11.md",
+            "docs/plan-runner-out/phase-2a-3-smoke-1.20.1.md"
+          ],
+          "acceptance_criteria": [
+            "Task 8 (1.21.1): ./gradlew :1.21.1:build :1.21.1:test :1.21.1:runGametest all pass; GENERIC_ATTACK_DAMAGE attribute names verified; no Item.Properties.setId applied",
+            "Task 9 (1.21.11): ./gradlew :1.21.11:build :1.21.11:test :1.21.11:runGametest all pass; Identifier alias import fires correctly; fabric-gametest v3 directives activate; BuiltInRegistries.ITEM.get return type verified",
+            "Task 10 (1.20.1): ./gradlew :1.20.1:build :1.20.1:test :1.20.1:runGametest all pass; Epoch A (old attributes API) path activates; ResourceLocation constructor (not fromNamespaceAndPath) activates; getAttributeModifiers override activates",
+            "Refinements committed per version with message 'phase-2a-3: refine //? directives for <version> specifics'",
+            "Three smoke reports created: phase-2a-3-smoke-1.21.1.md, phase-2a-3-smoke-1.21.11.md, phase-2a-3-smoke-1.20.1.md"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 5,
+      "agents": [
+        {
+          "agent_id": "wave-5-agent-1",
+          "task_title": "Task 11: Add 26.1.2 subproject",
+          "task_excerpt_lines": "639-699",
+          "owned_files": [
+            "settings.gradle.kts",
+            "versions/26.1.2/gradle.properties",
+            "build.gradle.kts"
+          ],
+          "acceptance_criteria": [
+            "versions/26.1.2/gradle.properties updated with minecraft_version=26.1.2, loader_version=0.18.4, fabric_version=0.144.0+26.1, flk_version=1.13.11+kotlin.2.3.21, java_release=25, and yarn_mappings line removed",
+            "settings.gradle.kts versions list updated to include 26.1.2",
+            "./gradlew 'Set active project to 26.1.2' successfully materializes subproject via Stonecutter",
+            "build.gradle.kts conditionals for 26.x Loom version and mappings stub configured (noIntermediateMappings or loom.version conditional)",
+            "JDK 25 daemon configured in root gradle.properties",
+            "./gradlew :26.1.2:build :26.1.2:test :26.1.2:runGametest all pass with per-version directive refinements applied",
+            "All changes committed with message 'phase-2a-3: add 26.1.2 subproject — Mojang naming + intermediary stub mappings'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 6,
+      "agents": [
+        {
+          "agent_id": "wave-6-agent-1",
+          "task_title": "Task 12: Final verification across all 5 versions",
+          "task_excerpt_lines": "702-741",
+          "owned_files": [
+            "docs/plan-runner-out/phase-2a-3-verification.md"
+          ],
+          "acceptance_criteria": [
+            "./gradlew chiseledBuild produces 5 jars (1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2)",
+            "Per-version sweep runs :test and :runGametest for all 5 versions with --rerun-tasks; all pass",
+            "Final verification report created with 5×3 PASS/FAIL matrix (5 versions × {build, test, runGametest})",
+            "Report includes per-cell notes for any inline fixes applied during per-version testing",
+            "Phase tagged: git tag -a phase-2a-3-mojang-naming with descriptive message",
+            "Tag pushed: git push origin phase-2a-3-mojang-naming",
+            "Verification report and tag committed and pushed to main: git commit -m 'phase-2a-3: final verification across 5 MC versions' && git push origin main"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}

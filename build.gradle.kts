@@ -31,7 +31,13 @@ repositories {
 
 dependencies {
     minecraft("com.mojang:minecraft:${property("minecraft_version")}")
-    mappings("net.fabricmc:yarn:${property("yarn_mappings")}:v2")
+    if ((property("minecraft_version") as String).startsWith("26.")) {
+        // MC 26.x: Mojang stopped obfuscating client.jar; intermediary 0.0.0 is the
+        // no-op stub from Fabric meta API (https://meta.fabricmc.net/v2/versions/intermediary/26.1.2).
+        mappings("net.fabricmc:intermediary:0.0.0:v2")
+    } else {
+        mappings(loom.officialMojangMappings())
+    }
     modImplementation("net.fabricmc:fabric-loader:${property("loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("fabric_version")}")
     modImplementation("net.fabricmc:fabric-language-kotlin:${property("flk_version")}")
