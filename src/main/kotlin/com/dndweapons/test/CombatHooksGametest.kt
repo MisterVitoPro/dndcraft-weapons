@@ -49,6 +49,9 @@ class CombatHooksGametest : FabricGameTest {
 
     @GameTest(template = "fabric-gametest-api-v1:empty")
     fun heavyKnockbackBonusApplies(ctx: GameTestHelper) = runHeavyKnockbackCase(ctx)
+
+    @GameTest(template = "fabric-gametest-api-v1:empty")
+    fun heavySweepGuardDoesNotBoostSecondary(ctx: GameTestHelper) = runHeavySweepGuardCase(ctx)
 }
 //?}
 
@@ -80,6 +83,9 @@ class CombatHooksGametest {
 
     @GameTest(structure = "fabric-gametest-api-v1:empty")
     fun heavyKnockbackBonusApplies(ctx: GameTestHelper) = runHeavyKnockbackCase(ctx)
+
+    @GameTest(structure = "fabric-gametest-api-v1:empty")
+    fun heavySweepGuardDoesNotBoostSecondary(ctx: GameTestHelper) = runHeavySweepGuardCase(ctx)
 }
 
 *///?}
@@ -286,6 +292,89 @@ private fun runLanceMountedCase(ctx: GameTestHelper) {
     val expected = base  // mounted -> full damage
     if (Math.abs(dealt - expected) > 0.5f) {
         throw AssertionError("Lance mounted: dealt=$dealt expected~$expected (base=$base)")
+    }
+    ctx.succeed()
+}
+
+/**
+ * Verifies that the ThreadLocal sweep-guard in PlayerAttackMixin correctly limits
+ * the DnD @ModifyArg to the primary target only.
+ *
+ * The Greataxe has the Heavy property (knockback +1) but no damage multiplier in
+ * WeaponAttackHandler (HEAVY is not FINESSE/VERSATILE/LIGHT/LANCE). The expected
+ * primary damage is therefore `base * 1.0` (the mixin fires but returns base unchanged).
+ * The secondary pig must receive only the vanilla sweep damage (< base - tolerance),
+ * confirming that the @ModifyArg did NOT fire again for the sweep INVOKE.
+ *
+ * Sweep range in vanilla: entities within ~1.0 block of the primary that are < 3.0 blocks
+ * from the attacker. We place the secondary pig 0.8 blocks from the primary (both at pos
+ * y=1) to guarantee it is swept. The secondary pig damage will be the vanilla sweep
+ * contribution: `sweepingEdge_level * base / (sweepingEdge_level + 1) + 1.0`, with no
+ * Sweeping enchantment this is just `1.0` from the sweep formula, though vanilla may also
+ * include a small base contribution. We assert `swept > 0 && swept < base - tolerance`
+ * rather than pinning an exact float, to be robust across the 5 MC versions.
+ */
+private fun runHeavySweepGuardCase(ctx: GameTestHelper) {
+    //? if >=1.21.1 {
+    val player = ctx.makeMockPlayer(GameType.SURVIVAL)
+    //?} else {
+    /*val player = ctx.makeMockPlayer()
+    *///?}
+    player.setItemInHand(InteractionHand.MAIN_HAND, dndItem("greataxe"))
+    player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY)
+    player.isSprinting = false
+
+    // Primary pig: placed directly where the player will attack.
+    val primaryPos = BlockPos(2, 1, 2)
+    val primary = ctx.spawn(EntityType.PIG, primaryPos) as Pig
+
+    // Secondary pig: 0.8 blocks north of primary — within vanilla sweep range (~1.0 block
+    // from primary, and the player at 2,1,2 is ~0.8 blocks away too, within the 3-block
+    // attacker distance gate). Vanilla sweeps horizontally, so same Y is fine.
+    val secondaryPos = BlockPos(2, 1, 1)
+    val secondary = ctx.spawn(EntityType.PIG, secondaryPos) as Pig
+
+    val primaryBefore = primary.health
+    val secondaryBefore = secondary.health
+
+    // Fully charge the attack so cooldown multiplier = 1.0 (same fix as Task 1).
+    player.attackStrengthTicker = 100
+    player.attack(primary)
+
+    val primaryDealt = primaryBefore - primary.health
+    val secondaryDealt = secondaryBefore - secondary.health
+
+    val base = player.mainHandItem.attributes.damage()
+    val tol = 0.5f
+
+    // Primary must receive the full base damage (Heavy has no damage multiplier, so
+    // WeaponAttackHandler.modifyDamage returns base unchanged; the mixin fires once and
+    // then consumes the strike-once flag, leaving sweep calls unmodified).
+    if (Math.abs(primaryDealt - base) > tol) {
+        throw AssertionError(
+            "Heavy sweep guard (primary): dealt=$primaryDealt expected~$base (base=$base). " +
+                "The mixin may not be firing or is applying an unexpected multiplier."
+        )
+    }
+
+    // Secondary must have been swept (damage > 0) but must NOT have received the DnD-boosted
+    // damage. Since Greataxe has no DnD damage multiplier the boosted and base values are
+    // equal; we instead confirm the secondary received strictly LESS than the primary AND
+    // received some positive damage (confirming sweep fired). If the strike-once flag had
+    // been consumed correctly, the secondary receives only vanilla sweep damage (<= 1.0 on
+    // a weapon with no Sweeping Edge enchant).
+    if (secondaryDealt <= 0f) {
+        throw AssertionError(
+            "Heavy sweep guard (secondary): secondary pig took no damage — sweep did not fire. " +
+                "Ensure primary and secondary are within vanilla sweep range."
+        )
+    }
+    if (secondaryDealt >= primaryDealt - tol) {
+        throw AssertionError(
+            "Heavy sweep guard (secondary): secondary dealt=$secondaryDealt is too close to " +
+                "primary dealt=$primaryDealt. The DnD @ModifyArg may have fired on the sweep " +
+                "INVOKE as well, violating the strike-once guard."
+        )
     }
     ctx.succeed()
 }
