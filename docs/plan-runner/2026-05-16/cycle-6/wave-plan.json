@@ -1,0 +1,414 @@
+{
+  "source_plan": "docs/superpowers/plans/2026-05-16-dnd-weapons-phase-2b-catalog-expansion.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Expand Weapons.kt to 38 WeaponSpec entries",
+          "task_excerpt_lines": "56-504",
+          "owned_files": ["src/main/kotlin/com/dndweapons/catalog/Weapons.kt"],
+          "acceptance_criteria": [
+            "Weapons.kt compiles with 38 val declarations and ALL list of 38 entries",
+            "4 vanilla-mapped specs have non-null vanillaRoleTag",
+            "34 registered specs have null vanillaRoleTag"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Expand WeaponsTest.kt with 9-method catalog assertions",
+          "task_excerpt_lines": "507-619",
+          "owned_files": ["src/test/kotlin/com/dndweapons/catalog/WeaponsTest.kt"],
+          "acceptance_criteria": [
+            "WeaponsTest.kt contains 9 test methods including allHasExpectedCount, registeredCount, vanillaMappedCount, allIdsAreUnique, categoryCountsMatch, vanillaMappedTagsValid, allExpectedIdsPresent, longswordIsPresentAndCorrect",
+            "File compiles against the WeaponSpec API"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Smoke-test 1.21.4 unit tests pass (verify only)",
+          "task_excerpt_lines": "623-641",
+          "owned_files": ["__verify_only_task_3__"],
+          "acceptance_criteria": [
+            "./gradlew :1.21.4:test reports BUILD SUCCESSFUL",
+            "13 tests pass (4 WeaponSpecTest + 9 WeaponsTest), 0 failures"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-2-agent-2",
+          "task_title": "Write Simple Melee recipes (10) + 1.20.1 overlays",
+          "task_excerpt_lines": "643-814",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/recipe/club.json",
+            "src/main/resources/data/dndweapons/recipe/dagger.json",
+            "src/main/resources/data/dndweapons/recipe/greatclub.json",
+            "src/main/resources/data/dndweapons/recipe/handaxe.json",
+            "src/main/resources/data/dndweapons/recipe/javelin.json",
+            "src/main/resources/data/dndweapons/recipe/light_hammer.json",
+            "src/main/resources/data/dndweapons/recipe/mace.json",
+            "src/main/resources/data/dndweapons/recipe/quarterstaff.json",
+            "src/main/resources/data/dndweapons/recipe/sickle.json",
+            "src/main/resources/data/dndweapons/recipe/spear.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/club.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/dagger.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/greatclub.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/handaxe.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/javelin.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/light_hammer.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/mace.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/quarterstaff.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/sickle.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/spear.json"
+          ],
+          "acceptance_criteria": [
+            "20 JSON files created (10 shared + 10 overlay)",
+            "Shared recipes use result.id key",
+            "Overlay recipes use result.item key",
+            "All 10 weapons covered: club, dagger, greatclub, handaxe, javelin, light_hammer, mace, quarterstaff, sickle, spear"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-3",
+          "task_title": "Write Simple Ranged recipes (dart, sling) + 1.20.1 overlays",
+          "task_excerpt_lines": "818-867",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/recipe/dart.json",
+            "src/main/resources/data/dndweapons/recipe/sling.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/dart.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/sling.json"
+          ],
+          "acceptance_criteria": [
+            "4 JSON files created (2 shared + 2 overlay)",
+            "dart recipe yields count 4",
+            "sling recipe uses c:string and c:leathers tags",
+            "Overlay files use result.item key"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-2-agent-4",
+          "task_title": "Write Martial Melee recipes (15) + 1.20.1 overlays",
+          "task_excerpt_lines": "871-1113",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/recipe/battleaxe.json",
+            "src/main/resources/data/dndweapons/recipe/flail.json",
+            "src/main/resources/data/dndweapons/recipe/glaive.json",
+            "src/main/resources/data/dndweapons/recipe/greataxe.json",
+            "src/main/resources/data/dndweapons/recipe/greatsword.json",
+            "src/main/resources/data/dndweapons/recipe/halberd.json",
+            "src/main/resources/data/dndweapons/recipe/lance.json",
+            "src/main/resources/data/dndweapons/recipe/maul.json",
+            "src/main/resources/data/dndweapons/recipe/morningstar.json",
+            "src/main/resources/data/dndweapons/recipe/pike.json",
+            "src/main/resources/data/dndweapons/recipe/rapier.json",
+            "src/main/resources/data/dndweapons/recipe/scimitar.json",
+            "src/main/resources/data/dndweapons/recipe/war_pick.json",
+            "src/main/resources/data/dndweapons/recipe/warhammer.json",
+            "src/main/resources/data/dndweapons/recipe/whip.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/battleaxe.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/flail.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/glaive.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/greataxe.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/greatsword.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/halberd.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/lance.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/maul.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/morningstar.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/pike.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/rapier.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/scimitar.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/war_pick.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/warhammer.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/whip.json"
+          ],
+          "acceptance_criteria": [
+            "30 JSON files created (15 shared + 15 overlay)",
+            "All 15 weapons covered: battleaxe, flail, glaive, greataxe, greatsword, halberd, lance, maul, morningstar, pike, rapier, scimitar, war_pick, warhammer, whip",
+            "Shared recipes use result.id; overlays use result.item",
+            "Greatsword pattern does not exceed 3 rows if MC validates max grid size"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-5",
+          "task_title": "Write Martial Ranged recipes (6) + 1.20.1 overlays",
+          "task_excerpt_lines": "1117-1225",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/recipe/blowgun.json",
+            "src/main/resources/data/dndweapons/recipe/hand_crossbow.json",
+            "src/main/resources/data/dndweapons/recipe/heavy_crossbow.json",
+            "src/main/resources/data/dndweapons/recipe/longbow.json",
+            "src/main/resources/data/dndweapons/recipe/musket.json",
+            "src/main/resources/data/dndweapons/recipe/pistol.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/blowgun.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/hand_crossbow.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/heavy_crossbow.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/longbow.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/musket.json",
+            "versions/1.20.1/src/main/resources/data/dndweapons/recipes/pistol.json"
+          ],
+          "acceptance_criteria": [
+            "12 JSON files created (6 shared + 6 overlay)",
+            "blowgun uses diagonal pattern to avoid conflict with quarterstaff",
+            "Overlay files use result.item key",
+            "All 6 weapons covered: blowgun, hand_crossbow, heavy_crossbow, longbow, musket, pistol"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-6",
+          "task_title": "Write 4 vanilla role tag JSONs",
+          "task_excerpt_lines": "1229-1275",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/tags/items/role/shortsword.json",
+            "src/main/resources/data/dndweapons/tags/items/role/shortbow.json",
+            "src/main/resources/data/dndweapons/tags/items/role/light_crossbow.json",
+            "src/main/resources/data/dndweapons/tags/items/role/trident.json"
+          ],
+          "acceptance_criteria": [
+            "4 tag JSON files created",
+            "shortsword.json lists all 6 vanilla sword variants",
+            "shortbow.json contains minecraft:bow",
+            "light_crossbow.json contains minecraft:crossbow",
+            "trident.json contains minecraft:trident"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {
+          "agent_id": "wave-3-agent-1",
+          "task_title": "Update en_us.json with 37 new lang entries",
+          "task_excerpt_lines": "1279-1344",
+          "owned_files": ["src/main/resources/assets/dndweapons/lang/en_us.json"],
+          "acceptance_criteria": [
+            "en_us.json contains 38 item.dndweapons.* entries (1 existing longsword + 37 new)",
+            "itemGroup.dndweapons.main entry preserved",
+            "All 37 new weapon IDs present as lang keys"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-3-agent-2",
+          "task_title": "Write 33 item model JSONs for registered weapons",
+          "task_excerpt_lines": "1348-1382",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/models/item/club.json",
+            "src/main/resources/assets/dndweapons/models/item/dagger.json",
+            "src/main/resources/assets/dndweapons/models/item/greatclub.json",
+            "src/main/resources/assets/dndweapons/models/item/handaxe.json",
+            "src/main/resources/assets/dndweapons/models/item/javelin.json",
+            "src/main/resources/assets/dndweapons/models/item/light_hammer.json",
+            "src/main/resources/assets/dndweapons/models/item/mace.json",
+            "src/main/resources/assets/dndweapons/models/item/quarterstaff.json",
+            "src/main/resources/assets/dndweapons/models/item/sickle.json",
+            "src/main/resources/assets/dndweapons/models/item/spear.json",
+            "src/main/resources/assets/dndweapons/models/item/dart.json",
+            "src/main/resources/assets/dndweapons/models/item/sling.json",
+            "src/main/resources/assets/dndweapons/models/item/battleaxe.json",
+            "src/main/resources/assets/dndweapons/models/item/flail.json",
+            "src/main/resources/assets/dndweapons/models/item/glaive.json",
+            "src/main/resources/assets/dndweapons/models/item/greataxe.json",
+            "src/main/resources/assets/dndweapons/models/item/greatsword.json",
+            "src/main/resources/assets/dndweapons/models/item/halberd.json",
+            "src/main/resources/assets/dndweapons/models/item/lance.json",
+            "src/main/resources/assets/dndweapons/models/item/maul.json",
+            "src/main/resources/assets/dndweapons/models/item/morningstar.json",
+            "src/main/resources/assets/dndweapons/models/item/pike.json",
+            "src/main/resources/assets/dndweapons/models/item/rapier.json",
+            "src/main/resources/assets/dndweapons/models/item/scimitar.json",
+            "src/main/resources/assets/dndweapons/models/item/war_pick.json",
+            "src/main/resources/assets/dndweapons/models/item/warhammer.json",
+            "src/main/resources/assets/dndweapons/models/item/whip.json",
+            "src/main/resources/assets/dndweapons/models/item/blowgun.json",
+            "src/main/resources/assets/dndweapons/models/item/hand_crossbow.json",
+            "src/main/resources/assets/dndweapons/models/item/heavy_crossbow.json",
+            "src/main/resources/assets/dndweapons/models/item/longbow.json",
+            "src/main/resources/assets/dndweapons/models/item/musket.json",
+            "src/main/resources/assets/dndweapons/models/item/pistol.json"
+          ],
+          "acceptance_criteria": [
+            "33 model JSON files created",
+            "Each model has parent minecraft:item/generated and textures.layer0 set to dndweapons:item/<id>",
+            "No model for vanilla-mapped weapons (shortsword, shortbow, light_crossbow, trident)",
+            "No duplicate of existing longsword model"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {
+          "agent_id": "wave-4-agent-1",
+          "task_title": "Per-version smoke before texture generation (5 MC versions)",
+          "task_excerpt_lines": "1385-1451",
+          "owned_files": ["docs/plan-runner-out/phase-2b-smoke-pre-textures.md"],
+          "acceptance_criteria": [
+            "chiseledBuild produces 5 jars",
+            "All 5 MC versions (1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2) pass :test and :runGametest",
+            "Smoke report written to docs/plan-runner-out/phase-2b-smoke-pre-textures.md",
+            "Active project reset to 1.21.4 after sweep"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 5,
+      "agents": [
+        {
+          "agent_id": "wave-5-agent-1",
+          "task_title": "Generate textures batch 1: club, dagger, greatclub, handaxe, javelin, light_hammer",
+          "task_excerpt_lines": "1463-1505",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/textures/item/club.png",
+            "src/main/resources/assets/dndweapons/textures/item/dagger.png",
+            "src/main/resources/assets/dndweapons/textures/item/greatclub.png",
+            "src/main/resources/assets/dndweapons/textures/item/handaxe.png",
+            "src/main/resources/assets/dndweapons/textures/item/javelin.png",
+            "src/main/resources/assets/dndweapons/textures/item/light_hammer.png"
+          ],
+          "acceptance_criteria": [
+            "6 PNG files exist and are non-zero bytes",
+            "Files are valid 16x16 pixel PNG images",
+            "Fallback to longsword.png used if agent fails for any weapon"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-5-agent-2",
+          "task_title": "Generate textures batch 2: mace, quarterstaff, sickle, spear, dart, sling",
+          "task_excerpt_lines": "1507-1529",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/textures/item/mace.png",
+            "src/main/resources/assets/dndweapons/textures/item/quarterstaff.png",
+            "src/main/resources/assets/dndweapons/textures/item/sickle.png",
+            "src/main/resources/assets/dndweapons/textures/item/spear.png",
+            "src/main/resources/assets/dndweapons/textures/item/dart.png",
+            "src/main/resources/assets/dndweapons/textures/item/sling.png"
+          ],
+          "acceptance_criteria": [
+            "6 PNG files exist and are non-zero bytes",
+            "Files are valid 16x16 pixel PNG images",
+            "Fallback to longsword.png used if agent fails for any weapon"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-5-agent-3",
+          "task_title": "Generate textures batch 3: battleaxe, flail, glaive, greataxe, greatsword, halberd",
+          "task_excerpt_lines": "1531-1552",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/textures/item/battleaxe.png",
+            "src/main/resources/assets/dndweapons/textures/item/flail.png",
+            "src/main/resources/assets/dndweapons/textures/item/glaive.png",
+            "src/main/resources/assets/dndweapons/textures/item/greataxe.png",
+            "src/main/resources/assets/dndweapons/textures/item/greatsword.png",
+            "src/main/resources/assets/dndweapons/textures/item/halberd.png"
+          ],
+          "acceptance_criteria": [
+            "6 PNG files exist and are non-zero bytes",
+            "Files are valid 16x16 pixel PNG images",
+            "Fallback to longsword.png used if agent fails for any weapon"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-5-agent-4",
+          "task_title": "Generate textures batch 4: lance, maul, morningstar, pike, rapier, scimitar",
+          "task_excerpt_lines": "1554-1575",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/textures/item/lance.png",
+            "src/main/resources/assets/dndweapons/textures/item/maul.png",
+            "src/main/resources/assets/dndweapons/textures/item/morningstar.png",
+            "src/main/resources/assets/dndweapons/textures/item/pike.png",
+            "src/main/resources/assets/dndweapons/textures/item/rapier.png",
+            "src/main/resources/assets/dndweapons/textures/item/scimitar.png"
+          ],
+          "acceptance_criteria": [
+            "6 PNG files exist and are non-zero bytes",
+            "Files are valid 16x16 pixel PNG images",
+            "Fallback to longsword.png used if agent fails for any weapon"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-5-agent-5",
+          "task_title": "Generate textures batch 5: war_pick, warhammer, whip, blowgun, hand_crossbow, heavy_crossbow",
+          "task_excerpt_lines": "1577-1598",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/textures/item/war_pick.png",
+            "src/main/resources/assets/dndweapons/textures/item/warhammer.png",
+            "src/main/resources/assets/dndweapons/textures/item/whip.png",
+            "src/main/resources/assets/dndweapons/textures/item/blowgun.png",
+            "src/main/resources/assets/dndweapons/textures/item/hand_crossbow.png",
+            "src/main/resources/assets/dndweapons/textures/item/heavy_crossbow.png"
+          ],
+          "acceptance_criteria": [
+            "6 PNG files exist and are non-zero bytes",
+            "Files are valid 16x16 pixel PNG images",
+            "Fallback to longsword.png used if agent fails for any weapon"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-5-agent-6",
+          "task_title": "Generate textures batch 6: longbow, musket, pistol",
+          "task_excerpt_lines": "1600-1618",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/textures/item/longbow.png",
+            "src/main/resources/assets/dndweapons/textures/item/musket.png",
+            "src/main/resources/assets/dndweapons/textures/item/pistol.png"
+          ],
+          "acceptance_criteria": [
+            "3 PNG files exist and are non-zero bytes",
+            "Files are valid 16x16 pixel PNG images",
+            "Fallback to longsword.png used if agent fails for any weapon"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 6,
+      "agents": [
+        {
+          "agent_id": "wave-6-agent-1",
+          "task_title": "Final 5-version verification and phase tag",
+          "task_excerpt_lines": "1622-1709",
+          "owned_files": ["docs/plan-runner-out/phase-2b-verification.md"],
+          "acceptance_criteria": [
+            "chiseledBuild produces 5 jars with expected larger sizes",
+            "All 5 MC versions pass :test (13/13) and :runGametest",
+            "phase-2b-verification.md written with full build-test-gametest matrix",
+            "Git tag phase-2b-catalog-expansion created",
+            "Changes pushed to origin/main"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": [
+    "File Inventory",
+    "Weapon ID Reference",
+    "Architecture (preamble)",
+    "Done"
+  ]
+}

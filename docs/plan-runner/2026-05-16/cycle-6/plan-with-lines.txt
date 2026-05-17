@@ -1,0 +1,1715 @@
+   1	# DnD Weapons — Phase 2b: Catalog Expansion to 38 Weapons
+   2	
+   3	> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. This plan is also consumable by `/plan-runner:run` directly.
+   4	
+   5	**Goal:** Expand `Weapons.kt` from 1 weapon (Longsword) to 38 — 34 registered + 4 vanilla-mapped role specs — and ship the corresponding crafting recipes, language strings, item models, vanilla role tags, and 16x16 textures (AI-generated via the `minecraft-asset-generator` agent) across all 5 MC versions.
+   6	
+   7	**Architecture:** Append 37 `val` declarations to the `Weapons` Kotlin `object` (data-only edit; `WeaponRegistrarImpl` already handles `isVanillaMapped` via early-return). For each of 33 newly-registered weapons, ship one shared recipe JSON (1.20.5+ schema) under `data/dndweapons/recipe/<id>.json` plus a 1.20.1-flavored overlay under `versions/1.20.1/src/main/resources/data/dndweapons/recipes/<id>.json` (plural folder + `"item"` result key), one model JSON, and one Gemini-generated 16x16 PNG texture. The 4 vanilla-mapped specs ship only a `WeaponSpec` entry + role tag JSON + lang entry — no recipe/model/texture, since they piggyback on vanilla items. `WeaponsTest.kt` expands to assert the full-catalog invariants.
+   8	
+   9	**Tech Stack:** Kotlin 2.3.21, Gradle 9.5.1, Fabric Loom 1.16.2, FLK 1.13.11+kotlin.2.3.21, JDK 25 daemon. No new dependencies; this phase is pure content + tests.
+  10	
+  11	**Predecessor:** [phase-2a-3-mojang-naming](2026-05-16-dnd-weapons-phase-2a-3-mojang-naming.md) — tagged `phase-2a-3-mojang-naming` on `origin/main`. 5-version build pipeline confirmed green.
+  12	
+  13	**Source-of-truth catalog:** [master design section 4](../specs/2026-05-16-dnd-weapons-design.md) — all `WeaponSpec(...)` values below are translated from that section's tables.
+  14	
+  15	---
+  16	
+  17	## File Inventory
+  18	
+  19	**Modified:**
+  20	```
+  21	src/main/kotlin/com/dndweapons/catalog/Weapons.kt          # 37 new vals + ALL list
+  22	src/test/kotlin/com/dndweapons/catalog/WeaponsTest.kt      # +7 test methods
+  23	src/main/resources/assets/dndweapons/lang/en_us.json       # +37 entries (33 registered + 4 vanilla-mapped)
+  24	```
+  25	
+  26	**Created (shared, 1.20.5+):**
+  27	```
+  28	src/main/resources/data/dndweapons/recipe/{club,dagger,greatclub,handaxe,javelin,light_hammer,mace,quarterstaff,sickle,spear,dart,sling,battleaxe,flail,glaive,greataxe,greatsword,halberd,lance,maul,morningstar,pike,rapier,scimitar,war_pick,warhammer,whip,blowgun,hand_crossbow,heavy_crossbow,longbow,musket,pistol}.json   # 33 recipes
+  29	src/main/resources/data/dndweapons/tags/items/role/{shortsword,shortbow,light_crossbow,trident}.json         # 4 role tags
+  30	src/main/resources/assets/dndweapons/models/item/{...33 ids...}.json                                          # 33 models
+  31	src/main/resources/assets/dndweapons/textures/item/{...33 ids...}.png                                         # 33 textures
+  32	```
+  33	
+  34	**Created (1.20.1 overlay):**
+  35	```
+  36	versions/1.20.1/src/main/resources/data/dndweapons/recipes/{...33 ids...}.json   # 33 overlay recipes
+  37	```
+  38	
+  39	**Total: ~140 file touches.**
+  40	
+  41	---
+  42	
+  43	## Weapon ID Reference (used throughout the plan)
+  44	
+  45	| Category | IDs (33 newly-registered + 4 vanilla-mapped) |
+  46	|---|---|
+  47	| Simple Melee (10 registered) | `club`, `dagger`, `greatclub`, `handaxe`, `javelin`, `light_hammer`, `mace`, `quarterstaff`, `sickle`, `spear` |
+  48	| Simple Ranged (2 registered) | `dart`, `sling` |
+  49	| Simple Ranged (2 vanilla-mapped) | `shortbow`, `light_crossbow` |
+  50	| Martial Melee (15 newly-registered; `longsword` already exists) | `battleaxe`, `flail`, `glaive`, `greataxe`, `greatsword`, `halberd`, `lance`, `maul`, `morningstar`, `pike`, `rapier`, `scimitar`, `war_pick`, `warhammer`, `whip` |
+  51	| Martial Melee (2 vanilla-mapped) | `shortsword`, `trident` |
+  52	| Martial Ranged (6 registered) | `blowgun`, `hand_crossbow`, `heavy_crossbow`, `longbow`, `musket`, `pistol` |
+  53	
+  54	---
+  55	
+  56	## Task 1: Append 37 new WeaponSpec entries to `Weapons.kt`
+  57	
+  58	**Files:**
+  59	- Modify: `src/main/kotlin/com/dndweapons/catalog/Weapons.kt`
+  60	
+  61	- [ ] **Step 1: Replace `Weapons.kt` content with the full catalog**
+  62	
+  63	The file currently has only `LONGSWORD` and `ALL = listOf(LONGSWORD)`. Replace with the expanded version below.
+  64	
+  65	Full file content for `src/main/kotlin/com/dndweapons/catalog/Weapons.kt`:
+  66	
+  67	```kotlin
+  68	package com.dndweapons.catalog
+  69	
+  70	/**
+  71	 * Source of truth for the entire weapon catalog. 38 PHB weapons total:
+  72	 * 34 registered + 4 vanilla-mapped (Shortsword, Shortbow, Light Crossbow, Trident).
+  73	 *
+  74	 * Values translated from master design section 4
+  75	 * (docs/superpowers/specs/2026-05-16-dnd-weapons-design.md).
+  76	 *
+  77	 * Conventions:
+  78	 * - attackDamage = round(dice_average + 1.5); calibrated so 1d8 = 6 (vanilla iron sword).
+  79	 * - versatileBonus = attackDamage delta when wielded two-handed (versatile property).
+  80	 * - attackSpeed: 1.8 very fast / 1.6 fast / 1.5 normal / 1.0 polearm / 0.9 heavy.
+  81	 *   Ranged weapons use 1.5 placeholder; vanilla draw mechanics override at runtime.
+  82	 * - reachBonus: 1.0 for Reach property weapons (polearms + whip), 0.0 otherwise.
+  83	 * - knockbackBonus: 1 for Heavy property weapons, 0 otherwise.
+  84	 * - baseDurability: 250 (iron-tier baseline) for all.
+  85	 */
+  86	object Weapons {
+  87	
+  88	    // ===== Simple Melee (10) =====
+  89	
+  90	    val CLUB = WeaponSpec(
+  91	        id = "club", displayName = "Club",
+  92	        category = Category.SIMPLE_MELEE, damageType = DamageType.BLUDGEONING,
+  93	        diceText = "1d4", versatileDice = null,
+  94	        attackDamage = 4, versatileBonus = 0,
+  95	        attackSpeed = 1.6f, reachBonus = 0.0f, knockbackBonus = 0,
+  96	        properties = setOf(Property.LIGHT),
+  97	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+  98	    )
+  99	
+ 100	    val DAGGER = WeaponSpec(
+ 101	        id = "dagger", displayName = "Dagger",
+ 102	        category = Category.SIMPLE_MELEE, damageType = DamageType.PIERCING,
+ 103	        diceText = "1d4", versatileDice = null,
+ 104	        attackDamage = 4, versatileBonus = 0,
+ 105	        attackSpeed = 1.8f, reachBonus = 0.0f, knockbackBonus = 0,
+ 106	        properties = setOf(Property.LIGHT, Property.THROWN),
+ 107	        ranged = RangeKind.THROWN, baseDurability = 250, vanillaRoleTag = null,
+ 108	    )
+ 109	
+ 110	    val GREATCLUB = WeaponSpec(
+ 111	        id = "greatclub", displayName = "Greatclub",
+ 112	        category = Category.SIMPLE_MELEE, damageType = DamageType.BLUDGEONING,
+ 113	        diceText = "1d8", versatileDice = null,
+ 114	        attackDamage = 6, versatileBonus = 0,
+ 115	        attackSpeed = 0.9f, reachBonus = 0.0f, knockbackBonus = 0,
+ 116	        properties = setOf(Property.TWO_HANDED),
+ 117	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 118	    )
+ 119	
+ 120	    val HANDAXE = WeaponSpec(
+ 121	        id = "handaxe", displayName = "Handaxe",
+ 122	        category = Category.SIMPLE_MELEE, damageType = DamageType.SLASHING,
+ 123	        diceText = "1d6", versatileDice = null,
+ 124	        attackDamage = 5, versatileBonus = 0,
+ 125	        attackSpeed = 1.6f, reachBonus = 0.0f, knockbackBonus = 0,
+ 126	        properties = setOf(Property.LIGHT, Property.THROWN),
+ 127	        ranged = RangeKind.THROWN, baseDurability = 250, vanillaRoleTag = null,
+ 128	    )
+ 129	
+ 130	    val JAVELIN = WeaponSpec(
+ 131	        id = "javelin", displayName = "Javelin",
+ 132	        category = Category.SIMPLE_MELEE, damageType = DamageType.PIERCING,
+ 133	        diceText = "1d6", versatileDice = null,
+ 134	        attackDamage = 5, versatileBonus = 0,
+ 135	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 136	        properties = setOf(Property.THROWN),
+ 137	        ranged = RangeKind.THROWN, baseDurability = 250, vanillaRoleTag = null,
+ 138	    )
+ 139	
+ 140	    val LIGHT_HAMMER = WeaponSpec(
+ 141	        id = "light_hammer", displayName = "Light Hammer",
+ 142	        category = Category.SIMPLE_MELEE, damageType = DamageType.BLUDGEONING,
+ 143	        diceText = "1d4", versatileDice = null,
+ 144	        attackDamage = 4, versatileBonus = 0,
+ 145	        attackSpeed = 1.6f, reachBonus = 0.0f, knockbackBonus = 0,
+ 146	        properties = setOf(Property.LIGHT, Property.THROWN),
+ 147	        ranged = RangeKind.THROWN, baseDurability = 250, vanillaRoleTag = null,
+ 148	    )
+ 149	
+ 150	    val MACE = WeaponSpec(
+ 151	        id = "mace", displayName = "Mace",
+ 152	        category = Category.SIMPLE_MELEE, damageType = DamageType.BLUDGEONING,
+ 153	        diceText = "1d6", versatileDice = null,
+ 154	        attackDamage = 5, versatileBonus = 0,
+ 155	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 156	        properties = emptySet(),
+ 157	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 158	    )
+ 159	
+ 160	    val QUARTERSTAFF = WeaponSpec(
+ 161	        id = "quarterstaff", displayName = "Quarterstaff",
+ 162	        category = Category.SIMPLE_MELEE, damageType = DamageType.BLUDGEONING,
+ 163	        diceText = "1d6", versatileDice = "1d8",
+ 164	        attackDamage = 5, versatileBonus = 1,
+ 165	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 166	        properties = setOf(Property.VERSATILE),
+ 167	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 168	    )
+ 169	
+ 170	    val SICKLE = WeaponSpec(
+ 171	        id = "sickle", displayName = "Sickle",
+ 172	        category = Category.SIMPLE_MELEE, damageType = DamageType.SLASHING,
+ 173	        diceText = "1d4", versatileDice = null,
+ 174	        attackDamage = 4, versatileBonus = 0,
+ 175	        attackSpeed = 1.8f, reachBonus = 0.0f, knockbackBonus = 0,
+ 176	        properties = setOf(Property.LIGHT),
+ 177	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 178	    )
+ 179	
+ 180	    val SPEAR = WeaponSpec(
+ 181	        id = "spear", displayName = "Spear",
+ 182	        category = Category.SIMPLE_MELEE, damageType = DamageType.PIERCING,
+ 183	        diceText = "1d6", versatileDice = "1d8",
+ 184	        attackDamage = 5, versatileBonus = 1,
+ 185	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 186	        properties = setOf(Property.THROWN, Property.VERSATILE),
+ 187	        ranged = RangeKind.THROWN, baseDurability = 250, vanillaRoleTag = null,
+ 188	    )
+ 189	
+ 190	    // ===== Simple Ranged (4: 2 registered, 2 vanilla-mapped) =====
+ 191	
+ 192	    val DART = WeaponSpec(
+ 193	        id = "dart", displayName = "Dart",
+ 194	        category = Category.SIMPLE_RANGED, damageType = DamageType.PIERCING,
+ 195	        diceText = "1d4", versatileDice = null,
+ 196	        attackDamage = 4, versatileBonus = 0,
+ 197	        attackSpeed = 1.8f, reachBonus = 0.0f, knockbackBonus = 0,
+ 198	        properties = setOf(Property.FINESSE, Property.THROWN),
+ 199	        ranged = RangeKind.THROWN, baseDurability = 250, vanillaRoleTag = null,
+ 200	    )
+ 201	
+ 202	    val SLING = WeaponSpec(
+ 203	        id = "sling", displayName = "Sling",
+ 204	        category = Category.SIMPLE_RANGED, damageType = DamageType.BLUDGEONING,
+ 205	        diceText = "1d4", versatileDice = null,
+ 206	        attackDamage = 4, versatileBonus = 0,
+ 207	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 208	        properties = setOf(Property.AMMUNITION),
+ 209	        ranged = RangeKind.SLING, baseDurability = 250, vanillaRoleTag = null,
+ 210	    )
+ 211	
+ 212	    val SHORTBOW = WeaponSpec(
+ 213	        id = "shortbow", displayName = "Shortbow",
+ 214	        category = Category.SIMPLE_RANGED, damageType = DamageType.PIERCING,
+ 215	        diceText = "1d6", versatileDice = null,
+ 216	        attackDamage = 5, versatileBonus = 0,
+ 217	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 218	        properties = setOf(Property.TWO_HANDED),
+ 219	        ranged = RangeKind.BOW, baseDurability = 250,
+ 220	        vanillaRoleTag = "dndweapons:role/shortbow",
+ 221	    )
+ 222	
+ 223	    val LIGHT_CROSSBOW = WeaponSpec(
+ 224	        id = "light_crossbow", displayName = "Light Crossbow",
+ 225	        category = Category.SIMPLE_RANGED, damageType = DamageType.PIERCING,
+ 226	        diceText = "1d8", versatileDice = null,
+ 227	        attackDamage = 6, versatileBonus = 0,
+ 228	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 229	        properties = setOf(Property.LOADING, Property.TWO_HANDED),
+ 230	        ranged = RangeKind.CROSSBOW, baseDurability = 250,
+ 231	        vanillaRoleTag = "dndweapons:role/light_crossbow",
+ 232	    )
+ 233	
+ 234	    // ===== Martial Melee (18: 16 registered (incl. existing Longsword), 2 vanilla-mapped) =====
+ 235	
+ 236	    val LONGSWORD = WeaponSpec(
+ 237	        id = "longsword", displayName = "Longsword",
+ 238	        category = Category.MARTIAL_MELEE, damageType = DamageType.SLASHING,
+ 239	        diceText = "1d8", versatileDice = "1d10",
+ 240	        attackDamage = 6, versatileBonus = 1,
+ 241	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 242	        properties = setOf(Property.VERSATILE),
+ 243	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 244	    )
+ 245	
+ 246	    val BATTLEAXE = WeaponSpec(
+ 247	        id = "battleaxe", displayName = "Battleaxe",
+ 248	        category = Category.MARTIAL_MELEE, damageType = DamageType.SLASHING,
+ 249	        diceText = "1d8", versatileDice = "1d10",
+ 250	        attackDamage = 6, versatileBonus = 1,
+ 251	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 252	        properties = setOf(Property.VERSATILE),
+ 253	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 254	    )
+ 255	
+ 256	    val FLAIL = WeaponSpec(
+ 257	        id = "flail", displayName = "Flail",
+ 258	        category = Category.MARTIAL_MELEE, damageType = DamageType.BLUDGEONING,
+ 259	        diceText = "1d8", versatileDice = null,
+ 260	        attackDamage = 6, versatileBonus = 0,
+ 261	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 262	        properties = emptySet(),
+ 263	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 264	    )
+ 265	
+ 266	    val GLAIVE = WeaponSpec(
+ 267	        id = "glaive", displayName = "Glaive",
+ 268	        category = Category.MARTIAL_MELEE, damageType = DamageType.SLASHING,
+ 269	        diceText = "1d10", versatileDice = null,
+ 270	        attackDamage = 7, versatileBonus = 0,
+ 271	        attackSpeed = 1.0f, reachBonus = 1.0f, knockbackBonus = 1,
+ 272	        properties = setOf(Property.HEAVY, Property.REACH, Property.TWO_HANDED),
+ 273	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 274	    )
+ 275	
+ 276	    val GREATAXE = WeaponSpec(
+ 277	        id = "greataxe", displayName = "Greataxe",
+ 278	        category = Category.MARTIAL_MELEE, damageType = DamageType.SLASHING,
+ 279	        diceText = "1d12", versatileDice = null,
+ 280	        attackDamage = 8, versatileBonus = 0,
+ 281	        attackSpeed = 0.9f, reachBonus = 0.0f, knockbackBonus = 1,
+ 282	        properties = setOf(Property.HEAVY, Property.TWO_HANDED),
+ 283	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 284	    )
+ 285	
+ 286	    val GREATSWORD = WeaponSpec(
+ 287	        id = "greatsword", displayName = "Greatsword",
+ 288	        category = Category.MARTIAL_MELEE, damageType = DamageType.SLASHING,
+ 289	        diceText = "2d6", versatileDice = null,
+ 290	        attackDamage = 9, versatileBonus = 0,
+ 291	        attackSpeed = 0.9f, reachBonus = 0.0f, knockbackBonus = 1,
+ 292	        properties = setOf(Property.HEAVY, Property.TWO_HANDED),
+ 293	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 294	    )
+ 295	
+ 296	    val HALBERD = WeaponSpec(
+ 297	        id = "halberd", displayName = "Halberd",
+ 298	        category = Category.MARTIAL_MELEE, damageType = DamageType.SLASHING,
+ 299	        diceText = "1d10", versatileDice = null,
+ 300	        attackDamage = 7, versatileBonus = 0,
+ 301	        attackSpeed = 1.0f, reachBonus = 1.0f, knockbackBonus = 1,
+ 302	        properties = setOf(Property.HEAVY, Property.REACH, Property.TWO_HANDED),
+ 303	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 304	    )
+ 305	
+ 306	    val LANCE = WeaponSpec(
+ 307	        id = "lance", displayName = "Lance",
+ 308	        category = Category.MARTIAL_MELEE, damageType = DamageType.PIERCING,
+ 309	        diceText = "1d10", versatileDice = null,
+ 310	        attackDamage = 7, versatileBonus = 0,
+ 311	        attackSpeed = 1.0f, reachBonus = 1.0f, knockbackBonus = 1,
+ 312	        properties = setOf(Property.HEAVY, Property.REACH, Property.TWO_HANDED, Property.SPECIAL_LANCE),
+ 313	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 314	    )
+ 315	
+ 316	    val MAUL = WeaponSpec(
+ 317	        id = "maul", displayName = "Maul",
+ 318	        category = Category.MARTIAL_MELEE, damageType = DamageType.BLUDGEONING,
+ 319	        diceText = "2d6", versatileDice = null,
+ 320	        attackDamage = 9, versatileBonus = 0,
+ 321	        attackSpeed = 0.9f, reachBonus = 0.0f, knockbackBonus = 1,
+ 322	        properties = setOf(Property.HEAVY, Property.TWO_HANDED),
+ 323	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 324	    )
+ 325	
+ 326	    val MORNINGSTAR = WeaponSpec(
+ 327	        id = "morningstar", displayName = "Morningstar",
+ 328	        category = Category.MARTIAL_MELEE, damageType = DamageType.PIERCING,
+ 329	        diceText = "1d8", versatileDice = null,
+ 330	        attackDamage = 6, versatileBonus = 0,
+ 331	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 332	        properties = emptySet(),
+ 333	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 334	    )
+ 335	
+ 336	    val PIKE = WeaponSpec(
+ 337	        id = "pike", displayName = "Pike",
+ 338	        category = Category.MARTIAL_MELEE, damageType = DamageType.PIERCING,
+ 339	        diceText = "1d10", versatileDice = null,
+ 340	        attackDamage = 7, versatileBonus = 0,
+ 341	        attackSpeed = 1.0f, reachBonus = 1.0f, knockbackBonus = 1,
+ 342	        properties = setOf(Property.HEAVY, Property.REACH, Property.TWO_HANDED),
+ 343	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 344	    )
+ 345	
+ 346	    val RAPIER = WeaponSpec(
+ 347	        id = "rapier", displayName = "Rapier",
+ 348	        category = Category.MARTIAL_MELEE, damageType = DamageType.PIERCING,
+ 349	        diceText = "1d8", versatileDice = null,
+ 350	        attackDamage = 6, versatileBonus = 0,
+ 351	        attackSpeed = 1.6f, reachBonus = 0.0f, knockbackBonus = 0,
+ 352	        properties = setOf(Property.FINESSE),
+ 353	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 354	    )
+ 355	
+ 356	    val SCIMITAR = WeaponSpec(
+ 357	        id = "scimitar", displayName = "Scimitar",
+ 358	        category = Category.MARTIAL_MELEE, damageType = DamageType.SLASHING,
+ 359	        diceText = "1d6", versatileDice = null,
+ 360	        attackDamage = 5, versatileBonus = 0,
+ 361	        attackSpeed = 1.8f, reachBonus = 0.0f, knockbackBonus = 0,
+ 362	        properties = setOf(Property.FINESSE, Property.LIGHT),
+ 363	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 364	    )
+ 365	
+ 366	    val SHORTSWORD = WeaponSpec(
+ 367	        id = "shortsword", displayName = "Shortsword",
+ 368	        category = Category.MARTIAL_MELEE, damageType = DamageType.PIERCING,
+ 369	        diceText = "1d6", versatileDice = null,
+ 370	        attackDamage = 5, versatileBonus = 0,
+ 371	        attackSpeed = 1.8f, reachBonus = 0.0f, knockbackBonus = 0,
+ 372	        properties = setOf(Property.FINESSE, Property.LIGHT),
+ 373	        ranged = RangeKind.NONE, baseDurability = 250,
+ 374	        vanillaRoleTag = "dndweapons:role/shortsword",
+ 375	    )
+ 376	
+ 377	    val TRIDENT = WeaponSpec(
+ 378	        id = "trident", displayName = "Trident",
+ 379	        category = Category.MARTIAL_MELEE, damageType = DamageType.PIERCING,
+ 380	        diceText = "1d8", versatileDice = "1d10",
+ 381	        attackDamage = 6, versatileBonus = 1,
+ 382	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 383	        properties = setOf(Property.THROWN, Property.VERSATILE),
+ 384	        ranged = RangeKind.THROWN, baseDurability = 250,
+ 385	        vanillaRoleTag = "dndweapons:role/trident",
+ 386	    )
+ 387	
+ 388	    val WAR_PICK = WeaponSpec(
+ 389	        id = "war_pick", displayName = "War Pick",
+ 390	        category = Category.MARTIAL_MELEE, damageType = DamageType.PIERCING,
+ 391	        diceText = "1d8", versatileDice = null,
+ 392	        attackDamage = 6, versatileBonus = 0,
+ 393	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 394	        properties = emptySet(),
+ 395	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 396	    )
+ 397	
+ 398	    val WARHAMMER = WeaponSpec(
+ 399	        id = "warhammer", displayName = "Warhammer",
+ 400	        category = Category.MARTIAL_MELEE, damageType = DamageType.BLUDGEONING,
+ 401	        diceText = "1d8", versatileDice = "1d10",
+ 402	        attackDamage = 6, versatileBonus = 1,
+ 403	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 404	        properties = setOf(Property.VERSATILE),
+ 405	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 406	    )
+ 407	
+ 408	    val WHIP = WeaponSpec(
+ 409	        id = "whip", displayName = "Whip",
+ 410	        category = Category.MARTIAL_MELEE, damageType = DamageType.SLASHING,
+ 411	        diceText = "1d4", versatileDice = null,
+ 412	        attackDamage = 4, versatileBonus = 0,
+ 413	        attackSpeed = 1.8f, reachBonus = 1.0f, knockbackBonus = 0,
+ 414	        properties = setOf(Property.FINESSE, Property.REACH),
+ 415	        ranged = RangeKind.NONE, baseDurability = 250, vanillaRoleTag = null,
+ 416	    )
+ 417	
+ 418	    // ===== Martial Ranged (6) =====
+ 419	
+ 420	    val BLOWGUN = WeaponSpec(
+ 421	        id = "blowgun", displayName = "Blowgun",
+ 422	        category = Category.MARTIAL_RANGED, damageType = DamageType.PIERCING,
+ 423	        diceText = "1", versatileDice = null,
+ 424	        attackDamage = 2, versatileBonus = 0,
+ 425	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 426	        properties = setOf(Property.LOADING),
+ 427	        ranged = RangeKind.BLOWGUN, baseDurability = 250, vanillaRoleTag = null,
+ 428	    )
+ 429	
+ 430	    val HAND_CROSSBOW = WeaponSpec(
+ 431	        id = "hand_crossbow", displayName = "Hand Crossbow",
+ 432	        category = Category.MARTIAL_RANGED, damageType = DamageType.PIERCING,
+ 433	        diceText = "1d6", versatileDice = null,
+ 434	        attackDamage = 5, versatileBonus = 0,
+ 435	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 436	        properties = setOf(Property.LIGHT, Property.LOADING),
+ 437	        ranged = RangeKind.CROSSBOW, baseDurability = 250, vanillaRoleTag = null,
+ 438	    )
+ 439	
+ 440	    val HEAVY_CROSSBOW = WeaponSpec(
+ 441	        id = "heavy_crossbow", displayName = "Heavy Crossbow",
+ 442	        category = Category.MARTIAL_RANGED, damageType = DamageType.PIERCING,
+ 443	        diceText = "1d10", versatileDice = null,
+ 444	        attackDamage = 7, versatileBonus = 0,
+ 445	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 1,
+ 446	        properties = setOf(Property.HEAVY, Property.LOADING, Property.TWO_HANDED),
+ 447	        ranged = RangeKind.CROSSBOW, baseDurability = 250, vanillaRoleTag = null,
+ 448	    )
+ 449	
+ 450	    val LONGBOW = WeaponSpec(
+ 451	        id = "longbow", displayName = "Longbow",
+ 452	        category = Category.MARTIAL_RANGED, damageType = DamageType.PIERCING,
+ 453	        diceText = "1d8", versatileDice = null,
+ 454	        attackDamage = 6, versatileBonus = 0,
+ 455	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 1,
+ 456	        properties = setOf(Property.HEAVY, Property.TWO_HANDED),
+ 457	        ranged = RangeKind.BOW, baseDurability = 250, vanillaRoleTag = null,
+ 458	    )
+ 459	
+ 460	    val MUSKET = WeaponSpec(
+ 461	        id = "musket", displayName = "Musket",
+ 462	        category = Category.MARTIAL_RANGED, damageType = DamageType.PIERCING,
+ 463	        diceText = "1d12", versatileDice = null,
+ 464	        attackDamage = 8, versatileBonus = 0,
+ 465	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 466	        properties = setOf(Property.LOADING, Property.TWO_HANDED),
+ 467	        ranged = RangeKind.FIREARM, baseDurability = 250, vanillaRoleTag = null,
+ 468	    )
+ 469	
+ 470	    val PISTOL = WeaponSpec(
+ 471	        id = "pistol", displayName = "Pistol",
+ 472	        category = Category.MARTIAL_RANGED, damageType = DamageType.PIERCING,
+ 473	        diceText = "1d10", versatileDice = null,
+ 474	        attackDamage = 7, versatileBonus = 0,
+ 475	        attackSpeed = 1.5f, reachBonus = 0.0f, knockbackBonus = 0,
+ 476	        properties = setOf(Property.LOADING),
+ 477	        ranged = RangeKind.FIREARM, baseDurability = 250, vanillaRoleTag = null,
+ 478	    )
+ 479	
+ 480	    // ===== Catalog list (38 entries) =====
+ 481	
+ 482	    val ALL: List<WeaponSpec> = listOf(
+ 483	        // Simple Melee (10)
+ 484	        CLUB, DAGGER, GREATCLUB, HANDAXE, JAVELIN,
+ 485	        LIGHT_HAMMER, MACE, QUARTERSTAFF, SICKLE, SPEAR,
+ 486	        // Simple Ranged (4)
+ 487	        DART, SLING, SHORTBOW, LIGHT_CROSSBOW,
+ 488	        // Martial Melee (18)
+ 489	        LONGSWORD, BATTLEAXE, FLAIL, GLAIVE, GREATAXE, GREATSWORD,
+ 490	        HALBERD, LANCE, MAUL, MORNINGSTAR, PIKE, RAPIER, SCIMITAR,
+ 491	        SHORTSWORD, TRIDENT, WAR_PICK, WARHAMMER, WHIP,
+ 492	        // Martial Ranged (6)
+ 493	        BLOWGUN, HAND_CROSSBOW, HEAVY_CROSSBOW, LONGBOW, MUSKET, PISTOL,
+ 494	    )
+ 495	}
+ 496	```
+ 497	
+ 498	- [ ] **Step 2: Commit**
+ 499	
+ 500	```bash
+ 501	git add src/main/kotlin/com/dndweapons/catalog/Weapons.kt
+ 502	git commit -m "feat(phase-2b): expand Weapons catalog to 38 specs (34 registered + 4 vanilla-mapped)"
+ 503	```
+ 504	
+ 505	---
+ 506	
+ 507	## Task 2: Expand `WeaponsTest.kt` with full-catalog assertions
+ 508	
+ 509	**Files:**
+ 510	- Modify: `src/test/kotlin/com/dndweapons/catalog/WeaponsTest.kt`
+ 511	
+ 512	- [ ] **Step 1: Replace test file with expanded assertions**
+ 513	
+ 514	Full file content for `src/test/kotlin/com/dndweapons/catalog/WeaponsTest.kt`:
+ 515	
+ 516	```kotlin
+ 517	package com.dndweapons.catalog
+ 518	
+ 519	import org.junit.jupiter.api.Assertions.assertEquals
+ 520	import org.junit.jupiter.api.Assertions.assertFalse
+ 521	import org.junit.jupiter.api.Assertions.assertTrue
+ 522	import org.junit.jupiter.api.Test
+ 523	
+ 524	class WeaponsTest {
+ 525	
+ 526	    @Test
+ 527	    fun allIsNonEmpty() {
+ 528	        assertFalse(Weapons.ALL.isEmpty())
+ 529	    }
+ 530	
+ 531	    @Test
+ 532	    fun allHasExpectedCount() {
+ 533	        assertEquals(38, Weapons.ALL.size, "expected 38 PHB weapons in catalog")
+ 534	    }
+ 535	
+ 536	    @Test
+ 537	    fun registeredCount() {
+ 538	        val registered = Weapons.ALL.filter { !it.isVanillaMapped }
+ 539	        assertEquals(34, registered.size, "expected 34 registered (non-vanilla-mapped) specs")
+ 540	    }
+ 541	
+ 542	    @Test
+ 543	    fun vanillaMappedCount() {
+ 544	        val mapped = Weapons.ALL.filter { it.isVanillaMapped }
+ 545	        assertEquals(4, mapped.size, "expected 4 vanilla-mapped specs")
+ 546	    }
+ 547	
+ 548	    @Test
+ 549	    fun allIdsAreUnique() {
+ 550	        val seen = mutableSetOf<String>()
+ 551	        for (spec in Weapons.ALL) {
+ 552	            assertTrue(seen.add(spec.id), "duplicate spec id: ${spec.id}")
+ 553	        }
+ 554	    }
+ 555	
+ 556	    @Test
+ 557	    fun categoryCountsMatch() {
+ 558	        val byCategory = Weapons.ALL.groupBy { it.category }
+ 559	        assertEquals(10, byCategory[Category.SIMPLE_MELEE]?.size, "simple_melee count")
+ 560	        assertEquals(4, byCategory[Category.SIMPLE_RANGED]?.size, "simple_ranged count")
+ 561	        assertEquals(18, byCategory[Category.MARTIAL_MELEE]?.size, "martial_melee count")
+ 562	        assertEquals(6, byCategory[Category.MARTIAL_RANGED]?.size, "martial_ranged count")
+ 563	    }
+ 564	
+ 565	    @Test
+ 566	    fun vanillaMappedTagsValid() {
+ 567	        val expected = setOf(
+ 568	            "dndweapons:role/shortsword",
+ 569	            "dndweapons:role/shortbow",
+ 570	            "dndweapons:role/light_crossbow",
+ 571	            "dndweapons:role/trident",
+ 572	        )
+ 573	        val actual = Weapons.ALL
+ 574	            .filter { it.isVanillaMapped }
+ 575	            .map { it.vanillaRoleTag }
+ 576	            .toSet()
+ 577	        assertEquals(expected, actual)
+ 578	    }
+ 579	
+ 580	    @Test
+ 581	    fun allExpectedIdsPresent() {
+ 582	        val expected = setOf(
+ 583	            // simple melee
+ 584	            "club", "dagger", "greatclub", "handaxe", "javelin",
+ 585	            "light_hammer", "mace", "quarterstaff", "sickle", "spear",
+ 586	            // simple ranged
+ 587	            "dart", "sling", "shortbow", "light_crossbow",
+ 588	            // martial melee
+ 589	            "longsword", "battleaxe", "flail", "glaive", "greataxe", "greatsword",
+ 590	            "halberd", "lance", "maul", "morningstar", "pike", "rapier", "scimitar",
+ 591	            "shortsword", "trident", "war_pick", "warhammer", "whip",
+ 592	            // martial ranged
+ 593	            "blowgun", "hand_crossbow", "heavy_crossbow", "longbow", "musket", "pistol",
+ 594	        )
+ 595	        val actual = Weapons.ALL.map { it.id }.toSet()
+ 596	        assertEquals(expected, actual)
+ 597	    }
+ 598	
+ 599	    @Test
+ 600	    fun longswordIsPresentAndCorrect() {
+ 601	        val longsword = Weapons.ALL.first { it.id == "longsword" }
+ 602	        assertEquals("Longsword", longsword.displayName)
+ 603	        assertEquals(Category.MARTIAL_MELEE, longsword.category)
+ 604	        assertEquals(DamageType.SLASHING, longsword.damageType)
+ 605	        assertEquals(6, longsword.attackDamage)
+ 606	        assertEquals(1, longsword.versatileBonus)
+ 607	        assertEquals(1.5f, longsword.attackSpeed)
+ 608	        assertTrue(longsword.properties.contains(Property.VERSATILE))
+ 609	        assertFalse(longsword.isVanillaMapped)
+ 610	    }
+ 611	}
+ 612	```
+ 613	
+ 614	- [ ] **Step 2: Commit**
+ 615	
+ 616	```bash
+ 617	git add src/test/kotlin/com/dndweapons/catalog/WeaponsTest.kt
+ 618	git commit -m "test(phase-2b): expand WeaponsTest assertions for 38-weapon catalog"
+ 619	```
+ 620	
+ 621	---
+ 622	
+ 623	## Task 3: Smoke-test 1.21.4 unit tests pass
+ 624	
+ 625	**Files:**
+ 626	- (none — verification only)
+ 627	
+ 628	- [ ] **Step 1: Run 1.21.4 unit tests**
+ 629	
+ 630	```bash
+ 631	./gradlew "Set active project to 1.21.4"
+ 632	./gradlew :1.21.4:test
+ 633	```
+ 634	
+ 635	Expected: BUILD SUCCESSFUL. Tests run: `WeaponSpecTest` (4 tests, unchanged) + `WeaponsTest` (9 tests). 13 tests pass, 0 failures.
+ 636	
+ 637	If any test fails, the catalog data in Task 1 has a bug. Investigate the failure message, fix `Weapons.kt`, re-run.
+ 638	
+ 639	- [ ] **Step 2: Verify (no commit — this is a verification step)**
+ 640	
+ 641	---
+ 642	
+ 643	## Task 4: Write Simple Melee recipes (10) + 1.20.1 overlays
+ 644	
+ 645	Recipe shape conventions (master design section 7):
+ 646	- Sword-like vertical: `I` / `I` / `S` (handle bottom)
+ 647	- Two-hander vertical: `I` / `I` / `S` for greatclub
+ 648	- Throwable small: `I` / `S` for handaxe, light_hammer
+ 649	- Throwable spear pattern (3x3): `. I .` / `. S .` / `. S .` for javelin, spear
+ 650	- Tag references: `c:ingots/iron` = `I`, `c:rods/wooden` = `S`, `c:wood` = `W` (for greatclub head), `c:string` = `T`, `c:leather` = `L`
+ 651	
+ 652	**Files:**
+ 653	- Create: `src/main/resources/data/dndweapons/recipe/club.json`
+ 654	- Create: `src/main/resources/data/dndweapons/recipe/dagger.json`
+ 655	- Create: `src/main/resources/data/dndweapons/recipe/greatclub.json`
+ 656	- Create: `src/main/resources/data/dndweapons/recipe/handaxe.json`
+ 657	- Create: `src/main/resources/data/dndweapons/recipe/javelin.json`
+ 658	- Create: `src/main/resources/data/dndweapons/recipe/light_hammer.json`
+ 659	- Create: `src/main/resources/data/dndweapons/recipe/mace.json`
+ 660	- Create: `src/main/resources/data/dndweapons/recipe/quarterstaff.json`
+ 661	- Create: `src/main/resources/data/dndweapons/recipe/sickle.json`
+ 662	- Create: `src/main/resources/data/dndweapons/recipe/spear.json`
+ 663	- Create: corresponding `versions/1.20.1/src/main/resources/data/dndweapons/recipes/<id>.json` for each
+ 664	
+ 665	- [ ] **Step 1: Write shared recipe JSONs**
+ 666	
+ 667	For each weapon, create the file at the path above with the JSON content shown.
+ 668	
+ 669	**`club.json`** — handle + handle (simple wooden weapon):
+ 670	```json
+ 671	{
+ 672	  "type": "minecraft:crafting_shaped",
+ 673	  "pattern": ["S", "S"],
+ 674	  "key": { "S": { "tag": "c:rods/wooden" } },
+ 675	  "result": { "id": "dndweapons:club", "count": 1 }
+ 676	}
+ 677	```
+ 678	
+ 679	**`dagger.json`** — small blade + handle:
+ 680	```json
+ 681	{
+ 682	  "type": "minecraft:crafting_shaped",
+ 683	  "pattern": ["I", "S"],
+ 684	  "key": {
+ 685	    "I": { "tag": "c:ingots/iron" },
+ 686	    "S": { "tag": "c:rods/wooden" }
+ 687	  },
+ 688	  "result": { "id": "dndweapons:dagger", "count": 1 }
+ 689	}
+ 690	```
+ 691	
+ 692	**`greatclub.json`** — 2-block log + handle:
+ 693	```json
+ 694	{
+ 695	  "type": "minecraft:crafting_shaped",
+ 696	  "pattern": ["W", "W", "S"],
+ 697	  "key": {
+ 698	    "W": { "tag": "c:wooden_logs" },
+ 699	    "S": { "tag": "c:rods/wooden" }
+ 700	  },
+ 701	  "result": { "id": "dndweapons:greatclub", "count": 1 }
+ 702	}
+ 703	```
+ 704	
+ 705	**`handaxe.json`** — angled iron + handle:
+ 706	```json
+ 707	{
+ 708	  "type": "minecraft:crafting_shaped",
+ 709	  "pattern": ["II", "IS", " S"],
+ 710	  "key": {
+ 711	    "I": { "tag": "c:ingots/iron" },
+ 712	    "S": { "tag": "c:rods/wooden" }
+ 713	  },
+ 714	  "result": { "id": "dndweapons:handaxe", "count": 1 }
+ 715	}
+ 716	```
+ 717	
+ 718	**`javelin.json`** — spear-style (thrown 30/120):
+ 719	```json
+ 720	{
+ 721	  "type": "minecraft:crafting_shaped",
+ 722	  "pattern": [" I ", " S ", " S "],
+ 723	  "key": {
+ 724	    "I": { "tag": "c:ingots/iron" },
+ 725	    "S": { "tag": "c:rods/wooden" }
+ 726	  },
+ 727	  "result": { "id": "dndweapons:javelin", "count": 1 }
+ 728	}
+ 729	```
+ 730	
+ 731	**`light_hammer.json`** — small hammer head + handle:
+ 732	```json
+ 733	{
+ 734	  "type": "minecraft:crafting_shaped",
+ 735	  "pattern": ["II", " S"],
+ 736	  "key": {
+ 737	    "I": { "tag": "c:ingots/iron" },
+ 738	    "S": { "tag": "c:rods/wooden" }
+ 739	  },
+ 740	  "result": { "id": "dndweapons:light_hammer", "count": 1 }
+ 741	}
+ 742	```
+ 743	
+ 744	**`mace.json`** — knobbed iron head + handle:
+ 745	```json
+ 746	{
+ 747	  "type": "minecraft:crafting_shaped",
+ 748	  "pattern": ["I", "I", "S"],
+ 749	  "key": {
+ 750	    "I": { "tag": "c:ingots/iron" },
+ 751	    "S": { "tag": "c:rods/wooden" }
+ 752	  },
+ 753	  "result": { "id": "dndweapons:mace", "count": 1 }
+ 754	}
+ 755	```
+ 756	
+ 757	**`quarterstaff.json`** — long wooden rod:
+ 758	```json
+ 759	{
+ 760	  "type": "minecraft:crafting_shaped",
+ 761	  "pattern": ["S", "S", "S"],
+ 762	  "key": { "S": { "tag": "c:rods/wooden" } },
+ 763	  "result": { "id": "dndweapons:quarterstaff", "count": 1 }
+ 764	}
+ 765	```
+ 766	
+ 767	**`sickle.json`** — curved iron + handle:
+ 768	```json
+ 769	{
+ 770	  "type": "minecraft:crafting_shaped",
+ 771	  "pattern": [" I", "IS"],
+ 772	  "key": {
+ 773	    "I": { "tag": "c:ingots/iron" },
+ 774	    "S": { "tag": "c:rods/wooden" }
+ 775	  },
+ 776	  "result": { "id": "dndweapons:sickle", "count": 1 }
+ 777	}
+ 778	```
+ 779	
+ 780	**`spear.json`** — spear-style (thrown 20/60, versatile):
+ 781	```json
+ 782	{
+ 783	  "type": "minecraft:crafting_shaped",
+ 784	  "pattern": [" I ", " S ", " S "],
+ 785	  "key": {
+ 786	    "I": { "tag": "c:ingots/iron" },
+ 787	    "S": { "tag": "c:rods/wooden" }
+ 788	  },
+ 789	  "result": { "id": "dndweapons:spear", "count": 1 }
+ 790	}
+ 791	```
+ 792	
+ 793	- [ ] **Step 2: Write 1.20.1 overlay recipes**
+ 794	
+ 795	For each of the 10 weapons above, create the corresponding file at `versions/1.20.1/src/main/resources/data/dndweapons/recipes/<id>.json` with the SAME content but with `"result": { "id": ... }` replaced by `"result": { "item": ... }`. (Plural `recipes/` folder per 1.20.1 datapack schema; `"item"` key instead of `"id"`.)
+ 796	
+ 797	Example for `versions/1.20.1/src/main/resources/data/dndweapons/recipes/club.json`:
+ 798	```json
+ 799	{
+ 800	  "type": "minecraft:crafting_shaped",
+ 801	  "pattern": ["S", "S"],
+ 802	  "key": { "S": { "tag": "c:rods/wooden" } },
+ 803	  "result": { "item": "dndweapons:club", "count": 1 }
+ 804	}
+ 805	```
+ 806	
+ 807	Repeat for `dagger`, `greatclub`, `handaxe`, `javelin`, `light_hammer`, `mace`, `quarterstaff`, `sickle`, `spear`.
+ 808	
+ 809	- [ ] **Step 3: Commit**
+ 810	
+ 811	```bash
+ 812	git add src/main/resources/data/dndweapons/recipe/{club,dagger,greatclub,handaxe,javelin,light_hammer,mace,quarterstaff,sickle,spear}.json versions/1.20.1/src/main/resources/data/dndweapons/recipes/{club,dagger,greatclub,handaxe,javelin,light_hammer,mace,quarterstaff,sickle,spear}.json
+ 813	git commit -m "feat(phase-2b): simple melee recipes (10 weapons) + 1.20.1 overlays"
+ 814	```
+ 815	
+ 816	---
+ 817	
+ 818	## Task 5: Write Simple Ranged recipes (2) + 1.20.1 overlays
+ 819	
+ 820	Only `dart` and `sling` need recipes — `shortbow` and `light_crossbow` are vanilla-mapped (no recipe).
+ 821	
+ 822	**Files:**
+ 823	- Create: `src/main/resources/data/dndweapons/recipe/dart.json`
+ 824	- Create: `src/main/resources/data/dndweapons/recipe/sling.json`
+ 825	- Create: `versions/1.20.1/src/main/resources/data/dndweapons/recipes/dart.json`
+ 826	- Create: `versions/1.20.1/src/main/resources/data/dndweapons/recipes/sling.json`
+ 827	
+ 828	- [ ] **Step 1: Write shared recipe JSONs**
+ 829	
+ 830	**`dart.json`** — small thrown dart, count 4:
+ 831	```json
+ 832	{
+ 833	  "type": "minecraft:crafting_shaped",
+ 834	  "pattern": ["I ", " S"],
+ 835	  "key": {
+ 836	    "I": { "tag": "c:ingots/iron" },
+ 837	    "S": { "tag": "c:rods/wooden" }
+ 838	  },
+ 839	  "result": { "id": "dndweapons:dart", "count": 4 }
+ 840	}
+ 841	```
+ 842	
+ 843	**`sling.json`** — leather + string:
+ 844	```json
+ 845	{
+ 846	  "type": "minecraft:crafting_shaped",
+ 847	  "pattern": ["T T", " L "],
+ 848	  "key": {
+ 849	    "T": { "tag": "c:string" },
+ 850	    "L": { "tag": "c:leathers" }
+ 851	  },
+ 852	  "result": { "id": "dndweapons:sling", "count": 1 }
+ 853	}
+ 854	```
+ 855	
+ 856	If `c:leathers` (plural common tag) doesn't exist on a given MC version, fall back to `c:leather` — at recipe-loading test time the agent verifies the tag resolves; if not, swap the singular form into both shared and overlay JSONs.
+ 857	
+ 858	- [ ] **Step 2: Write 1.20.1 overlays**
+ 859	
+ 860	For each: same content as shared, but `"result.id"` → `"result.item"`. Files at `versions/1.20.1/src/main/resources/data/dndweapons/recipes/{dart,sling}.json`.
+ 861	
+ 862	- [ ] **Step 3: Commit**
+ 863	
+ 864	```bash
+ 865	git add src/main/resources/data/dndweapons/recipe/{dart,sling}.json versions/1.20.1/src/main/resources/data/dndweapons/recipes/{dart,sling}.json
+ 866	git commit -m "feat(phase-2b): simple ranged recipes (dart, sling) + 1.20.1 overlays"
+ 867	```
+ 868	
+ 869	---
+ 870	
+ 871	## Task 6: Write Martial Melee recipes (15) + 1.20.1 overlays
+ 872	
+ 873	`longsword` already has a recipe (Phase 1). `shortsword` and `trident` are vanilla-mapped (no recipe). 15 new: battleaxe, flail, glaive, greataxe, greatsword, halberd, lance, maul, morningstar, pike, rapier, scimitar, war_pick, warhammer, whip.
+ 874	
+ 875	**Files:**
+ 876	- Create: 15 files under `src/main/resources/data/dndweapons/recipe/`
+ 877	- Create: 15 files under `versions/1.20.1/src/main/resources/data/dndweapons/recipes/`
+ 878	
+ 879	- [ ] **Step 1: Write shared recipe JSONs**
+ 880	
+ 881	Each file uses one of three recipe shapes per master design section 7. Apply the patterns as follows:
+ 882	
+ 883	| Weapon | Pattern | Notes |
+ 884	|---|---|---|
+ 885	| `battleaxe` | 2-handed axe head 2x2 + handle | sword-axe family |
+ 886	| `flail` | mace head + chain (string) + handle | unique |
+ 887	| `glaive` | polearm (1d10, reach) | polearm pattern |
+ 888	| `greataxe` | greataxe pattern (heavy) | heavy two-hander |
+ 889	| `greatsword` | greatsword pattern | heavy two-hander |
+ 890	| `halberd` | polearm | polearm pattern |
+ 891	| `lance` | polearm (longer) | polearm pattern |
+ 892	| `maul` | huge hammer (heavy) | heavy two-hander |
+ 893	| `morningstar` | spiked mace | mace-style |
+ 894	| `pike` | polearm (longest) | polearm pattern |
+ 895	| `rapier` | thin sword | sword-vertical |
+ 896	| `scimitar` | curved sword | sword-vertical |
+ 897	| `war_pick` | curved iron pick | mace-style |
+ 898	| `warhammer` | hammer | mace-style |
+ 899	| `whip` | leather strands | unique |
+ 900	
+ 901	Recipe content per weapon:
+ 902	
+ 903	**`battleaxe.json`**:
+ 904	```json
+ 905	{
+ 906	  "type": "minecraft:crafting_shaped",
+ 907	  "pattern": ["II", "IS", " S"],
+ 908	  "key": {
+ 909	    "I": { "tag": "c:ingots/iron" },
+ 910	    "S": { "tag": "c:rods/wooden" }
+ 911	  },
+ 912	  "result": { "id": "dndweapons:battleaxe", "count": 1 }
+ 913	}
+ 914	```
+ 915	
+ 916	**`flail.json`** — head + chain + handle:
+ 917	```json
+ 918	{
+ 919	  "type": "minecraft:crafting_shaped",
+ 920	  "pattern": ["I", "T", "S"],
+ 921	  "key": {
+ 922	    "I": { "tag": "c:ingots/iron" },
+ 923	    "T": { "tag": "c:string" },
+ 924	    "S": { "tag": "c:rods/wooden" }
+ 925	  },
+ 926	  "result": { "id": "dndweapons:flail", "count": 1 }
+ 927	}
+ 928	```
+ 929	
+ 930	**`glaive.json`** — polearm:
+ 931	```json
+ 932	{
+ 933	  "type": "minecraft:crafting_shaped",
+ 934	  "pattern": ["II ", " S ", " S "],
+ 935	  "key": {
+ 936	    "I": { "tag": "c:ingots/iron" },
+ 937	    "S": { "tag": "c:rods/wooden" }
+ 938	  },
+ 939	  "result": { "id": "dndweapons:glaive", "count": 1 }
+ 940	}
+ 941	```
+ 942	
+ 943	**`greataxe.json`** — 2-handed axe:
+ 944	```json
+ 945	{
+ 946	  "type": "minecraft:crafting_shaped",
+ 947	  "pattern": ["III", "IS ", " S "],
+ 948	  "key": {
+ 949	    "I": { "tag": "c:ingots/iron" },
+ 950	    "S": { "tag": "c:rods/wooden" }
+ 951	  },
+ 952	  "result": { "id": "dndweapons:greataxe", "count": 1 }
+ 953	}
+ 954	```
+ 955	
+ 956	**`greatsword.json`** — 2-handed sword:
+ 957	```json
+ 958	{
+ 959	  "type": "minecraft:crafting_shaped",
+ 960	  "pattern": ["I", "I", "I", "S"],
+ 961	  "key": {
+ 962	    "I": { "tag": "c:ingots/iron" },
+ 963	    "S": { "tag": "c:rods/wooden" }
+ 964	  },
+ 965	  "result": { "id": "dndweapons:greatsword", "count": 1 }
+ 966	}
+ 967	```
+ 968	
+ 969	Note: 4-row patterns may not be supported by the vanilla 3x3 crafting table. If `:1.21.4:runGametest` at Task 11 reports recipe-loading failure for `greatsword`, swap the pattern to:
+ 970	```json
+ 971	"pattern": ["II", "II", " S"]
+ 972	```
+ 973	
+ 974	**`halberd.json`** — polearm:
+ 975	```json
+ 976	{
+ 977	  "type": "minecraft:crafting_shaped",
+ 978	  "pattern": ["II ", "IS ", " S "],
+ 979	  "key": {
+ 980	    "I": { "tag": "c:ingots/iron" },
+ 981	    "S": { "tag": "c:rods/wooden" }
+ 982	  },
+ 983	  "result": { "id": "dndweapons:halberd", "count": 1 }
+ 984	}
+ 985	```
+ 986	
+ 987	**`lance.json`** — polearm:
+ 988	```json
+ 989	{
+ 990	  "type": "minecraft:crafting_shaped",
+ 991	  "pattern": ["  I", " S ", "S  "],
+ 992	  "key": {
+ 993	    "I": { "tag": "c:ingots/iron" },
+ 994	    "S": { "tag": "c:rods/wooden" }
+ 995	  },
+ 996	  "result": { "id": "dndweapons:lance", "count": 1 }
+ 997	}
+ 998	```
+ 999	
+1000	**`maul.json`** — huge hammer:
+1001	```json
+1002	{
+1003	  "type": "minecraft:crafting_shaped",
+1004	  "pattern": ["III", "ISI", " S "],
+1005	  "key": {
+1006	    "I": { "tag": "c:ingots/iron" },
+1007	    "S": { "tag": "c:rods/wooden" }
+1008	  },
+1009	  "result": { "id": "dndweapons:maul", "count": 1 }
+1010	}
+1011	```
+1012	
+1013	**`morningstar.json`** — spiked mace:
+1014	```json
+1015	{
+1016	  "type": "minecraft:crafting_shaped",
+1017	  "pattern": ["III", " I ", " S "],
+1018	  "key": {
+1019	    "I": { "tag": "c:ingots/iron" },
+1020	    "S": { "tag": "c:rods/wooden" }
+1021	  },
+1022	  "result": { "id": "dndweapons:morningstar", "count": 1 }
+1023	}
+1024	```
+1025	
+1026	**`pike.json`** — polearm:
+1027	```json
+1028	{
+1029	  "type": "minecraft:crafting_shaped",
+1030	  "pattern": [" I ", " S ", " S "],
+1031	  "key": {
+1032	    "I": { "tag": "c:ingots/iron" },
+1033	    "S": { "tag": "c:rods/wooden" }
+1034	  },
+1035	  "result": { "id": "dndweapons:pike", "count": 1 }
+1036	}
+1037	```
+1038	
+1039	**`rapier.json`** — thin sword:
+1040	```json
+1041	{
+1042	  "type": "minecraft:crafting_shaped",
+1043	  "pattern": ["I", "I", "S"],
+1044	  "key": {
+1045	    "I": { "tag": "c:ingots/iron" },
+1046	    "S": { "tag": "c:rods/wooden" }
+1047	  },
+1048	  "result": { "id": "dndweapons:rapier", "count": 1 }
+1049	}
+1050	```
+1051	
+1052	**`scimitar.json`** — curved sword:
+1053	```json
+1054	{
+1055	  "type": "minecraft:crafting_shaped",
+1056	  "pattern": [" I", "I ", "S "],
+1057	  "key": {
+1058	    "I": { "tag": "c:ingots/iron" },
+1059	    "S": { "tag": "c:rods/wooden" }
+1060	  },
+1061	  "result": { "id": "dndweapons:scimitar", "count": 1 }
+1062	}
+1063	```
+1064	
+1065	**`war_pick.json`** — curved iron pick:
+1066	```json
+1067	{
+1068	  "type": "minecraft:crafting_shaped",
+1069	  "pattern": ["II", "IS", " S"],
+1070	  "key": {
+1071	    "I": { "tag": "c:ingots/iron" },
+1072	    "S": { "tag": "c:rods/wooden" }
+1073	  },
+1074	  "result": { "id": "dndweapons:war_pick", "count": 1 }
+1075	}
+1076	```
+1077	
+1078	**`warhammer.json`** — hammer:
+1079	```json
+1080	{
+1081	  "type": "minecraft:crafting_shaped",
+1082	  "pattern": ["III", " S ", " S "],
+1083	  "key": {
+1084	    "I": { "tag": "c:ingots/iron" },
+1085	    "S": { "tag": "c:rods/wooden" }
+1086	  },
+1087	  "result": { "id": "dndweapons:warhammer", "count": 1 }
+1088	}
+1089	```
+1090	
+1091	**`whip.json`** — leather strands:
+1092	```json
+1093	{
+1094	  "type": "minecraft:crafting_shaped",
+1095	  "pattern": ["L ", "L ", "LS"],
+1096	  "key": {
+1097	    "L": { "tag": "c:leathers" },
+1098	    "S": { "tag": "c:rods/wooden" }
+1099	  },
+1100	  "result": { "id": "dndweapons:whip", "count": 1 }
+1101	}
+1102	```
+1103	
+1104	- [ ] **Step 2: Write 1.20.1 overlays**
+1105	
+1106	For each of the 15 weapons, create the corresponding file at `versions/1.20.1/src/main/resources/data/dndweapons/recipes/<id>.json` with identical content except `"result.id"` → `"result.item"`.
+1107	
+1108	- [ ] **Step 3: Commit**
+1109	
+1110	```bash
+1111	git add src/main/resources/data/dndweapons/recipe/{battleaxe,flail,glaive,greataxe,greatsword,halberd,lance,maul,morningstar,pike,rapier,scimitar,war_pick,warhammer,whip}.json versions/1.20.1/src/main/resources/data/dndweapons/recipes/{battleaxe,flail,glaive,greataxe,greatsword,halberd,lance,maul,morningstar,pike,rapier,scimitar,war_pick,warhammer,whip}.json
+1112	git commit -m "feat(phase-2b): martial melee recipes (15 weapons) + 1.20.1 overlays"
+1113	```
+1114	
+1115	---
+1116	
+1117	## Task 7: Write Martial Ranged recipes (6) + 1.20.1 overlays
+1118	
+1119	All 6 are registered. Patterns use bow strings + iron barrels per design.
+1120	
+1121	**Files:**
+1122	- Create: 6 files under `src/main/resources/data/dndweapons/recipe/`
+1123	- Create: 6 files under `versions/1.20.1/src/main/resources/data/dndweapons/recipes/`
+1124	
+1125	- [ ] **Step 1: Write shared recipe JSONs**
+1126	
+1127	**`blowgun.json`** — long hollow reed:
+1128	```json
+1129	{
+1130	  "type": "minecraft:crafting_shaped",
+1131	  "pattern": ["S", "S", "S"],
+1132	  "key": { "S": { "tag": "c:rods/wooden" } },
+1133	  "result": { "id": "dndweapons:blowgun", "count": 1 }
+1134	}
+1135	```
+1136	
+1137	Note: this overlaps with `quarterstaff` (3 sticks vertical). To disambiguate, swap to `["S ", " S", "S "]` (diagonal) for blowgun.
+1138	
+1139	Use the diagonal pattern for blowgun:
+1140	```json
+1141	{
+1142	  "type": "minecraft:crafting_shaped",
+1143	  "pattern": ["S ", " S", "S "],
+1144	  "key": { "S": { "tag": "c:rods/wooden" } },
+1145	  "result": { "id": "dndweapons:blowgun", "count": 1 }
+1146	}
+1147	```
+1148	
+1149	**`hand_crossbow.json`** — one-handed crossbow:
+1150	```json
+1151	{
+1152	  "type": "minecraft:crafting_shaped",
+1153	  "pattern": ["IT ", "ST ", " S "],
+1154	  "key": {
+1155	    "I": { "tag": "c:ingots/iron" },
+1156	    "T": { "tag": "c:string" },
+1157	    "S": { "tag": "c:rods/wooden" }
+1158	  },
+1159	  "result": { "id": "dndweapons:hand_crossbow", "count": 1 }
+1160	}
+1161	```
+1162	
+1163	**`heavy_crossbow.json`** — large 2-handed crossbow:
+1164	```json
+1165	{
+1166	  "type": "minecraft:crafting_shaped",
+1167	  "pattern": ["ITI", "STS", " I "],
+1168	  "key": {
+1169	    "I": { "tag": "c:ingots/iron" },
+1170	    "T": { "tag": "c:string" },
+1171	    "S": { "tag": "c:rods/wooden" }
+1172	  },
+1173	  "result": { "id": "dndweapons:heavy_crossbow", "count": 1 }
+1174	}
+1175	```
+1176	
+1177	**`longbow.json`** — large 2-handed bow:
+1178	```json
+1179	{
+1180	  "type": "minecraft:crafting_shaped",
+1181	  "pattern": [" ST", "S T", " ST"],
+1182	  "key": {
+1183	    "T": { "tag": "c:string" },
+1184	    "S": { "tag": "c:rods/wooden" }
+1185	  },
+1186	  "result": { "id": "dndweapons:longbow", "count": 1 }
+1187	}
+1188	```
+1189	
+1190	**`musket.json`** — iron barrel + wood stock:
+1191	```json
+1192	{
+1193	  "type": "minecraft:crafting_shaped",
+1194	  "pattern": ["III", "SSI", "S  "],
+1195	  "key": {
+1196	    "I": { "tag": "c:ingots/iron" },
+1197	    "S": { "tag": "c:rods/wooden" }
+1198	  },
+1199	  "result": { "id": "dndweapons:musket", "count": 1 }
+1200	}
+1201	```
+1202	
+1203	**`pistol.json`** — shorter iron barrel + grip:
+1204	```json
+1205	{
+1206	  "type": "minecraft:crafting_shaped",
+1207	  "pattern": ["II", "SI", "S "],
+1208	  "key": {
+1209	    "I": { "tag": "c:ingots/iron" },
+1210	    "S": { "tag": "c:rods/wooden" }
+1211	  },
+1212	  "result": { "id": "dndweapons:pistol", "count": 1 }
+1213	}
+1214	```
+1215	
+1216	- [ ] **Step 2: Write 1.20.1 overlays**
+1217	
+1218	For each: identical content with `"result.id"` → `"result.item"`. Files at `versions/1.20.1/src/main/resources/data/dndweapons/recipes/{blowgun,hand_crossbow,heavy_crossbow,longbow,musket,pistol}.json`.
+1219	
+1220	- [ ] **Step 3: Commit**
+1221	
+1222	```bash
+1223	git add src/main/resources/data/dndweapons/recipe/{blowgun,hand_crossbow,heavy_crossbow,longbow,musket,pistol}.json versions/1.20.1/src/main/resources/data/dndweapons/recipes/{blowgun,hand_crossbow,heavy_crossbow,longbow,musket,pistol}.json
+1224	git commit -m "feat(phase-2b): martial ranged recipes (6 weapons) + 1.20.1 overlays"
+1225	```
+1226	
+1227	---
+1228	
+1229	## Task 8: Write 4 vanilla role tag JSONs
+1230	
+1231	**Files:**
+1232	- Create: `src/main/resources/data/dndweapons/tags/items/role/shortsword.json`
+1233	- Create: `src/main/resources/data/dndweapons/tags/items/role/shortbow.json`
+1234	- Create: `src/main/resources/data/dndweapons/tags/items/role/light_crossbow.json`
+1235	- Create: `src/main/resources/data/dndweapons/tags/items/role/trident.json`
+1236	
+1237	- [ ] **Step 1: Write tag files**
+1238	
+1239	**`shortsword.json`** — all 6 vanilla swords:
+1240	```json
+1241	{
+1242	  "values": [
+1243	    "minecraft:wooden_sword",
+1244	    "minecraft:stone_sword",
+1245	    "minecraft:iron_sword",
+1246	    "minecraft:golden_sword",
+1247	    "minecraft:diamond_sword",
+1248	    "minecraft:netherite_sword"
+1249	  ]
+1250	}
+1251	```
+1252	
+1253	**`shortbow.json`**:
+1254	```json
+1255	{ "values": ["minecraft:bow"] }
+1256	```
+1257	
+1258	**`light_crossbow.json`**:
+1259	```json
+1260	{ "values": ["minecraft:crossbow"] }
+1261	```
+1262	
+1263	**`trident.json`**:
+1264	```json
+1265	{ "values": ["minecraft:trident"] }
+1266	```
+1267	
+1268	These tag JSONs apply to all 5 MC versions identically (item-tag schema is stable).
+1269	
+1270	- [ ] **Step 2: Commit**
+1271	
+1272	```bash
+1273	git add src/main/resources/data/dndweapons/tags/items/role/{shortsword,shortbow,light_crossbow,trident}.json
+1274	git commit -m "feat(phase-2b): vanilla role tags (4 vanilla-mapped weapons)"
+1275	```
+1276	
+1277	---
+1278	
+1279	## Task 9: Update `en_us.json` with 37 new entries
+1280	
+1281	**Files:**
+1282	- Modify: `src/main/resources/assets/dndweapons/lang/en_us.json`
+1283	
+1284	- [ ] **Step 1: Replace `en_us.json` with the expanded version**
+1285	
+1286	Full file content for `src/main/resources/assets/dndweapons/lang/en_us.json`:
+1287	
+1288	```json
+1289	{
+1290	  "itemGroup.dndweapons.main": "DnD Weapons",
+1291	
+1292	  "item.dndweapons.longsword": "Longsword",
+1293	
+1294	  "item.dndweapons.club": "Club",
+1295	  "item.dndweapons.dagger": "Dagger",
+1296	  "item.dndweapons.greatclub": "Greatclub",
+1297	  "item.dndweapons.handaxe": "Handaxe",
+1298	  "item.dndweapons.javelin": "Javelin",
+1299	  "item.dndweapons.light_hammer": "Light Hammer",
+1300	  "item.dndweapons.mace": "Mace",
+1301	  "item.dndweapons.quarterstaff": "Quarterstaff",
+1302	  "item.dndweapons.sickle": "Sickle",
+1303	  "item.dndweapons.spear": "Spear",
+1304	
+1305	  "item.dndweapons.dart": "Dart",
+1306	  "item.dndweapons.sling": "Sling",
+1307	  "item.dndweapons.shortbow": "Shortbow",
+1308	  "item.dndweapons.light_crossbow": "Light Crossbow",
+1309	
+1310	  "item.dndweapons.battleaxe": "Battleaxe",
+1311	  "item.dndweapons.flail": "Flail",
+1312	  "item.dndweapons.glaive": "Glaive",
+1313	  "item.dndweapons.greataxe": "Greataxe",
+1314	  "item.dndweapons.greatsword": "Greatsword",
+1315	  "item.dndweapons.halberd": "Halberd",
+1316	  "item.dndweapons.lance": "Lance",
+1317	  "item.dndweapons.maul": "Maul",
+1318	  "item.dndweapons.morningstar": "Morningstar",
+1319	  "item.dndweapons.pike": "Pike",
+1320	  "item.dndweapons.rapier": "Rapier",
+1321	  "item.dndweapons.scimitar": "Scimitar",
+1322	  "item.dndweapons.shortsword": "Shortsword",
+1323	  "item.dndweapons.trident": "Trident",
+1324	  "item.dndweapons.war_pick": "War Pick",
+1325	  "item.dndweapons.warhammer": "Warhammer",
+1326	  "item.dndweapons.whip": "Whip",
+1327	
+1328	  "item.dndweapons.blowgun": "Blowgun",
+1329	  "item.dndweapons.hand_crossbow": "Hand Crossbow",
+1330	  "item.dndweapons.heavy_crossbow": "Heavy Crossbow",
+1331	  "item.dndweapons.longbow": "Longbow",
+1332	  "item.dndweapons.musket": "Musket",
+1333	  "item.dndweapons.pistol": "Pistol"
+1334	}
+1335	```
+1336	
+1337	38 `item.dndweapons.*` entries total: 1 existing (`longsword`) + 37 new. The `itemGroup.dndweapons.main` entry is preserved.
+1338	
+1339	- [ ] **Step 2: Commit**
+1340	
+1341	```bash
+1342	git add src/main/resources/assets/dndweapons/lang/en_us.json
+1343	git commit -m "feat(phase-2b): en_us lang entries for 37 new weapons (38 total)"
+1344	```
+1345	
+1346	---
+1347	
+1348	## Task 10: Write 33 item model JSONs
+1349	
+1350	Every registered weapon needs an item model. Vanilla-mapped weapons don't (they use the vanilla item's model).
+1351	
+1352	**Files:**
+1353	- Create: 33 files under `src/main/resources/assets/dndweapons/models/item/<id>.json` for each registered weapon (excludes `longsword` which already has a model, and excludes the 4 vanilla-mapped specs)
+1354	
+1355	Registered weapons needing models (33 total):
+1356	- Simple melee: club, dagger, greatclub, handaxe, javelin, light_hammer, mace, quarterstaff, sickle, spear (10)
+1357	- Simple ranged: dart, sling (2)
+1358	- Martial melee: battleaxe, flail, glaive, greataxe, greatsword, halberd, lance, maul, morningstar, pike, rapier, scimitar, war_pick, warhammer, whip (15)
+1359	- Martial ranged: blowgun, hand_crossbow, heavy_crossbow, longbow, musket, pistol (6)
+1360	
+1361	- [ ] **Step 1: Write all 33 model JSONs**
+1362	
+1363	Each model is identical in shape (parented to `minecraft:item/generated` with `layer0` referencing the weapon's texture). Template:
+1364	
+1365	```json
+1366	{
+1367	  "parent": "minecraft:item/generated",
+1368	  "textures": {
+1369	    "layer0": "dndweapons:item/<id>"
+1370	  }
+1371	}
+1372	```
+1373	
+1374	Write 33 files where `<id>` is replaced with the matching weapon id from the list above (e.g., `models/item/club.json` has `"layer0": "dndweapons:item/club"`).
+1375	
+1376	- [ ] **Step 2: Commit**
+1377	
+1378	```bash
+1379	git add src/main/resources/assets/dndweapons/models/item/
+1380	git commit -m "feat(phase-2b): item models for 33 newly-registered weapons"
+1381	```
+1382	
+1383	---
+1384	
+1385	## Task 11: Per-version smoke before texture generation
+1386	
+1387	This is the gate before texture wave: verify all 5 MC versions build + test + gametest pass with the expanded catalog data BUT before textures arrive. Missing-texture purple-checker is acceptable interim state.
+1388	
+1389	**Files:**
+1390	- Create: `docs/plan-runner-out/phase-2b-smoke-pre-textures.md`
+1391	
+1392	- [ ] **Step 1: Run chiseledBuild**
+1393	
+1394	```bash
+1395	./gradlew chiseledBuild
+1396	```
+1397	
+1398	Expected: 5 jars produced.
+1399	
+1400	- [ ] **Step 2: Per-version test + gametest sweep**
+1401	
+1402	```bash
+1403	for V in 1.20.1 1.21.1 1.21.4 1.21.11 26.1.2; do
+1404	  ./gradlew "Set active project to $V"
+1405	  ./gradlew ":$V:test" ":$V:runGametest" --rerun-tasks
+1406	done
+1407	```
+1408	
+1409	Each invocation takes 30-90 seconds. Total: 5-10 minutes.
+1410	
+1411	- [ ] **Step 3: Write smoke report**
+1412	
+1413	Create `docs/plan-runner-out/phase-2b-smoke-pre-textures.md`:
+1414	
+1415	```markdown
+1416	# Phase 2b Pre-Texture Smoke Test
+1417	
+1418	**Date:** <YYYY-MM-DD HH:MM>
+1419	
+1420	## Results
+1421	
+1422	| Subproject | :build | :test (N/13) | :runGametest |
+1423	|---|---|---|---|
+1424	| 1.20.1  | PASS or FAIL | PASS or FAIL | PASS or FAIL |
+1425	| 1.21.1  | PASS or FAIL | PASS or FAIL | PASS or FAIL |
+1426	| 1.21.4  | PASS or FAIL | PASS or FAIL | PASS or FAIL |
+1427	| 1.21.11 | PASS or FAIL | PASS or FAIL | PASS or FAIL |
+1428	| 26.1.2  | PASS or FAIL | PASS or FAIL | PASS or FAIL |
+1429	
+1430	## Notes
+1431	<paragraph: any recipe-loading warnings, missing-texture noise (expected), or per-version oddities>
+1432	```
+1433	
+1434	Fill in actual results.
+1435	
+1436	- [ ] **Step 4: Reset active to 1.21.4**
+1437	
+1438	```bash
+1439	./gradlew "Set active project to 1.21.4"
+1440	```
+1441	
+1442	- [ ] **Step 5: Commit**
+1443	
+1444	```bash
+1445	git add docs/plan-runner-out/phase-2b-smoke-pre-textures.md
+1446	git commit -m "test(phase-2b): pre-texture smoke verification on 5 MC versions"
+1447	```
+1448	
+1449	If any version fails build or test, STOP. Investigate before generating textures. Failures here usually mean malformed catalog data or recipe JSON — fix in place and re-run smoke.
+1450	
+1451	---
+1452	
+1453	## Tasks 12-17: Generate 33 textures via `minecraft-asset-generator` agent (6 parallel waves)
+1454	
+1455	Split the 33 weapons into 6 batches of 5-6 weapons each. Each task dispatches the `minecraft-asset-generator` agent (per `D:/minecraft/.claude/agents/minecraft-asset-generator.md`) once per weapon in its batch. The agent uses Gemini AI Studio to produce a 16x16 PNG and writes it to the destination path.
+1456	
+1457	For each weapon, the agent prompt should include:
+1458	- Weapon name and category (e.g., "Greatsword, Martial Melee weapon")
+1459	- Material hint (iron blade, wooden handle, etc., per recipe)
+1460	- Style: "Minecraft 16x16 pixel art item icon, transparent background, side view, slight isometric tilt matching vanilla Minecraft tools"
+1461	- Damage-type hint (slashing/piercing/bludgeoning maps to blade/point/blunt shape)
+1462	
+1463	### Task 12: Batch 1 — 6 weapons
+1464	
+1465	**Files (create):**
+1466	- `src/main/resources/assets/dndweapons/textures/item/club.png`
+1467	- `src/main/resources/assets/dndweapons/textures/item/dagger.png`
+1468	- `src/main/resources/assets/dndweapons/textures/item/greatclub.png`
+1469	- `src/main/resources/assets/dndweapons/textures/item/handaxe.png`
+1470	- `src/main/resources/assets/dndweapons/textures/item/javelin.png`
+1471	- `src/main/resources/assets/dndweapons/textures/item/light_hammer.png`
+1472	
+1473	- [ ] **Step 1: Invoke `minecraft-asset-generator` agent for each weapon**
+1474	
+1475	For each weapon in this batch, invoke the agent with a prompt like:
+1476	
+1477	> Generate a 16x16 pixel art Minecraft item texture for "Club" — a Simple Melee bludgeoning weapon. Style: vanilla-Minecraft aesthetic, side view with slight isometric tilt, transparent background. Materials: wooden handle, knotted club head. Target path: `D:/minecraft/mods/dnd-weapons/src/main/resources/assets/dndweapons/textures/item/club.png`.
+1478	
+1479	Repeat per weapon with appropriate description (consult master design section 4 Notes column for material/shape hints):
+1480	- `dagger`: small pointed iron blade, short wooden grip, piercing weapon
+1481	- `greatclub`: large 2-handed wooden club, knotted head, two-handed
+1482	- `handaxe`: small iron axe head, short wooden handle, throwable
+1483	- `javelin`: long thin spear shaft, iron point, throwable (longer than dart)
+1484	- `light_hammer`: small iron hammer head, short handle, throwable
+1485	
+1486	- [ ] **Step 2: Verify each PNG exists and is non-zero**
+1487	
+1488	```bash
+1489	for f in club dagger greatclub handaxe javelin light_hammer; do
+1490	  ls -la "D:/minecraft/mods/dnd-weapons/src/main/resources/assets/dndweapons/textures/item/$f.png"
+1491	done
+1492	```
+1493	
+1494	If any file is missing or 0 bytes, re-invoke the agent for that weapon. If the agent fails repeatedly for a weapon, fall back to copying `longsword.png` (the existing Phase 1 placeholder) into that weapon's path:
+1495	
+1496	```bash
+1497	cp "D:/minecraft/mods/dnd-weapons/src/main/resources/assets/dndweapons/textures/item/longsword.png" "D:/minecraft/mods/dnd-weapons/src/main/resources/assets/dndweapons/textures/item/<weapon>.png"
+1498	```
+1499	
+1500	- [ ] **Step 3: Commit**
+1501	
+1502	```bash
+1503	git add src/main/resources/assets/dndweapons/textures/item/{club,dagger,greatclub,handaxe,javelin,light_hammer}.png
+1504	git commit -m "feat(phase-2b): textures batch 1 (6 simple-melee weapons)"
+1505	```
+1506	
+1507	### Task 13: Batch 2 — 6 weapons
+1508	
+1509	**Files (create):**
+1510	- `mace.png`, `quarterstaff.png`, `sickle.png`, `spear.png`, `dart.png`, `sling.png`
+1511	
+1512	- [ ] **Step 1: Generate textures**
+1513	
+1514	Invoke the agent per weapon with prompts:
+1515	- `mace`: iron flanged mace head, wooden handle, bludgeoning
+1516	- `quarterstaff`: long thin wooden pole, two-handed
+1517	- `sickle`: curved iron blade, short wooden handle, slashing/farming aesthetic
+1518	- `spear`: long wooden shaft, iron point, thrown/versatile
+1519	- `dart`: very short throwing dart, iron tip, small piercing
+1520	- `sling`: leather pouch + 2 strings, ranged
+1521	
+1522	- [ ] **Step 2: Verify + fall back to longsword.png if needed**
+1523	
+1524	- [ ] **Step 3: Commit**
+1525	
+1526	```bash
+1527	git add src/main/resources/assets/dndweapons/textures/item/{mace,quarterstaff,sickle,spear,dart,sling}.png
+1528	git commit -m "feat(phase-2b): textures batch 2 (mace + remaining simple melee + simple ranged)"
+1529	```
+1530	
+1531	### Task 14: Batch 3 — 6 weapons
+1532	
+1533	**Files (create):**
+1534	- `battleaxe.png`, `flail.png`, `glaive.png`, `greataxe.png`, `greatsword.png`, `halberd.png`
+1535	
+1536	- [ ] **Step 1: Generate textures**
+1537	
+1538	- `battleaxe`: 2-handed iron axe head, wooden handle, versatile
+1539	- `flail`: iron ball-on-chain, wooden handle, bludgeoning
+1540	- `glaive`: polearm with iron blade on long wooden shaft, slashing, reach
+1541	- `greataxe`: large 2-handed iron axe, heavy
+1542	- `greatsword`: large 2-handed iron sword, heavy, slashing
+1543	- `halberd`: polearm with iron axe-head + spike, reach
+1544	
+1545	- [ ] **Step 2: Verify + fall back**
+1546	
+1547	- [ ] **Step 3: Commit**
+1548	
+1549	```bash
+1550	git add src/main/resources/assets/dndweapons/textures/item/{battleaxe,flail,glaive,greataxe,greatsword,halberd}.png
+1551	git commit -m "feat(phase-2b): textures batch 3 (martial melee 1/3)"
+1552	```
+1553	
+1554	### Task 15: Batch 4 — 6 weapons
+1555	
+1556	**Files (create):**
+1557	- `lance.png`, `maul.png`, `morningstar.png`, `pike.png`, `rapier.png`, `scimitar.png`
+1558	
+1559	- [ ] **Step 1: Generate textures**
+1560	
+1561	- `lance`: long wooden pole + iron tip, mounted-combat reach
+1562	- `maul`: huge 2-handed iron hammer, heavy bludgeoning
+1563	- `morningstar`: spiked iron ball + handle, piercing
+1564	- `pike`: very long wooden pole + small iron tip, reach + heavy
+1565	- `rapier`: thin iron sword, slim guard, piercing/finesse
+1566	- `scimitar`: curved iron blade, light + finesse, slashing
+1567	
+1568	- [ ] **Step 2: Verify + fall back**
+1569	
+1570	- [ ] **Step 3: Commit**
+1571	
+1572	```bash
+1573	git add src/main/resources/assets/dndweapons/textures/item/{lance,maul,morningstar,pike,rapier,scimitar}.png
+1574	git commit -m "feat(phase-2b): textures batch 4 (martial melee 2/3)"
+1575	```
+1576	
+1577	### Task 16: Batch 5 — 6 weapons
+1578	
+1579	**Files (create):**
+1580	- `war_pick.png`, `warhammer.png`, `whip.png`, `blowgun.png`, `hand_crossbow.png`, `heavy_crossbow.png`
+1581	
+1582	- [ ] **Step 1: Generate textures**
+1583	
+1584	- `war_pick`: curved iron pick head, wooden handle, piercing
+1585	- `warhammer`: iron hammer head, longer than mace, versatile
+1586	- `whip`: long coiled leather strap, finesse + reach
+1587	- `blowgun`: long hollow wooden tube, two-handed
+1588	- `hand_crossbow`: small wooden crossbow + iron prod + string, one-handed
+1589	- `heavy_crossbow`: large wooden crossbow + iron prod + string, two-handed, heavy
+1590	
+1591	- [ ] **Step 2: Verify + fall back**
+1592	
+1593	- [ ] **Step 3: Commit**
+1594	
+1595	```bash
+1596	git add src/main/resources/assets/dndweapons/textures/item/{war_pick,warhammer,whip,blowgun,hand_crossbow,heavy_crossbow}.png
+1597	git commit -m "feat(phase-2b): textures batch 5 (martial melee 3/3 + martial ranged 1/2)"
+1598	```
+1599	
+1600	### Task 17: Batch 6 — 3 weapons
+1601	
+1602	**Files (create):**
+1603	- `longbow.png`, `musket.png`, `pistol.png`
+1604	
+1605	- [ ] **Step 1: Generate textures**
+1606	
+1607	- `longbow`: large wooden bow + string, two-handed, heavy
+1608	- `musket`: long iron barrel + wooden stock, flintlock firearm, two-handed
+1609	- `pistol`: short iron barrel + wooden grip, flintlock firearm
+1610	
+1611	- [ ] **Step 2: Verify + fall back**
+1612	
+1613	- [ ] **Step 3: Commit**
+1614	
+1615	```bash
+1616	git add src/main/resources/assets/dndweapons/textures/item/{longbow,musket,pistol}.png
+1617	git commit -m "feat(phase-2b): textures batch 6 (martial ranged 2/2)"
+1618	```
+1619	
+1620	---
+1621	
+1622	## Task 18: Final 5-version verification
+1623	
+1624	**Files:**
+1625	- Create: `docs/plan-runner-out/phase-2b-verification.md`
+1626	
+1627	- [ ] **Step 1: chiseledBuild**
+1628	
+1629	```bash
+1630	./gradlew chiseledBuild
+1631	```
+1632	
+1633	Expected: 5 jars produced. Sizes will be larger than pre-Phase-2b (more recipes, models, textures bundled).
+1634	
+1635	- [ ] **Step 2: Per-version test + gametest sweep**
+1636	
+1637	```bash
+1638	for V in 1.20.1 1.21.1 1.21.4 1.21.11 26.1.2; do
+1639	  ./gradlew "Set active project to $V"
+1640	  ./gradlew ":$V:test" ":$V:runGametest" --rerun-tasks
+1641	done
+1642	```
+1643	
+1644	- [ ] **Step 3: Write verification report**
+1645	
+1646	Create `docs/plan-runner-out/phase-2b-verification.md`:
+1647	
+1648	```markdown
+1649	# Phase 2b Final Verification — Catalog Expansion to 38 Weapons
+1650	
+1651	**Date:** <YYYY-MM-DD HH:MM>
+1652	
+1653	## Build / Test / Gametest matrix
+1654	
+1655	| Subproject | :build | :test | :runGametest |
+1656	|---|---|---|---|
+1657	| 1.20.1  | PASS or FAIL | PASS or FAIL (N/13) | PASS or FAIL |
+1658	| 1.21.1  | PASS or FAIL | PASS or FAIL (N/13) | PASS or FAIL |
+1659	| 1.21.4  | PASS or FAIL | PASS or FAIL (N/13) | PASS or FAIL |
+1660	| 1.21.11 | PASS or FAIL | PASS or FAIL (N/13) | PASS or FAIL |
+1661	| 26.1.2  | PASS or FAIL | PASS or FAIL (N/13) | PASS or FAIL |
+1662	
+1663	## chiseledBuild jars
+1664	
+1665	| Subproject | Jar | Size |
+1666	|---|---|---|
+1667	| 1.20.1  | versions/1.20.1/build/libs/dndweapons-0.1.0+mc1.20.1.jar | N bytes |
+1668	| 1.21.1  | ... | ... |
+1669	| 1.21.4  | ... | ... |
+1670	| 1.21.11 | ... | ... |
+1671	| 26.1.2  | ... | ... |
+1672	
+1673	## Catalog summary
+1674	- 38 specs total (34 registered + 4 vanilla-mapped)
+1675	- 33 new shared recipes + 33 1.20.1 overlays
+1676	- 4 role tag JSONs
+1677	- 37 new lang entries (+1 existing longsword = 38 item names)
+1678	- 33 new model JSONs (+1 existing longsword model)
+1679	- 33 new texture PNGs (+1 existing longsword texture)
+1680	
+1681	## Notes
+1682	<paragraph: anything notable — failed texture generations that fell back to longsword.png, recipe-schema warnings, etc.>
+1683	
+1684	## Phase 2b status
+1685	Catalog expansion: <COMPLETE or PARTIAL>. All 5 MC versions ship the 38-weapon catalog from one source tree.
+1686	```
+1687	
+1688	Fill in actual results.
+1689	
+1690	- [ ] **Step 4: Tag the phase**
+1691	
+1692	```bash
+1693	git tag -a phase-2b-catalog-expansion -m "Phase 2b: 38-weapon catalog expansion (34 registered + 4 vanilla-mapped) across 5 MC versions"
+1694	```
+1695	
+1696	- [ ] **Step 5: Reset Stonecutter active to 1.21.4 (vcsVersion)**
+1697	
+1698	```bash
+1699	./gradlew "Set active project to 1.21.4"
+1700	```
+1701	
+1702	- [ ] **Step 6: Commit + push**
+1703	
+1704	```bash
+1705	git add docs/plan-runner-out/phase-2b-verification.md
+1706	git commit -m "test(phase-2b): final verification across 5 MC versions"
+1707	git push origin main
+1708	git push origin phase-2b-catalog-expansion
+1709	```
+1710	
+1711	---
+1712	
+1713	## Done
+1714	
+1715	Phase 2b complete. The mod now ships the full 38-weapon PHB catalog across all 5 MC versions from one source tree. Phase 3 (combat hooks + tooltip injection + `SpecRegistry` runtime lookup for vanilla mappings) is next.
