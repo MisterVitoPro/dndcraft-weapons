@@ -1,0 +1,9 @@
+{
+  "wave_id": 5,
+  "verifier_status": "CLEAN",
+  "agent_statuses": {
+    "wave-5-agent-1": "CLEAN"
+  },
+  "bugs": [],
+  "orchestrator_note": "Wave 5 ADDED 26.1.2 successfully — :26.1.2:build/test/runGametest all PASS (2 tests). Wave 5 agent reported other-version gametest regressions as 'pre-existing' which was incorrect; orchestrator spot-check confirmed all 4 prior versions pass cleanly when invoked after a fresh Stonecutter switch. The 'No test functions were given' errors the agent saw were transient (likely stale active-state when running gametest immediately after the 5-version chiseledBuild). All 5 versions now individually pass: 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2."
+}
