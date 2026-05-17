@@ -1,0 +1,35 @@
+{
+  "wave_id": 2,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-2-agent-1": "CLEAN",
+    "wave-2-agent-2": "CLEAN",
+    "wave-2-agent-3": "CLEAN",
+    "wave-2-agent-4": "CLEAN",
+    "wave-2-agent-5": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "W2-001",
+      "severity": "P3",
+      "category": "api-compatibility",
+      "title": "BuiltInRegistries.ITEM.get return type not guarded by //? in RegistrationGametest equality check",
+      "file": "src/main/kotlin/com/dndweapons/test/RegistrationGametest.kt",
+      "line": 24,
+      "evidence": "val item = BuiltInRegistries.ITEM.get(id)\nval airItem = BuiltInRegistries.ITEM.get(airId)\nif (item == airItem) { ... }\nReturn type varies: Item (1.20.1-1.21.1), Optional<Holder<Item>> (1.21.2-1.21.10), Item/Holder<Item> (1.21.11+). Direct equality comparison `item == airItem` is unsafe across epoch boundaries — e.g. on 1.21.2-1.21.10 both sides are Optional, so comparison may always be false (two distinct Optional instances wrapping equal content) unless .equals() is structurally delegated, or may succeed coincidentally. No //? fork guards this comparison.",
+      "expected": "The equality check should be version-guarded. For 1.21.2-1.21.10 (Optional<Holder<Item>>) the comparison of two Optional instances via == will use referential equality in Kotlin unless Optional.equals() delegates to the wrapped value. On 1.20.1-1.21.1 (direct Item) and 1.21.11+ (Holder<Item> or direct), the comparison semantics differ. Plan note on line 549 acknowledges this and says 'verify the BuiltInRegistries.ITEM.get return type on each MC version — comparison may need .value() on some versions where the return is Holder<Item> or Optional<Holder<Item>>. If so, refine the equality check per-epoch.'",
+      "suggested_fix": "Add //? forks around the equality check in both the <1.21.5 and >=1.21.5 class bodies:\n//? if >=1.21.2 && <1.21.11 {\nif (item.isEmpty || item.get() == airItem.orElse(null)) { throw AssertionError(...) }\n//?} else {\n/*if (item == airItem) { throw AssertionError(...) }*/\n//?}\nExact fix should be validated at per-version smoke-test time (Tasks 7-10) as directed by the plan note. Flag as P3 informational; per-version verification waves will surface it concretely."
+    },
+    {
+      "bug_id": "W2-002",
+      "severity": "P3",
+      "category": "api-compatibility",
+      "title": "iconStack() in DndWeaponsMod uses .map { ItemStack(it) } where it is Holder<Item> — ItemStack constructor compatibility unverified",
+      "file": "src/main/kotlin/com/dndweapons/DndWeaponsMod.kt",
+      "line": 68,
+      "evidence": "//? if >=1.21.2 && <1.21.11 {\nreturn BuiltInRegistries.ITEM\n    .get(rl(MOD_ID, \"longsword\"))\n    .map { ItemStack(it) }\n    .orElse(ItemStack.EMPTY)\nHere `.map { ItemStack(it) }` passes a Holder<Item> to the ItemStack constructor. ItemStack(ItemLike) expects ItemLike. Holder<Item> implements ItemLike on 1.21.2+ (via asItem()), but this is not verified in the plan code — it matches the plan exactly but is an API compatibility assumption.",
+      "expected": "If Holder<Item> does implement ItemLike on 1.21.2-1.21.10, ItemStack(it) compiles. If not, the fix is `.map { ItemStack(it.value()) }`. This is the same BuiltInRegistries.ITEM.get return-type concern raised by W2A5. Mark P3 informational — per-version smoke test (Task 7: 1.21.4) will confirm.",
+      "suggested_fix": "At Task 7 smoke-test time, if :1.21.4:compileKotlin fails on this line, change to: .map { ItemStack(it.value()) }. No change needed now; this is a compile-time verification item, not a correctness bug in the authored code relative to the plan."
+    }
+  ]
+}

@@ -5,24 +5,37 @@ import com.dndweapons.registry.WeaponRegistrarImpl
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents
-import net.minecraft.item.ItemGroup
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.registry.RegistryKey
-import net.minecraft.registry.RegistryKeys
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.ResourceKey
+//? if <1.21.11 {
+import net.minecraft.resources.ResourceLocation
+//?}
+//? if >=1.21.11 {
+/*import net.minecraft.resources.Identifier as ResourceLocation*/
+//?}
+import net.minecraft.world.item.CreativeModeTab
+import net.minecraft.world.item.ItemStack
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+private fun rl(namespace: String, path: String): ResourceLocation {
+    //? if >=1.21 {
+    return ResourceLocation.fromNamespaceAndPath(namespace, path)
+    //?} else {
+    /*return ResourceLocation(namespace, path)*/
+    //?}
+}
 
 object DndWeaponsMod : ModInitializer {
 
     const val MOD_ID: String = "dndweapons"
     val LOGGER: Logger = LoggerFactory.getLogger(MOD_ID)
 
-    val CREATIVE_TAB: RegistryKey<ItemGroup> =
-        RegistryKey.of(RegistryKeys.ITEM_GROUP, Identifier.of(MOD_ID, "main"))
+    val CREATIVE_TAB: ResourceKey<CreativeModeTab> =
+        ResourceKey.create(Registries.CREATIVE_MODE_TAB, rl(MOD_ID, "main"))
 
     override fun onInitialize() {
         LOGGER.info("DnD Weapons initializing...")
@@ -31,21 +44,43 @@ object DndWeaponsMod : ModInitializer {
         registrar.registerAll(Weapons.ALL)
 
         Registry.register(
-            Registries.ITEM_GROUP, CREATIVE_TAB,
+            BuiltInRegistries.CREATIVE_MODE_TAB, CREATIVE_TAB,
             FabricItemGroup.builder()
-                .displayName(Text.translatable("itemGroup.dndweapons.main"))
-                .icon { ItemStack(Registries.ITEM.get(Identifier.of(MOD_ID, "longsword"))) }
+                .title(Component.translatable("itemGroup.dndweapons.main"))
+                .icon { iconStack() }
                 .build(),
         )
 
         ItemGroupEvents.modifyEntriesEvent(CREATIVE_TAB).register { entries ->
             for (spec in Weapons.ALL) {
                 if (spec.isVanillaMapped) continue
-                val item = Registries.ITEM.get(Identifier.of(MOD_ID, spec.id))
-                if (item != null) entries.add(item)
+                addToEntries(entries, spec)
             }
         }
 
         LOGGER.info("DnD Weapons initialized with {} weapons.", Weapons.ALL.size)
+    }
+
+    private fun iconStack(): ItemStack {
+        //? if >=1.21.2 && <1.21.11 {
+        return BuiltInRegistries.ITEM
+            .get(rl(MOD_ID, "longsword"))
+            .map { ItemStack(it) }
+            .orElse(ItemStack.EMPTY)
+        //?} else {
+        /*return ItemStack(BuiltInRegistries.ITEM.get(rl(MOD_ID, "longsword")))*/
+        //?}
+    }
+
+    private fun addToEntries(entries: net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroupEntries, spec: com.dndweapons.catalog.WeaponSpec) {
+        val itemId = rl(MOD_ID, spec.id)
+        //? if >=1.21.2 && <1.21.11 {
+        BuiltInRegistries.ITEM.get(itemId).ifPresent { entries.accept(it.value()) }
+        //?} else {
+        /*
+        val item = BuiltInRegistries.ITEM.get(itemId)
+        if (item != null) entries.accept(item)
+        */
+        //?}
     }
 }

@@ -4,39 +4,38 @@ import com.dndweapons.DndWeaponsMod
 import com.dndweapons.catalog.WeaponSpec
 import com.dndweapons.compat.AttributeCompat
 import com.dndweapons.item.DndWeaponItem
-import net.minecraft.item.Item
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.registry.RegistryKey
-import net.minecraft.registry.RegistryKeys
-import net.minecraft.util.Identifier
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
+import net.minecraft.resources.ResourceKey
+//? if <1.21.11 {
+import net.minecraft.resources.ResourceLocation
+//?}
+//? if >=1.21.11 {
+/*import net.minecraft.resources.Identifier as ResourceLocation*/
+//?}
+import net.minecraft.world.item.Item
 
-/**
- * Thin registrar. Item.Settings.registryKey() was added in 1.21.2 and is
- * required by the 1.21.4+ runtime ("Item id not set" NPE otherwise). On
- * earlier versions the call doesn't exist, and the older
- * Registry.register(Registries.ITEM, Identifier, Item) overload suffices.
- */
 class WeaponRegistrarImpl : WeaponRegistrar {
 
     override fun register(spec: WeaponSpec) {
         if (spec.isVanillaMapped) return
 
-        val itemId = Identifier.of(DndWeaponsMod.MOD_ID, spec.id)
+        //? if >=1.21 {
+        val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, spec.id)
+        //?} else {
+        /*val itemId = ResourceLocation(DndWeaponsMod.MOD_ID, spec.id)*/
+        //?}
+        val itemKey = ResourceKey.create(Registries.ITEM, itemId)
 
         //? if >=1.21.2 {
-        val itemKey = RegistryKey.of(RegistryKeys.ITEM, itemId)
-        val settings = AttributeCompat.applyTo(Item.Settings().registryKey(itemKey), spec)
-        val item = DndWeaponItem(spec, settings)
-        Registry.register(Registries.ITEM, itemKey, item)
+        val settings = AttributeCompat.applyTo(Item.Properties().setId(itemKey), spec)
         //?} else {
-        
-        /*val settings = AttributeCompat.applyTo(Item.Settings(), spec)
-        val item = DndWeaponItem(spec, settings)
-        Registry.register(Registries.ITEM, itemId, item)
-        
-        *///?}
+        /*val settings = AttributeCompat.applyTo(Item.Properties(), spec)*/
+        //?}
 
+        val item = DndWeaponItem(spec, settings)
+        Registry.register(BuiltInRegistries.ITEM, itemKey, item)
         DndWeaponsMod.LOGGER.info("Registered weapon: {}", itemId)
     }
 }
