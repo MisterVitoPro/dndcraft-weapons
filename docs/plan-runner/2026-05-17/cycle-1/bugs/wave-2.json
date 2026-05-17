@@ -1,0 +1,65 @@
+{
+  "wave_id": 2,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-2-agent-1": "BUGS_FOUND",
+    "wave-2-agent-2": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-2-agent-1-bug-1",
+      "severity": "P0",
+      "category": "incorrect_implementation",
+      "title": "makeMockPlayer() called without GameType arg on 5 call sites; fails to compile on MC 1.21.4",
+      "file": "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+      "line": null,
+      "evidence": "Lines 100, 123, 145, 167, 190 all call ctx.makeMockPlayer() with no arguments. MC 1.21.4 (>=1.21.2) requires makeMockPlayer(GameType). The file has no stonecutter version gate around these calls and no import for net.minecraft.world.level.GameType, so the module fails to compile on the 1.21.4 subproject. This was confirmed by wave-2-agent-2's build failure report.",
+      "expected": "Each of the 5 call sites should be gated: //? if >=1.21.2 { ctx.makeMockPlayer(GameType.SURVIVAL) //?} else { ctx.makeMockPlayer() //?} and net.minecraft.world.level.GameType must be imported under the same version gate.",
+      "suggested_fix": "Add `import net.minecraft.world.level.GameType` under a `//? if >=1.21.2 { ... //?}` block near the top imports. Wrap all 5 makeMockPlayer() calls (lines 100, 123, 145, 167, 190) with stonecutter guards."
+    },
+    {
+      "bug_id": "wave-2-agent-1-bug-2",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "Only 8 gametests implemented; acceptance criterion requires 9",
+      "file": "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+      "line": null,
+      "evidence": "CombatHooksGametest.kt defines 6 test methods. TooltipInjectionGametest.kt defines 2 test methods. Total = 8 gametests. The acceptance criteria for wave-2-agent-1 and wave-2-agent-2 both state 'All 9 gametests pass'.",
+      "expected": "9 gametest methods total across the two files.",
+      "suggested_fix": "Add the missing 9th gametest. The plan likely intended a heavy_knockback test in CombatHooksGametest.kt; verify against plan lines 1274-1601."
+    },
+    {
+      "bug_id": "wave-2-agent-1-bug-3",
+      "severity": "P2",
+      "category": "missing_requirement",
+      "title": "vanillaIronSwordTooltipContainsStatBlock depends on shortsword tag file not guaranteed to exist",
+      "file": "src/main/kotlin/com/dndweapons/test/TooltipInjectionGametest.kt",
+      "line": 73,
+      "evidence": "Agent-1 flagged: 'vanillaIronSwordTooltipContainsStatBlock depends on data/dndweapons/tags/items/role/shortsword.json existing'. The test asserts Iron Sword tooltip contains 'piercing' and 'Finesse', which requires tag-driven tooltip injection to map Iron Sword into the shortsword role.",
+      "expected": "data/dndweapons/tags/items/role/shortsword.json exists and contains minecraft:iron_sword.",
+      "suggested_fix": "Verify the tag file exists. If missing, create it as part of this fix wave."
+    },
+    {
+      "bug_id": "wave-2-agent-2-bug-1",
+      "severity": "P0",
+      "category": "broken_existing",
+      "title": "Build blocked: ./gradlew :1.21.4:build fails due to makeMockPlayer() compile error",
+      "file": "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+      "line": null,
+      "evidence": "wave-2-agent-2 reported BUILD FAILURE: CombatHooksGametest.kt uses ctx.makeMockPlayer() (no-arg) on lines 100, 123, 145, 167, 190. MC 1.21.4 requires makeMockPlayer(GameType). All acceptance criteria (build, unit tests, gametests) are unmet because compilation fails.",
+      "expected": "After wave-2-agent-1-bug-1 is fixed, ./gradlew :1.21.4:build should succeed.",
+      "suggested_fix": "Apply wave-2-agent-1-bug-1 fix, then re-run build/test/runGametest."
+    },
+    {
+      "bug_id": "wave-2-agent-2-bug-2",
+      "severity": "P2",
+      "category": "missing_requirement",
+      "title": "In-game spot-check (criterion 4) cannot be automated and was deferred",
+      "file": null,
+      "line": null,
+      "evidence": "wave-2-agent-2 deferred the in-game spot-check: 'all 34 weapons visible, tooltips render correctly, Greataxe shows Attack Knockback'. Cannot launch interactive Minecraft from agent context.",
+      "expected": "Manual verification.",
+      "suggested_fix": "Schedule a manual in-game spot-check; this cannot be resolved by the agent swarm."
+    }
+  ]
+}
