@@ -1,0 +1,53 @@
+{
+  "wave_id": 4,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-4-agent-1": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-4-agent-1-bug-1",
+      "severity": "P0",
+      "category": "broken_existing",
+      "title": "DndWeaponsMod.onInitialize loaded client-only ItemTooltipCallback, crashing the dedicated server entrypoint",
+      "file": "src/main/kotlin/com/dndweapons/DndWeaponsMod.kt",
+      "line": 54,
+      "evidence": "java.lang.RuntimeException: Cannot load class net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback in environment type SERVER\n\tat ... knot/com.dndweapons.tooltip.WeaponTooltipInjector.register(WeaponTooltipInjector.kt:22)\n\tat knot/com.dndweapons.DndWeaponsMod.onInitialize(DndWeaponsMod.kt:55)",
+      "expected": "Main entrypoint must not reference client-only Fabric API on a dedicated server. Gametests run on a dedicated server so this crash blocked all gametest execution.",
+      "suggested_fix": "Fix applied in this wave (out of scope of original task but mandatory unblocker): moved WeaponTooltipInjector.register() into a new ClientModInitializer at com.dndweapons.client.DndWeaponsClientMod, wired via 'client' entrypoint in fabric.mod.json. files_unexpectedly_modified: DndWeaponsMod.kt, fabric.mod.json, and new file DndWeaponsClientMod.kt."
+    },
+    {
+      "bug_id": "wave-4-agent-1-bug-2",
+      "severity": "P1",
+      "category": "broken_existing",
+      "title": "6 combat gametests fail: mock-player attack-strength scaling produces fractional damage (~3.5% of expected)",
+      "file": "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+      "line": null,
+      "evidence": "Finesse sprint: dealt=0.20800018 expected~7.2 (base=6.0). Versatile empty: dealt=1.2080002 expected~7.0 (base=6.0). All 6 single-hit combat tests across all 5 MC versions report the same ~3.5% damage ratio.",
+      "expected": "Each combat gametest should observe full-damage hits (player.attack(pig) deals ~base*multiplier).",
+      "suggested_fix": "GameTestHelper.makeMockPlayer() spawns a player at zero attack-strength scale (cooldown not reset). Vanilla Player.attack multiplies damage by (0.2 + cooldown*0.8) on a fresh swing. Before each player.attack(pig) call, the gametest should set player.attackStrengthTicker to a high value (e.g. 100) and/or call resetAttackStrengthTicker() to ensure full-damage swings. Without this, the per-test damage observations are ~20% of base instead of base*spec_multiplier."
+    },
+    {
+      "bug_id": "wave-4-agent-1-bug-3",
+      "severity": "P1",
+      "category": "broken_existing",
+      "title": "2 tooltip gametests fail: ItemTooltipCallback is client-side only and does not fire under stack.getTooltipLines() in server gametest context",
+      "file": "src/main/kotlin/com/dndweapons/test/TooltipInjectionGametest.kt",
+      "line": 65,
+      "evidence": "AssertionError: Longsword tooltip missing 'slashing'. Got: Longsword||When in Main Hand:|+5 Attack Damage|-2.5 Attack Speed\nAssertionError: Iron sword tooltip missing 'piercing'. Got: Iron Sword||When in Main Hand:|+5 Attack Damage|-2.4 Attack Speed",
+      "expected": "Tooltip injection lines (slashing/piercing/Finesse/Versatile) appear in the rendered tooltip during gametest.",
+      "suggested_fix": "The collectTooltip helper's comment 'ItemTooltipCallback fires server-side too' is incorrect; ItemTooltipCallback is purely client-side. Options: (a) call WeaponTooltipBuilder.build(spec) directly in the gametest and inspect its output rather than going through stack.getTooltipLines(), (b) register the tooltip injection through a server-aware DataComponentType hook so the lines are baked into the stack on registration, or (c) restructure tests to only run in a client gametest context (uses Fabric's client-gametest harness if available)."
+    },
+    {
+      "bug_id": "wave-4-agent-1-bug-4",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "Sweep guard uses dndweapons_primaryTarget.set(null) which removes the captured Entity unconditionally after the first INVOKE",
+      "file": "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt",
+      "line": 99,
+      "evidence": "dndweapons_primaryTarget.set(null)\n...\n// Cleared by dndweapons_clearTarget on RETURN as a safety net.",
+      "expected": "Sweep behavior verified by a relevant gametest.",
+      "suggested_fix": "Until the combat gametest issue (bug-2) is resolved, the sweep guard's correctness can only be reasoned about statically. Once mock-player attack-strength is fixed, add a sweep-specific gametest: place primary pig at attack range, secondary pig within sweep radius, attack with greataxe, assert primary takes Heavy-modified damage and secondary takes vanilla sweep damage only."
+    }
+  ]
+}

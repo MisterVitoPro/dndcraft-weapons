@@ -3,7 +3,6 @@ package com.dndweapons
 import com.dndweapons.catalog.Weapons
 import com.dndweapons.registry.SpecRegistry
 import com.dndweapons.registry.WeaponRegistrarImpl
-import com.dndweapons.tooltip.WeaponTooltipInjector
 import net.fabricmc.api.ModInitializer
 //? if <26 {
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
@@ -52,7 +51,10 @@ object DndWeaponsMod : ModInitializer {
         registrar.registerAll(Weapons.ALL)
 
         SpecRegistry.init()
-        WeaponTooltipInjector.register()
+        // WeaponTooltipInjector.register() is intentionally NOT called here -
+        // it references net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback
+        // which is unavailable in EnvType.SERVER. Registration lives in
+        // com.dndweapons.client.DndWeaponsClientMod (entrypoints.client).
 
         //? if <26 {
         Registry.register(

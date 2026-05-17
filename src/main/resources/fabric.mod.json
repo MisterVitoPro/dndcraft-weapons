@@ -11,6 +11,9 @@
     "main": [
       { "adapter": "kotlin", "value": "com.dndweapons.DndWeaponsMod" }
     ],
+    "client": [
+      { "adapter": "kotlin", "value": "com.dndweapons.client.DndWeaponsClientMod" }
+    ],
     "fabric-gametest": [
       { "adapter": "kotlin", "value": "com.dndweapons.test.RegistrationGametest" },
       { "adapter": "kotlin", "value": "com.dndweapons.test.CombatHooksGametest" },

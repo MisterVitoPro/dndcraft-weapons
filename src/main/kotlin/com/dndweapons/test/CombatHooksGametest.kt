@@ -17,7 +17,7 @@ import net.minecraft.world.entity.animal.Pig
 import net.minecraft.world.entity.animal.pig.Pig
 *///?}
 
-//? if >=1.21.2 {
+//? if >=1.21.1 {
 import net.minecraft.world.level.GameType
 //?}
 
@@ -108,7 +108,7 @@ private fun makeRl(ns: String, path: String): ResourceLocation {
 }
 
 private fun runFinesseSprintCase(ctx: GameTestHelper, weapon: ItemStack) {
-    //? if >=1.21.2 {
+    //? if >=1.21.1 {
     val player = ctx.makeMockPlayer(GameType.SURVIVAL)
     //?} else {
     /*val player = ctx.makeMockPlayer()
@@ -135,7 +135,7 @@ private fun runFinesseSprintCase(ctx: GameTestHelper, weapon: ItemStack) {
 }
 
 private fun runLightDualCase(ctx: GameTestHelper) {
-    //? if >=1.21.2 {
+    //? if >=1.21.1 {
     val player = ctx.makeMockPlayer(GameType.SURVIVAL)
     //?} else {
     /*val player = ctx.makeMockPlayer()
@@ -161,7 +161,7 @@ private fun runLightDualCase(ctx: GameTestHelper) {
 }
 
 private fun runVersatileCase(ctx: GameTestHelper) {
-    //? if >=1.21.2 {
+    //? if >=1.21.1 {
     val player = ctx.makeMockPlayer(GameType.SURVIVAL)
     //?} else {
     /*val player = ctx.makeMockPlayer()
@@ -187,7 +187,7 @@ private fun runVersatileCase(ctx: GameTestHelper) {
 }
 
 private fun runLanceOnFootCase(ctx: GameTestHelper) {
-    //? if >=1.21.2 {
+    //? if >=1.21.1 {
     val player = ctx.makeMockPlayer(GameType.SURVIVAL)
     //?} else {
     /*val player = ctx.makeMockPlayer()
@@ -214,7 +214,7 @@ private fun runLanceOnFootCase(ctx: GameTestHelper) {
 }
 
 private fun runHeavyKnockbackCase(ctx: GameTestHelper) {
-    //? if >=1.21.2 {
+    //? if >=1.21.1 {
     val player = ctx.makeMockPlayer(GameType.SURVIVAL)
     //?} else {
     /*val player = ctx.makeMockPlayer()
@@ -251,7 +251,7 @@ private fun runHeavyKnockbackCase(ctx: GameTestHelper) {
 }
 
 private fun runLanceMountedCase(ctx: GameTestHelper) {
-    //? if >=1.21.2 {
+    //? if >=1.21.1 {
     val player = ctx.makeMockPlayer(GameType.SURVIVAL)
     //?} else {
     /*val player = ctx.makeMockPlayer()
