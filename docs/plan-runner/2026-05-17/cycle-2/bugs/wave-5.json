@@ -1,0 +1,31 @@
+{
+  "wave_id": 5,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-5-agent-1": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-5-agent-1-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "Phase 3 acceptance criteria 5-11 not green: 8 gametests fail despite build/test matrix passing",
+      "file": "docs/plan-runner/2026-05-17/cycle-2/phase-3-verification.md",
+      "line": null,
+      "evidence": "criterion 5,6: tooltip gametests fail (ItemTooltipCallback client-only). criterion 7-11: combat gametests fail (mock-player attack-strength).",
+      "expected": "All 14 Phase 3 acceptance criteria from the source plan are checked and documented as passing.",
+      "suggested_fix": "Cycle 3 must address the two root causes flagged in wave-4-agent-1-bug-2 and wave-4-agent-1-bug-3. Once 9 gametests pass, criteria 5-11 will flip to PASS and the phase-3-combat-hooks tag (criterion 14) can be safely placed."
+    },
+    {
+      "bug_id": "wave-5-agent-1-bug-2",
+      "severity": "P3",
+      "category": "missing_requirement",
+      "title": "en_us.json key audit (criterion 13) not executed by static verifier",
+      "file": "src/main/resources/assets/dndweapons/lang/en_us.json",
+      "line": null,
+      "evidence": "verifier did not run the for-loop grep specified in plan lines 1975-1980.",
+      "expected": "Confirm tooltip.dndweapons.stat_block, damage_type.{slashing,piercing,bludgeoning}, bonus.{finesse_sprint,light_dual,versatile_empty,lance_foot} all present.",
+      "suggested_fix": "Add the grep audit to cycle 3 wave-5 (or fold into wave-6 cleanup)."
+    }
+  ]
+}
