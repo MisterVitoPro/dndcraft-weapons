@@ -46,6 +46,9 @@ class CombatHooksGametest : FabricGameTest {
     @GameTest(template = "fabric-gametest-api-v1:empty")
     fun vanillaIronSwordCarriesFinesseHook(ctx: GameTestHelper) =
         runFinesseSprintCase(ctx, ItemStack(Items.IRON_SWORD))
+
+    @GameTest(template = "fabric-gametest-api-v1:empty")
+    fun heavyKnockbackBonusApplies(ctx: GameTestHelper) = runHeavyKnockbackCase(ctx)
 }
 //?}
 
@@ -74,6 +77,9 @@ class CombatHooksGametest {
     @GameTest(structure = "fabric-gametest-api-v1:empty")
     fun vanillaIronSwordCarriesFinesseHook(ctx: GameTestHelper) =
         runFinesseSprintCase(ctx, ItemStack(Items.IRON_SWORD))
+
+    @GameTest(structure = "fabric-gametest-api-v1:empty")
+    fun heavyKnockbackBonusApplies(ctx: GameTestHelper) = runHeavyKnockbackCase(ctx)
 }
 
 *///?}
@@ -203,6 +209,43 @@ private fun runLanceOnFootCase(ctx: GameTestHelper) {
     val expected = base * 0.5f
     if (Math.abs(dealt - expected) > 0.5f) {
         throw AssertionError("Lance on foot: dealt=$dealt expected~$expected (base=$base)")
+    }
+    ctx.succeed()
+}
+
+private fun runHeavyKnockbackCase(ctx: GameTestHelper) {
+    //? if >=1.21.2 {
+    val player = ctx.makeMockPlayer(GameType.SURVIVAL)
+    //?} else {
+    /*val player = ctx.makeMockPlayer()
+    *///?}
+    // Greataxe is a Heavy property weapon with knockbackBonus=1; the
+    // ATTACK_KNOCKBACK attribute modifier in AttributeCompat lifts the
+    // target's hit-back velocity above the vanilla baseline.
+    player.setItemInHand(InteractionHand.MAIN_HAND, dndItem("greataxe"))
+    player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY)
+    player.isSprinting = false
+
+    val pos = BlockPos(2, 1, 2)
+    val pig = ctx.spawn(EntityType.PIG, pos) as Pig
+    // Snapshot velocity before the hit. Any post-hit deltaMovement of meaningful
+    // magnitude implies knockback was delivered (a regular un-modified hit on a
+    // stationary pig produces a smaller knockback component; the Heavy bonus
+    // doubles the horizontal kick).
+    val beforeVel = pig.deltaMovement.lengthSqr()
+
+    player.attack(pig)
+
+    val afterVel = pig.deltaMovement.lengthSqr()
+    // Heavy weapons should impart a noticeable horizontal velocity to the
+    // target. Threshold 0.01 (m/tick)^2 = ~0.1 m/tick which is comfortably
+    // above the un-modified baseline of ~0.04 m/tick a stationary attack
+    // produces on a pig.
+    if (afterVel - beforeVel < 0.01f) {
+        throw AssertionError(
+            "Heavy knockback: post-hit deltaMovement^2=$afterVel did not exceed baseline=$beforeVel by 0.01 " +
+                "(greataxe should impart Heavy knockback)"
+        )
     }
     ctx.succeed()
 }

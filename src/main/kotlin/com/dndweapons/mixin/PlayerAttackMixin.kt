@@ -2,10 +2,13 @@ package com.dndweapons.mixin
 
 import com.dndweapons.combat.WeaponAttackHandler
 import com.dndweapons.registry.SpecRegistry
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.player.Player
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.injection.At
+import org.spongepowered.asm.mixin.injection.Inject
 import org.spongepowered.asm.mixin.injection.ModifyArg
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo
 
 /**
  * Injects into Player.attack(Entity) to route the damage float through
@@ -30,6 +33,34 @@ import org.spongepowered.asm.mixin.injection.ModifyArg
 @Mixin(Player::class)
 abstract class PlayerAttackMixin {
 
+    // Tracks which Entity is the *primary* target of the current Player.attack(Entity)
+    // invocation. The vanilla method also delivers sweep damage to nearby entities via
+    // the same hurt/hurtOrSimulate INVOKE site - without this guard, our @ModifyArg
+    // would fire on each sweep entity and double-apply Heavy/Finesse/Lance bonuses to
+    // collateral targets. Spec scopes the DnD modifier to a single deliberate strike,
+    // so we limit application to the primary target only.
+    //
+    // ThreadLocal is required because Player.attack runs on the server's main worker
+    // pool and a single Player instance can theoretically experience overlapping
+    // attack invocations across ticks (rare but possible via mixins/events).
+    private val dndweapons_primaryTarget = ThreadLocal<Entity?>()
+
+    @Inject(
+        method = ["attack(Lnet/minecraft/world/entity/Entity;)V"],
+        at = [At("HEAD")],
+    )
+    private fun dndweapons_captureTarget(target: Entity, ci: CallbackInfo) {
+        dndweapons_primaryTarget.set(target)
+    }
+
+    @Inject(
+        method = ["attack(Lnet/minecraft/world/entity/Entity;)V"],
+        at = [At("RETURN")],
+    )
+    private fun dndweapons_clearTarget(target: Entity, ci: CallbackInfo) {
+        dndweapons_primaryTarget.remove()
+    }
+
     @ModifyArg(
         method = ["attack(Lnet/minecraft/world/entity/Entity;)V"],
         //? if <1.21.4 {
@@ -48,6 +79,24 @@ abstract class PlayerAttackMixin {
     private fun dndweapons_modifyAttackDamage(damage: Float): Float {
         val self = this as Player
         val mainSpec = SpecRegistry.lookup(self.mainHandItem.item) ?: return damage
+
+        // Sweep-entity guard: only apply the DnD modifier when the current INVOKE is
+        // hitting the primary target. Sweep INVOKEs target neighbouring entities; we
+        // can't distinguish "which entity is being hurt right now" from inside the
+        // @ModifyArg callback (we only see the damage float), so we rely on the
+        // primary-target ThreadLocal set by dndweapons_captureTarget. The
+        // self.lastHurtMob field would be tempting here, but it's set AFTER the hurt
+        // call returns, not before - so it isn't useful for this discrimination.
+        //
+        // The trade-off: we cannot directly inspect the hurt-target inside @ModifyArg.
+        // Vanilla calls hurt/hurtOrSimulate on the primary target FIRST (before the
+        // sweep loop). We rely on a strike-once flag: the first invocation per
+        // Player.attack call applies the modifier; subsequent invocations (sweep) do
+        // not.
+        val primary = dndweapons_primaryTarget.get() ?: return damage
+        // Consume the flag so subsequent INVOKEs in the same call (sweep) skip the
+        // modifier. Cleared by dndweapons_clearTarget on RETURN as a safety net.
+        dndweapons_primaryTarget.set(null)
 
         val offhandStack = self.offhandItem
         val ctx = WeaponAttackHandler.Context(

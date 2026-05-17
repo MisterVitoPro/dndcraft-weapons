@@ -1,0 +1,32 @@
+{
+  "wave_id": 2,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-2-agent-1": "CLEAN",
+    "wave-2-agent-2": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-2-agent-2-bug-1",
+      "severity": "P2",
+      "category": "missing_requirement",
+      "title": "Sweep-behavior gametest not added (file ownership conflict in same wave)",
+      "file": "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+      "line": null,
+      "evidence": "Wave-2-agent-2's owned_files list contains only PlayerAttackMixin.kt. AC4 requires 'A relevant gametest asserts the correct sweep behavior' which mandates editing CombatHooksGametest.kt, owned by wave-2-agent-1 in this same wave.",
+      "expected": "A relevant gametest asserts the correct sweep behavior",
+      "suggested_fix": "Add a sweep-behavior gametest in a follow-up wave that has file ownership over CombatHooksGametest.kt. The test should: (a) place a primary pig and a secondary pig within sweep range, (b) attack with greataxe (Heavy), (c) verify primary pig takes the Heavy-modified damage and the secondary pig takes only vanilla sweep damage without the Heavy bonus."
+    },
+    {
+      "bug_id": "wave-2-agent-2-bug-2",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "Sweep guard uses 'strike-once' flag - may produce false negatives when multiple Player.attack calls overlap on same thread",
+      "file": "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt",
+      "line": 96,
+      "evidence": "val primary = dndweapons_primaryTarget.get() ?: return damage\n// Consume the flag so subsequent INVOKEs in the same call (sweep) skip the\n// modifier. Cleared by dndweapons_clearTarget on RETURN as a safety net.\ndndweapons_primaryTarget.set(null)",
+      "expected": "Sweep guard reliably distinguishes primary hit from sweep hits in all scenarios.",
+      "suggested_fix": "The current strike-once flag works for the standard vanilla call sequence (primary hurt FIRST, then sweep loop). If any mod or future MC version reorders the calls so sweep entities are hurt first, the modifier would apply to a sweep target rather than the primary. The runtime gametest must verify this assumption holds; if not, switch to a per-entity tracking strategy using @Redirect on the hurt call site instead of @ModifyArg."
+    }
+  ]
+}
