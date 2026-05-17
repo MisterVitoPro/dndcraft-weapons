@@ -1,0 +1,101 @@
+{
+  "source_plan": "docs/plan-runner/2026-05-17/cycle-2/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Reset mock-player attack-strength in combat gametests",
+          "task_excerpt_lines": "8-26",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "Every combat gametest call site that does player.attack(pig) first resets the player's attack cooldown so that vanilla Player.attack treats the swing as fully charged (multiplier = 1.0, not ~0.2)",
+            "The mechanism is either (a) player.resetAttackStrengthTicker() immediately before player.attack(pig), or (b) explicitly setting player.attackStrengthTicker = 100 (well past the weapon's cooldown), or (c) any other approach that guarantees the resulting damage equals base*spec_multiplier within the existing 0.5 tolerance bands",
+            "All 6 single-hit combat gametests pass on all 5 MC versions: finesseSprintBonusFires, lightDualWieldBonusFires, versatileEmptyOffhandFires, lanceOnFootHalves, lanceMountedFullDamage, vanillaIronSwordCarriesFinesseHook",
+            "./gradlew chiseledRunGametest shows zero AssertionErrors on the 6 combat tests"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Make tooltip gametests work without ItemTooltipCallback",
+          "task_excerpt_lines": "30-50",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/TooltipInjectionGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "registeredItemTooltipContainsStatBlock and vanillaIronSwordTooltipContainsStatBlock pass on all 5 MC versions in ./gradlew chiseledRunGametest",
+            "The chosen approach is one of: (a) Inspect WeaponTooltipBuilder.build(spec) output directly without going through stack.getTooltipLines(), (b) Add a server-aware tooltip-injection mechanism (e.g. a custom DataComponentType set at item registration) so stack.getTooltipLines() returns the injected lines server-side too, (c) Switch these tests to Fabric's client-gametest harness if available in this loom version",
+            "The misleading comment in TooltipInjectionGametest.kt line 87 is corrected or deleted"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "Audit en_us.json translation keys",
+          "task_excerpt_lines": "98-113",
+          "owned_files": [
+            "src/main/resources/assets/dndweapons/lang/en_us.json"
+          ],
+          "acceptance_criteria": [
+            "Run the audit grep from phase-3 plan lines 1975-1980 and confirm zero missing keys: tooltip.dndweapons.stat_block, damage_type.slashing, damage_type.piercing, damage_type.bludgeoning, bonus.finesse_sprint, bonus.light_dual, bonus.versatile_empty, bonus.lance_foot",
+            "If any keys are missing, add them with reasonable English translations",
+            "Document the audit result (zero missing or list of additions) in the cycle-3 verification doc"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Add sweep-behavior gametest and verify runtime correctness of sweep guard",
+          "task_excerpt_lines": "54-74",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+            "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.java",
+            "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt"
+          ],
+          "acceptance_criteria": [
+            "A new gametest is added that places a primary pig and at least one secondary pig within sweep range of the primary",
+            "Attacks the primary with greataxe (Heavy property)",
+            "Asserts primary pig damage equals base*HeavyMultiplier (within tolerance)",
+            "Asserts secondary pig damage equals vanilla sweep damage WITHOUT the Heavy bonus (within tolerance)",
+            "The test passes on all 5 MC versions when chiseledRunGametest runs",
+            "If the test FAILS, the sweep guard in PlayerAttackMixin's @ModifyArg must be revised with a fallback @Redirect approach if needed"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {
+          "agent_id": "wave-3-agent-1",
+          "task_title": "Create phase-3-combat-hooks git tag once acceptance is green",
+          "task_excerpt_lines": "78-94",
+          "owned_files": [
+            "docs/superpowers/plans/phase-3-verification-cycle-3.md"
+          ],
+          "acceptance_criteria": [
+            "Tasks 1-3 are complete and ./gradlew chiseledRunGametest shows 9/9 pass per version (45/45 total) AND ./gradlew chiseledTest is green AND ./gradlew chiseledBuild is green",
+            "git tag phase-3-combat-hooks is created at the tip of cycle-3 work",
+            "The tag is NOT pushed automatically; document the manual push command for the user",
+            "phase-3-verification.md from cycle 2 is updated (or a cycle-3 version is generated) showing all 14 spec acceptance criteria GREEN"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": [
+    "Plan metadata (title, generated date, source bugs report, original plan reference)"
+  ]
+}

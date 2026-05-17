@@ -1,11 +1,13 @@
 package com.dndweapons.test
 
 import com.dndweapons.DndWeaponsMod
+import com.dndweapons.catalog.DamageType
+import com.dndweapons.catalog.Property
+import com.dndweapons.catalog.WeaponSpec
+import com.dndweapons.registry.SpecRegistry
+import com.dndweapons.tooltip.WeaponTooltipBuilder
 import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.network.chat.Component
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
-import net.minecraft.world.item.TooltipFlag
 
 //? if <1.21.11 {
 import net.minecraft.resources.ResourceLocation
@@ -58,39 +60,60 @@ private fun runRegisteredTooltipCase(ctx: GameTestHelper) {
     /*val item = BuiltInRegistries.ITEM.get(resId)
         ?: throw AssertionError("longsword not registered")
     *///?}
-    val stack = ItemStack(item)
-    val lines = collectTooltip(stack)
-    val text = lines.joinToString("|") { it.string }
-    if (!text.contains("slashing")) {
-        throw AssertionError("Longsword tooltip missing 'slashing'. Got: $text")
-    }
-    if (!text.contains("Versatile")) {
-        throw AssertionError("Longsword tooltip missing 'Versatile'. Got: $text")
-    }
+    val spec = SpecRegistry.lookup(item)
+        ?: throw AssertionError("longsword item has no WeaponSpec in SpecRegistry")
+    assertTooltipContainsDamageType(spec, DamageType.SLASHING, "Longsword")
+    assertTooltipContainsProperty(spec, Property.VERSATILE, "Longsword")
     ctx.succeed()
 }
 
 private fun runVanillaTooltipCase(ctx: GameTestHelper) {
-    val stack = ItemStack(Items.IRON_SWORD)
-    val lines = collectTooltip(stack)
-    val text = lines.joinToString("|") { it.string }
-    if (!text.contains("piercing")) {
-        throw AssertionError("Iron sword tooltip missing 'piercing'. Got: $text")
-    }
-    if (!text.contains("Finesse")) {
-        throw AssertionError("Iron sword tooltip missing 'Finesse'. Got: $text")
-    }
+    val spec = SpecRegistry.lookup(Items.IRON_SWORD)
+        ?: throw AssertionError(
+            "Iron Sword has no WeaponSpec in SpecRegistry. " +
+            "Ensure its role tag is bound in WeaponRegistrarImpl."
+        )
+    assertTooltipContainsDamageType(spec, DamageType.PIERCING, "Iron Sword")
+    assertTooltipContainsProperty(spec, Property.FINESSE, "Iron Sword")
     ctx.succeed()
 }
 
-private fun collectTooltip(stack: ItemStack): List<Component> {
-    // ItemTooltipCallback fires server-side too when getTooltipLines is invoked
-    // with a null player; Fabric API guarantees the callback runs.
-    //? if >=1.20.5 {
-    return stack.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.EMPTY, null, TooltipFlag.NORMAL)
-    //?} else {
-    /*return stack.getTooltipLines(null, TooltipFlag.NORMAL)
-    *///?}
+/**
+ * Asserts that WeaponTooltipBuilder.build(spec) produces a stat-block line whose
+ * translationKey encodes the expected damage type.
+ *
+ * WeaponTooltipBuilder.build() is a pure function with no MC or client-API
+ * dependencies, so it is safe to call from a server-side gametest.
+ */
+private fun assertTooltipContainsDamageType(spec: WeaponSpec, expected: DamageType, label: String) {
+    val lines = WeaponTooltipBuilder.build(spec)
+    val allKeys = lines.joinToString("|") { it.translationKey }
+    val expectedFragment = expected.name.lowercase()
+    if (lines.none { it.translationKey.contains(expectedFragment) }) {
+        throw AssertionError(
+            "$label tooltip missing damage type '$expectedFragment'. " +
+            "Translation keys: $allKeys"
+        )
+    }
+}
+
+/**
+ * Asserts that WeaponTooltipBuilder.build(spec) produces a bonus line whose
+ * translationKey encodes the expected property name.
+ *
+ * This is equivalent to checking that the spec carries the property and that
+ * WeaponTooltipBuilder emits a line for it.
+ */
+private fun assertTooltipContainsProperty(spec: WeaponSpec, expected: Property, label: String) {
+    val lines = WeaponTooltipBuilder.build(spec)
+    val allKeys = lines.joinToString("|") { it.translationKey }
+    val expectedFragment = expected.name.lowercase()
+    if (lines.none { it.translationKey.contains(expectedFragment) }) {
+        throw AssertionError(
+            "$label tooltip missing property '$expectedFragment'. " +
+            "Translation keys: $allKeys"
+        )
+    }
 }
 
 private fun makeRlTooltip(ns: String, path: String): ResourceLocation {

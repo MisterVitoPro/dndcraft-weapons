@@ -1,0 +1,22 @@
+{
+  "wave_id": 1,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-1-agent-1": "BUGS_FOUND",
+    "wave-1-agent-2": "CLEAN",
+    "wave-1-agent-3": "CLEAN"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-1-agent-1-bug-1",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "No access widener for Player.attackStrengthTicker; direct Kotlin field assignment will fail to compile",
+      "file": "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+      "line": 124,
+      "evidence": "player.attackStrengthTicker = 100",
+      "expected": "attackStrengthTicker is a protected field on net.minecraft.world.entity.player.Player. For Kotlin to set it directly, an access widener entry must exist in src/main/resources/dndweapons.accesswidener AND fabric.loom.accessWidenerPath must point to that file in build.gradle.kts. Neither the .accesswidener file nor the gradle declaration exists anywhere in the project tree, so the build will fail with an IllegalAccessError or a compile-time visibility error on all 5 MC versions.",
+      "suggested_fix": "1) Create src/main/resources/dndweapons.accesswidener with content: 'accessWidener v2 named\\naccessible field net/minecraft/world/entity/player/Player attackStrengthTicker I'. 2) In build.gradle.kts inside the loom {} block add: accessWidenerPath = file(\"src/main/resources/dndweapons.accesswidener\"). 3) Add '\"accessWidener\": \"dndweapons.accesswidener\"' to fabric.mod.json at the top level. Alternative: use player.resetAttackStrengthTicker() (option a from acceptance criteria) which is a public method and needs no widener."
+    }
+  ]
+}

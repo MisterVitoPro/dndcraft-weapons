@@ -121,6 +121,7 @@ private fun runFinesseSprintCase(ctx: GameTestHelper, weapon: ItemStack) {
     val pig = ctx.spawn(EntityType.PIG, pos) as Pig
 
     val before = pig.health
+    player.attackStrengthTicker = 100
     player.attack(pig)
     val after = pig.health
     val dealt = before - after
@@ -148,6 +149,7 @@ private fun runLightDualCase(ctx: GameTestHelper) {
     val pig = ctx.spawn(EntityType.PIG, pos) as Pig
 
     val before = pig.health
+    player.attackStrengthTicker = 100
     player.attack(pig)
     val after = pig.health
     val dealt = before - after
@@ -174,6 +176,7 @@ private fun runVersatileCase(ctx: GameTestHelper) {
     val pig = ctx.spawn(EntityType.PIG, pos) as Pig
 
     val before = pig.health
+    player.attackStrengthTicker = 100
     player.attack(pig)
     val after = pig.health
     val dealt = before - after
@@ -201,6 +204,7 @@ private fun runLanceOnFootCase(ctx: GameTestHelper) {
     val pig = ctx.spawn(EntityType.PIG, pos) as Pig
 
     val before = pig.health
+    player.attackStrengthTicker = 100
     player.attack(pig)
     val after = pig.health
     val dealt = before - after
@@ -234,6 +238,7 @@ private fun runHeavyKnockbackCase(ctx: GameTestHelper) {
     // doubles the horizontal kick).
     val beforeVel = pig.deltaMovement.lengthSqr()
 
+    player.attackStrengthTicker = 100
     player.attack(pig)
 
     val afterVel = pig.deltaMovement.lengthSqr()
@@ -272,6 +277,7 @@ private fun runLanceMountedCase(ctx: GameTestHelper) {
     val target = ctx.spawn(EntityType.PIG, targetPos) as Pig
 
     val before = target.health
+    player.attackStrengthTicker = 100
     player.attack(target)
     val after = target.health
     val dealt = before - after
