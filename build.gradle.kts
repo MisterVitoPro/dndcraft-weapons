@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("fabric-loom") version "1.11-SNAPSHOT"
+    id("fabric-loom") version "1.16.2"
     id("org.jetbrains.kotlin.jvm") version "2.3.21"
     id("dev.kikugie.stonecutter")
 }
@@ -31,11 +31,11 @@ repositories {
 
 dependencies {
     minecraft("com.mojang:minecraft:${property("minecraft_version")}")
-    //? if MC >= 26.1 {
-    /*mappings(loom.officialMojangMappings())*/
-    //?} else {
-    mappings("net.fabricmc:yarn:${property("yarn_mappings")}:v2")
-    //?}
+    if ((property("minecraft_version") as String).startsWith("26.")) {
+        mappings(loom.officialMojangMappings())
+    } else {
+        mappings("net.fabricmc:yarn:${property("yarn_mappings")}:v2")
+    }
     modImplementation("net.fabricmc:fabric-loader:${property("loader_version")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("fabric_version")}")
     modImplementation("net.fabricmc:fabric-language-kotlin:${property("flk_version")}")
