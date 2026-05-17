@@ -1,0 +1,222 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-17/cycle-1/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Register chiseledTest task and test source set with Stonecutter",
+          "task_excerpt_lines": "8-27",
+          "owned_files": [
+            "stonecutter.gradle.kts",
+            "stonecutter.gradle",
+            "build.gradle.kts"
+          ],
+          "acceptance_criteria": [
+            "stonecutter.gradle.kts and stonecutter.gradle both define a chiseledTest task using ofTask(\"test\"), mirroring the existing chiseledBuild pattern",
+            "build.gradle.kts registers the src/test source set with Stonecutter so that per-version build/chiseledSrc/test directories are created",
+            "./gradlew chiseledTest runs successfully and invokes the test task across all 5 subprojects (1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2)",
+            "Stonecutter version gates in test source files are processed per-version (prerequisite for Task 2 and Task 3 fixes)"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Stonecutter-gate makeMockPlayer() calls in CombatHooksGametest.kt",
+          "task_excerpt_lines": "30-49",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "net.minecraft.world.level.GameType is imported inside a //? if >=1.21.2 { ... //?} stonecutter block",
+            "All 5 ctx.makeMockPlayer() call sites (lines 100, 123, 145, 167, 190) are wrapped with stonecutter guards: //? if >=1.21.2 { ctx.makeMockPlayer(GameType.SURVIVAL) //?} else { ctx.makeMockPlayer() //?}",
+            "./gradlew :1.21.4:build succeeds after this fix",
+            "./gradlew chiseledBuild succeeds across all 5 subprojects"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "Lazy-resolve Registries.ITEM in SpecRegistry to avoid 'Not bootstrapped' in 1.20.1 tests",
+          "task_excerpt_lines": "52-69",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/registry/SpecRegistry.kt"
+          ],
+          "acceptance_criteria": [
+            "TagKey.create(Registries.ITEM, loc) at line 78 no longer eagerly initializes BuiltInRegistries at class-load time",
+            "Preferred approach: either (a) store the TagKey factory in a companion object property that is only evaluated post-bootstrap, or (b) change bindRoleTag to accept TagKey<Item> directly and move string parsing to call sites",
+            "SpecRegistryTest passes on the 1.20.1 subproject without requiring MC Bootstrap",
+            "./gradlew chiseledTest shows all SpecRegistry tests green across all 5 versions"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-4",
+          "task_title": "Create missing shortsword role tag file for IronSword tooltip gametest",
+          "task_excerpt_lines": "157-172",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/tags/items/role/shortsword.json"
+          ],
+          "acceptance_criteria": [
+            "data/dndweapons/tags/items/role/shortsword.json exists and contains minecraft:iron_sword in its values array",
+            "vanillaIronSwordTooltipContainsStatBlock gametest passes and the Iron Sword tooltip contains piercing and Finesse",
+            "File is present in all per-version subproject resource paths (or in the shared src/main/resources tree if shared)"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-1-agent-5",
+          "task_title": "Audit PlayerAttackMixin @At descriptor across all 5 versions; add fork if needed",
+          "task_excerpt_lines": "175-191",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt"
+          ],
+          "acceptance_criteria": [
+            "Mixin injection is confirmed to succeed in all 5 environments (evidenced by gametests passing in Task 6)",
+            "If any subproject uses a mapping set where the DamageSource descriptor differs, a stonecutter fork is added around the @At target string",
+            "Decision (fork added OR confirmed unnecessary) is documented in the task output"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Add missing 9th gametest (heavy_knockback) to CombatHooksGametest.kt",
+          "task_excerpt_lines": "72-90",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "Total gametest count across CombatHooksGametest.kt and TooltipInjectionGametest.kt is exactly 9",
+            "The missing test is most likely heavy_knockback - verify against plan lines 1274-1601 and add accordingly",
+            "Both files have their gametest entrypoints registered in fabric.mod.json under the fabric-gametest list",
+            "./gradlew :1.21.4:runGametest shows all 9 gametests passing"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-2",
+          "task_title": "Determine sweep-entity modifier behavior and add guard if needed",
+          "task_excerpt_lines": "194-210",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt"
+          ],
+          "acceptance_criteria": [
+            "Design spec consulted and intended behavior for sweep entities is determined",
+            "If sweep entities should NOT receive the DnD damage modifier: @ModifyArg is replaced with @ModifyVariable on the primary damage local, OR a guard filters sweep invocations",
+            "If sweep entities SHOULD receive the modifier: behavior is explicitly confirmed as correct in a code comment",
+            "A relevant gametest asserts the correct sweep behavior"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {
+          "agent_id": "wave-3-agent-1",
+          "task_title": "Verify and resolve startRiding() Stonecutter substitution on test sources",
+          "task_excerpt_lines": "93-110",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "./gradlew :1.21.4:build succeeds with no compile errors related to startRiding() argument count",
+            "./gradlew chiseledBuild succeeds on all 5 subprojects",
+            "If Stonecutter substitution was not being applied to test sources (due to bug in Task 1), confirm this is resolved by Task 1's source-set registration fix",
+            "If the fork at lines 222-226 is genuinely broken, correct it"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-3-agent-2",
+          "task_title": "Smoke-test and fix mixin descriptor on 26.1.2 identity-mapping build",
+          "task_excerpt_lines": "213-227",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt"
+          ],
+          "acceptance_criteria": [
+            "Mixin injection confirmed to fire on the 26.1.2 subproject (evidenced by gametests passing)",
+            "If identity tiny v2 stub causes descriptor resolution to differ from other versions, a stonecutter fork for >=26.1.2 (or equivalent) is added",
+            "./gradlew :26.1.2:runGametest shows all 9 gametests passing"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {
+          "agent_id": "wave-4-agent-1",
+          "task_title": "Verify PlayerAttackMixin injection fires and execute chiseledRunGametest",
+          "task_excerpt_lines": "113-134",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/mixin/PlayerAttackMixin.kt",
+            "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "./gradlew chiseledRunGametest is actually executed (not static-inspection-only)",
+            "All 9 gametests pass on all 5 MC versions (45 total)",
+            "@ModifyArg on Entity.hurt (<1.21.4) / Entity.hurtOrSimulate (>=1.21.4) is confirmed to fire via gametest pass or logging evidence",
+            "Confirmed on 1.20.1, 1.21.1, 1.21.4, 1.21.11, and 26.1.2",
+            "Any runtime mixin failures are diagnosed and fixed"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 5,
+      "agents": [
+        {
+          "agent_id": "wave-5-agent-1",
+          "task_title": "Run full build/test/gametest matrix and confirm all 14 Phase 3 acceptance criteria",
+          "task_excerpt_lines": "137-153",
+          "owned_files": [
+            "docs/plan-runner/2026-05-17/cycle-2/phase-3-verification.md"
+          ],
+          "acceptance_criteria": [
+            "./gradlew chiseledBuild succeeds on all 5 versions",
+            "./gradlew chiseledTest succeeds on all 5 versions (requires Task 1)",
+            "./gradlew chiseledRunGametest succeeds on all 5 versions (requires Task 6)",
+            "All 14 Phase 3 acceptance criteria from the source plan are checked and documented as passing",
+            "This task runs after Tasks 1-6 are complete"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 6,
+      "agents": [
+        {
+          "agent_id": "wave-6-agent-1",
+          "task_title": "Create git tag and clean up working tree",
+          "task_excerpt_lines": "230-248",
+          "owned_files": [
+            ".gitignore"
+          ],
+          "acceptance_criteria": [
+            "versions/*/logs/ (or equivalent log output paths) is added to .gitignore so future runs do not leave untracked log directories",
+            "manifest.json changes are either committed with a descriptive message or reverted if unintentional",
+            "Working tree is clean (git status shows nothing to commit)",
+            "phase-3-combat-hooks git tag is created at the tip of Phase 3 work: git tag phase-3-combat-hooks && git push --tags",
+            "This task runs last, after Task 7 confirms the full matrix is green"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": [
+    "Task 13: Manual in-game spot-check (cannot be automated)"
+  ]
+}

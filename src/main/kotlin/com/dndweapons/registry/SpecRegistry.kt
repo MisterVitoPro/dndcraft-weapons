@@ -29,7 +29,15 @@ import net.minecraft.resources.ResourceLocation
 object SpecRegistry {
 
     private val byItem = mutableMapOf<Item, WeaponSpec>()
-    private val byRoleTag = mutableMapOf<TagKey<Item>, WeaponSpec>()
+
+    // Keyed by the raw tag string ("ns:path") rather than TagKey<Item>. Constructing
+    // a TagKey here would force Registries.<clinit> (which transitively pulls in
+    // BuiltInRegistries.<clinit>) at registration time. Unit tests that call
+    // bindRoleTag without bootstrapping the MC registries would hit a
+    // "Not bootstrapped" RuntimeException. Deferring the TagKey construction to
+    // buildRoleCacheAndStore() (called only at first lookup, which is guaranteed
+    // post-bootstrap on the server thread) avoids that pitfall.
+    private val byRoleTag = mutableMapOf<String, WeaponSpec>()
     @Volatile private var roleCache: Map<Item, WeaponSpec>? = null
 
     fun init() {
@@ -43,7 +51,10 @@ object SpecRegistry {
     fun bindRoleTag(spec: WeaponSpec) {
         val tagStr = spec.vanillaRoleTag
             ?: error("bindRoleTag: spec '${spec.id}' has no vanillaRoleTag")
-        byRoleTag[parseItemTagKey(tagStr)] = spec
+        // Validate the "ns:path" shape eagerly so a malformed spec fails at bind
+        // time rather than at first lookup. Do NOT touch Registries / TagKey here.
+        validateTagString(tagStr)
+        byRoleTag[tagStr] = spec
         roleCache = null
     }
 
@@ -58,13 +69,19 @@ object SpecRegistry {
 
     private fun buildRoleCacheAndStore(): Map<Item, WeaponSpec> {
         val out = mutableMapOf<Item, WeaponSpec>()
-        for ((tag, spec) in byRoleTag) {
+        for ((tagStr, spec) in byRoleTag) {
+            val tag = parseItemTagKey(tagStr)
             for (holder in BuiltInRegistries.ITEM.getTagOrEmpty(tag)) {
                 out[holder.value()] = spec
             }
         }
         roleCache = out
         return out
+    }
+
+    private fun validateTagString(s: String) {
+        val parts = s.split(":", limit = 2)
+        require(parts.size == 2) { "Bad tag string '$s' (expected 'ns:path')" }
     }
 
     private fun parseItemTagKey(s: String): TagKey<Item> {

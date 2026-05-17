@@ -129,6 +129,20 @@ tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
 
+// Ensure the `test` source set is materialized in every subproject so that
+// Stonecutter's configureSources() iterates it alongside `main` and stamps
+// per-version chiseledSrc/test directories. The kotlin("jvm") plugin creates
+// `test` lazily; touching it here forces creation before Stonecutter walks
+// the SourceSetContainer. Without this, Stonecutter's SourceSetContainer
+// iteration may run before the test source set is realized, and version
+// gates in src/test/kotlin/** would not be processed per version.
+sourceSets {
+    named("test") {
+        // Force realization. No additional config needed — kotlin("jvm")
+        // already wires src/test/kotlin and src/test/java.
+    }
+}
+
 // Per-version overlay resources under versions/<mc>/src/main/resources/ may
 // share filenames with the shared src/main/resources/ tree (e.g. recipe JSONs
 // that need a per-version ingredient format because vanilla MC's recipe codec

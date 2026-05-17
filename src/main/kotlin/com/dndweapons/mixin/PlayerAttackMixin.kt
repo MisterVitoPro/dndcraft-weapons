@@ -13,12 +13,19 @@ import org.spongepowered.asm.mixin.injection.ModifyArg
  * (registered DnD item OR vanilla item carrying a role tag).
  *
  * @ModifyArg intercepts argument index 1 (the float) of the primary damage call
- * directly, so no local-variable name / ordinal lookup is needed — immune to LVT
+ * directly, so no local-variable name / ordinal lookup is needed - immune to LVT
  * differences across MC versions.
  *
  * Per-version fork on the target descriptor:
- *   < 1.21.4  → Entity#hurt(DamageSource, float) : boolean
- *   >= 1.21.4 → Entity#hurtOrSimulate(DamageSource, float) : boolean
+ *   < 1.21.4  -> Entity#hurt(DamageSource, float) : boolean
+ *   >= 1.21.4 -> Entity#hurtOrSimulate(DamageSource, float) : boolean
+ *
+ * DamageSource descriptor audit (cycle-2):
+ *   net.minecraft.world.damagesource.DamageSource has been stable since 1.19.
+ *   All 5 supported versions (1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2) use the
+ *   same FQN under official Mojang mappings. 26.1.2 uses an identity tiny v2
+ *   stub so source-level FQN == runtime FQN. No per-version fork on the
+ *   DamageSource portion of the @At target string is required.
  */
 @Mixin(Player::class)
 abstract class PlayerAttackMixin {

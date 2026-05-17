@@ -1,0 +1,35 @@
+{
+  "wave_id": 1,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-1-agent-1": "BUGS_FOUND",
+    "wave-1-agent-2": "CLEAN",
+    "wave-1-agent-3": "CLEAN",
+    "wave-1-agent-4": "CLEAN",
+    "wave-1-agent-5": "CLEAN"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-1-agent-1-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "chiseledTest task runtime success not verified",
+      "file": "stonecutter.gradle.kts",
+      "line": 17,
+      "evidence": "stonecutter registerChiseled tasks.register(\"chiseledTest\", stonecutter.chiseled) {\n    group = \"project\"\n    ofTask(\"test\")\n}",
+      "expected": "./gradlew chiseledTest runs successfully and invokes the test task across all 5 subprojects",
+      "suggested_fix": "Run ./gradlew chiseledTest in a real Gradle environment. Without a Gradle daemon execution in this agent context, this criterion cannot be confirmed."
+    },
+    {
+      "bug_id": "wave-1-agent-1-bug-2",
+      "severity": "P2",
+      "category": "incorrect_implementation",
+      "title": "Test source set is force-realized but not explicitly redirected to Stonecutter chiseled output",
+      "file": "build.gradle.kts",
+      "line": 139,
+      "evidence": "sourceSets {\n    named(\"test\") {\n        // Force realization. No additional config needed - kotlin(\"jvm\")\n        // already wires src/test/kotlin and src/test/java.\n    }\n}",
+      "expected": "build.gradle.kts registers the src/test source set with Stonecutter so that per-version build/chiseledSrc/test directories are created",
+      "suggested_fix": "Stonecutter's configureSources() iterates the SourceSetContainer automatically. The force-realization fix should be sufficient, but the verifier cannot confirm without a real Gradle run. If chiseledSrc/test still isn't produced, an explicit srcDirs redirect may be needed."
+    }
+  ]
+}

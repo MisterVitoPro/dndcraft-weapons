@@ -12,3 +12,8 @@ stonecutter.registerChiseled tasks.register("chiseledRunGametest", stonecutter.c
     setGroup "project"
     ofTask "runGametest"
 }
+
+stonecutter.registerChiseled tasks.register("chiseledTest", stonecutter.chiseled) {
+    setGroup "project"
+    ofTask "test"
+}
