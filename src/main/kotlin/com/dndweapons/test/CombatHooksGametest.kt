@@ -5,16 +5,21 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.EntityType
-import net.minecraft.world.entity.animal.Pig
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 
 //? if <1.21.11 {
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.entity.animal.Pig
 //?}
 //? if >=1.21.11 {
 /*import net.minecraft.resources.Identifier as ResourceLocation
+import net.minecraft.world.entity.animal.pig.Pig
 *///?}
+
+//? if >=1.21.1 {
+import net.minecraft.world.level.GameType
+//?}
 
 //? if <1.21.5 {
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest
@@ -97,7 +102,11 @@ private fun makeRl(ns: String, path: String): ResourceLocation {
 }
 
 private fun runFinesseSprintCase(ctx: GameTestHelper, weapon: ItemStack) {
-    val player = ctx.makeMockPlayer()
+    //? if >=1.21.1 {
+    val player = ctx.makeMockPlayer(GameType.SURVIVAL)
+    //?} else {
+    /*val player = ctx.makeMockPlayer()
+    *///?}
     player.setItemInHand(InteractionHand.MAIN_HAND, weapon)
     player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY)
     player.isSprinting = true
@@ -120,7 +129,11 @@ private fun runFinesseSprintCase(ctx: GameTestHelper, weapon: ItemStack) {
 }
 
 private fun runLightDualCase(ctx: GameTestHelper) {
-    val player = ctx.makeMockPlayer()
+    //? if >=1.21.1 {
+    val player = ctx.makeMockPlayer(GameType.SURVIVAL)
+    //?} else {
+    /*val player = ctx.makeMockPlayer()
+    *///?}
     player.setItemInHand(InteractionHand.MAIN_HAND, dndItem("dagger"))
     player.setItemInHand(InteractionHand.OFF_HAND, dndItem("dagger"))
     player.isSprinting = false
@@ -142,7 +155,11 @@ private fun runLightDualCase(ctx: GameTestHelper) {
 }
 
 private fun runVersatileCase(ctx: GameTestHelper) {
-    val player = ctx.makeMockPlayer()
+    //? if >=1.21.1 {
+    val player = ctx.makeMockPlayer(GameType.SURVIVAL)
+    //?} else {
+    /*val player = ctx.makeMockPlayer()
+    *///?}
     player.setItemInHand(InteractionHand.MAIN_HAND, dndItem("longsword"))
     player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY)
     player.isSprinting = false
@@ -164,7 +181,11 @@ private fun runVersatileCase(ctx: GameTestHelper) {
 }
 
 private fun runLanceOnFootCase(ctx: GameTestHelper) {
-    val player = ctx.makeMockPlayer()
+    //? if >=1.21.1 {
+    val player = ctx.makeMockPlayer(GameType.SURVIVAL)
+    //?} else {
+    /*val player = ctx.makeMockPlayer()
+    *///?}
     player.setItemInHand(InteractionHand.MAIN_HAND, dndItem("lance"))
     player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY)
     player.isSprinting = false
@@ -187,14 +208,22 @@ private fun runLanceOnFootCase(ctx: GameTestHelper) {
 }
 
 private fun runLanceMountedCase(ctx: GameTestHelper) {
-    val player = ctx.makeMockPlayer()
+    //? if >=1.21.1 {
+    val player = ctx.makeMockPlayer(GameType.SURVIVAL)
+    //?} else {
+    /*val player = ctx.makeMockPlayer()
+    *///?}
     player.setItemInHand(InteractionHand.MAIN_HAND, dndItem("lance"))
     player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY)
     player.isSprinting = false
 
     val mountPos = BlockPos(1, 1, 1)
     val mount = ctx.spawn(EntityType.PIG, mountPos) as Pig
-    player.startRiding(mount, true)
+    //? if >=1.21.11 {
+    player.startRiding(mount, true, true)
+    //?} else {
+    /*player.startRiding(mount, true)
+    *///?}
 
     val targetPos = BlockPos(3, 1, 3)
     val target = ctx.spawn(EntityType.PIG, targetPos) as Pig

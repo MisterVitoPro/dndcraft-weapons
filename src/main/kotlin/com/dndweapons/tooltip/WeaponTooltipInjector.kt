@@ -18,6 +18,7 @@ import net.minecraft.network.chat.MutableComponent
 object WeaponTooltipInjector {
 
     fun register() {
+        //? if >=1.20.5 {
         ItemTooltipCallback.EVENT.register(ItemTooltipCallback { stack, _, _, lines ->
             val spec = SpecRegistry.lookup(stack.item) ?: return@ItemTooltipCallback
             val newLines = WeaponTooltipBuilder.build(spec)
@@ -25,6 +26,15 @@ object WeaponTooltipInjector {
             val components = newLines.map { it.toComponent() }
             lines.addAll(1, components)
         })
+        //?} else {
+        /*ItemTooltipCallback.EVENT.register(ItemTooltipCallback { stack, _, lines ->
+            val spec = SpecRegistry.lookup(stack.item) ?: return@ItemTooltipCallback
+            val newLines = WeaponTooltipBuilder.build(spec)
+            if (newLines.isEmpty()) return@ItemTooltipCallback
+            val components = newLines.map { it.toComponent() }
+            lines.addAll(1, components)
+        })
+        *///?}
     }
 
     private fun TooltipLine.toComponent(): Component {
