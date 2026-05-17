@@ -16,8 +16,20 @@
     {"wave_id": 3, "duration_seconds": 203,
      "agents": [{"agent_id": "wave-3-agent-1", "dev_status": "DONE"}, {"agent_id": "wave-3-agent-2", "dev_status": "DONE"}],
      "wave_verifier_status": "CLEAN", "wave_bug_count": 0,
-     "commit_sha": "d636d4561eeea3225cef0bd8f417e005257fce0a", "skipped_reason": null}
+     "commit_sha": "d636d4561eeea3225cef0bd8f417e005257fce0a", "skipped_reason": null},
+    {"wave_id": 4, "duration_seconds": 602,
+     "agents": [{"agent_id": "wave-4-agent-1", "dev_status": "DONE_WITH_CONCERNS"}],
+     "wave_verifier_status": "BUGS_FOUND", "wave_bug_count": 1,
+     "commit_sha": "f438f96db29b107fbafd2e035462b49f7ae93b93", "skipped_reason": null},
+    {"wave_id": 5, "duration_seconds": 344,
+     "agents": [{"agent_id": "wave-5-agent-1", "dev_status": "DONE"}, {"agent_id": "wave-5-agent-2", "dev_status": "DONE"}, {"agent_id": "wave-5-agent-3", "dev_status": "DONE"}, {"agent_id": "wave-5-agent-4", "dev_status": "DONE"}, {"agent_id": "wave-5-agent-5", "dev_status": "DONE"}, {"agent_id": "wave-5-agent-6", "dev_status": "DONE"}],
+     "wave_verifier_status": "BUGS_FOUND", "wave_bug_count": 1,
+     "commit_sha": "ed371f663d42449a2369f810cb584b2348807329", "skipped_reason": null},
+    {"wave_id": 6, "duration_seconds": 600,
+     "agents": [{"agent_id": "wave-6-agent-1", "dev_status": "DONE_WITH_CONCERNS"}],
+     "wave_verifier_status": "CLEAN", "wave_bug_count": 0,
+     "commit_sha": "58384ce690198a72c17fea5fa0decbcedb3d8141", "skipped_reason": null}
   ],
-  "total_bugs": 0,
+  "total_bugs": 2,
   "next_cycle_plan": null
 }
