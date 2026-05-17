@@ -1,0 +1,20 @@
+{
+  "wave_id": 4,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-4-agent-1": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-4-agent-1-bug-1",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Recipe tag-ingredient format incompatible with FAPI on 1.21.4, 1.21.11, and 26.1.2 -- expanded-catalog recipes fail to load at runtime",
+      "file": "versions/1.21.4/src/main/resources/data/dndweapons/recipes/ (and equivalent paths under versions/1.21.11 and versions/26.1.2)",
+      "line": null,
+      "evidence": "During :runGametest on 1.21.4, 1.21.11, and 26.1.2, recipe-loading ERRORs were logged for all expanded-catalog weapon recipes (~34 weapons). The tag ingredient format used (bare {\"tag\":\"c:ingots/iron\"} or {\"fabric:type\":\"fabric:tag\",\"tag\":\"c:ingots/iron\"}) is not accepted by the FAPI version active on those MC targets. Recipes fail to parse and are silently skipped; gametests pass only because registration checks do not exercise recipe lookup. 1.20.1 and 1.21.1 showed no such errors, suggesting either the format is compatible there or the recipes were absent for those runs.",
+      "expected": "All expanded-catalog weapon recipes should load without ERROR on all 5 MC versions. The recipe ingredient tag serializer format must be adapted per-version (versioned stonecutter blocks or conditional ingredient schemas) so recipes are functional in-game, not merely absent from the parse error log.",
+      "suggested_fix": "Introduce versioned recipe source sets or Gradle copy-filter logic that writes the correct ingredient format per MC target: use the flat {\"tag\":\"...\"} form only where the FAPI RecipeSerializer accepts it, and use the {\"fabric:type\":\"fabric:tag\",\"tag\":\"...\"} (or the vanilla 1.21+ {\"ingredient\":{\"tag\":\"...\"}} wrapper) for other targets. Verify fix by asserting non-zero recipe counts in a gametest or via /recipe command in runClient for each version."
+    }
+  ]
+}
