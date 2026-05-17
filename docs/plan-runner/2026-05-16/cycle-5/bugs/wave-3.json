@@ -1,0 +1,9 @@
+{
+  "wave_id": 3,
+  "verifier_status": "CLEAN",
+  "agent_statuses": {
+    "wave-3-agent-1": "CLEAN"
+  },
+  "bugs": [],
+  "orchestrator_note": "1.21.4 smoke test PASS: :build, :test (7/7), :runGametest all green. No inline source fixes were needed — the //? directives written in Wave 2 resolved correctly for the >=1.21.2 && <1.21.11 epoch on 1.21.4. The Mojang naming conversion is functionally validated on the baseline version. One pre-existing concern (longsword recipe JSON uses fabric:tag ingredient syntax that 1.21.4 vanilla parser doesn't accept) is unrelated to Phase 2a-3 scope; tracked as P3 for a future recipe-data task."
+}
