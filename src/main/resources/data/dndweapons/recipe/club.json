@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["S", "S"],
+  "key": { "S": { "tag": "c:rods/wooden" } },
+  "result": { "id": "dndweapons:club", "count": 1 }
+}

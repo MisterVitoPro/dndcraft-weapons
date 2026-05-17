@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["II ", " S ", " S "],
+  "key": {
+    "I": { "tag": "c:ingots/iron" },
+    "S": { "tag": "c:rods/wooden" }
+  },
+  "result": { "item": "dndweapons:glaive", "count": 1 }
+}

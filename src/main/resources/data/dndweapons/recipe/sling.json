@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["T T", " L "],
+  "key": {
+    "T": { "tag": "c:string" },
+    "L": { "tag": "c:leathers" }
+  },
+  "result": { "id": "dndweapons:sling", "count": 1 }
+}

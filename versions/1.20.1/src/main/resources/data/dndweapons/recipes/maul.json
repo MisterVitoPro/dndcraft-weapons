@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["III", "ISI", " S "],
+  "key": {
+    "I": { "tag": "c:ingots/iron" },
+    "S": { "tag": "c:rods/wooden" }
+  },
+  "result": { "item": "dndweapons:maul", "count": 1 }
+}

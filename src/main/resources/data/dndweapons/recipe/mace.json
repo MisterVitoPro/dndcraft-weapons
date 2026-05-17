@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["I", "I", "S"],
+  "key": {
+    "I": { "tag": "c:ingots/iron" },
+    "S": { "tag": "c:rods/wooden" }
+  },
+  "result": { "id": "dndweapons:mace", "count": 1 }
+}

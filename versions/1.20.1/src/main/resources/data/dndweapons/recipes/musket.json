@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["III", "SSI", "S  "],
+  "key": {
+    "I": { "tag": "c:ingots/iron" },
+    "S": { "tag": "c:rods/wooden" }
+  },
+  "result": { "item": "dndweapons:musket", "count": 1 }
+}

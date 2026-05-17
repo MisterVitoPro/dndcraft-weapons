@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["L ", "L ", "LS"],
+  "key": {
+    "L": { "tag": "c:leathers" },
+    "S": { "tag": "c:rods/wooden" }
+  },
+  "result": { "id": "dndweapons:whip", "count": 1 }
+}

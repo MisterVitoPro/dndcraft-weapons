@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["S", "S", "S"],
+  "key": { "S": { "tag": "c:rods/wooden" } },
+  "result": { "id": "dndweapons:quarterstaff", "count": 1 }
+}

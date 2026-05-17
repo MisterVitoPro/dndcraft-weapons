@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [" I", "IS"],
+  "key": {
+    "I": { "tag": "c:ingots/iron" },
+    "S": { "tag": "c:rods/wooden" }
+  },
+  "result": { "id": "dndweapons:sickle", "count": 1 }
+}
