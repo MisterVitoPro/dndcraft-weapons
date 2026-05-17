@@ -2,7 +2,6 @@
   "cycle": 1,
   "input_plan": "docs/superpowers/plans/2026-05-17-dnd-weapons-phase-3-combat-hooks.md",
   "started_at": "2026-05-17T08:20:08-07:00",
-  "completed_at": null,
   "context7_available": true,
   "waves": [
     {
@@ -43,8 +42,22 @@
       "wave_bug_count": 2,
       "commit_sha": "566a5eb474afb10e24f679ea4b9cc589b23c57cb",
       "skipped_reason": null
+    },
+    {
+      "wave_id": 4,
+      "duration_seconds": 880,
+      "agents": [
+        {"agent_id": "wave-4-agent-1", "dev_status": "BLOCKED"},
+        {"agent_id": "wave-4-agent-2", "dev_status": "DONE_WITH_CONCERNS"},
+        {"agent_id": "wave-4-agent-3", "dev_status": "DONE_WITH_CONCERNS"}
+      ],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 12,
+      "commit_sha": "f35354cd9c765b809849f3908dc810dcb2f5a26d",
+      "skipped_reason": null
     }
   ],
-  "total_bugs": 0,
-  "next_cycle_plan": null
+  "completed_at": "2026-05-17T09:25:00-07:00",
+  "total_bugs": 17,
+  "next_cycle_plan": "docs/plan-runner/2026-05-17/cycle-1/fix-plan.md"
 }
