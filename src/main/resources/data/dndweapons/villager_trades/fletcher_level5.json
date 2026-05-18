@@ -1,0 +1,27 @@
+{
+  "profession": "minecraft:fletcher",
+  "level": 5,
+  "trades": [
+    {
+      "input": [{ "id": "minecraft:emerald", "count": 30 }],
+      "result": { "id": "dndweapons:blowgun", "count": 1 },
+      "max_uses": 12,
+      "xp": 5,
+      "price_multiplier": 0.05
+    },
+    {
+      "input": [{ "id": "minecraft:emerald", "count": 35 }],
+      "result": { "id": "dndweapons:musket", "count": 1 },
+      "max_uses": 12,
+      "xp": 5,
+      "price_multiplier": 0.05
+    },
+    {
+      "input": [{ "id": "minecraft:emerald", "count": 35 }],
+      "result": { "id": "dndweapons:pistol", "count": 1 },
+      "max_uses": 12,
+      "xp": 5,
+      "price_multiplier": 0.05
+    }
+  ]
+}

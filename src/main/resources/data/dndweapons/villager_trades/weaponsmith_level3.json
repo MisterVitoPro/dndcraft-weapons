@@ -1,0 +1,34 @@
+{
+  "profession": "minecraft:weaponsmith",
+  "level": 3,
+  "trades": [
+    {
+      "input": [{ "id": "minecraft:emerald", "count": 8 }],
+      "result": { "id": "dndweapons:longsword", "count": 1 },
+      "max_uses": 12,
+      "xp": 5,
+      "price_multiplier": 0.05
+    },
+    {
+      "input": [{ "id": "minecraft:emerald", "count": 10 }],
+      "result": { "id": "dndweapons:battleaxe", "count": 1 },
+      "max_uses": 12,
+      "xp": 5,
+      "price_multiplier": 0.05
+    },
+    {
+      "input": [{ "id": "minecraft:emerald", "count": 10 }],
+      "result": { "id": "dndweapons:warhammer", "count": 1 },
+      "max_uses": 12,
+      "xp": 5,
+      "price_multiplier": 0.05
+    },
+    {
+      "input": [{ "id": "minecraft:emerald", "count": 12 }],
+      "result": { "id": "dndweapons:morningstar", "count": 1 },
+      "max_uses": 12,
+      "xp": 5,
+      "price_multiplier": 0.05
+    }
+  ]
+}
