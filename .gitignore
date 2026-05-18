@@ -35,3 +35,14 @@ versions/*/logs/
 # Phase 6 wiki output -- regenerated each build
 build/wiki/
 build/wiki-repo/
+
+# Prism Launcher (portable instance kept locally for manual testing; never committed)
+prism/
+PrismLauncher/
+.prism/
+prism-launcher/
+prismlauncher-*/
+*.prism
+# common Minecraft instance scaffolding if it lands near the repo
+instances/
+.minecraft/
