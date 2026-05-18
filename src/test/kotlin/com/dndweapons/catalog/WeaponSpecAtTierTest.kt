@@ -2,6 +2,7 @@
 package com.dndweapons.catalog
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class WeaponSpecAtTierTest {
@@ -32,6 +33,7 @@ class WeaponSpecAtTierTest {
         assertEquals("Netherite Greataxe", netherite.displayName)
         assertEquals(Weapons.GREATAXE.attackDamage + 2, netherite.attackDamage)
         assertEquals(2031, netherite.baseDurability)
+        assertTrue(Tier.NETHERITE.fireImmune)
     }
 
     @Test

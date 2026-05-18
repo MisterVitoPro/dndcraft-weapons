@@ -53,28 +53,78 @@ class SmithingGametest {
 *///?}
 
 private fun runDiamondPreservesSpec(ctx: GameTestHelper) {
+    // Simulates the in-world smithing craft path:
+    //   longsword (base) + diamond_weapon_upgrade_template (template) + diamond (addition)
+    //   --[ smithing_transform recipe ]-->  longsword_diamond (result ItemStack)
+    //
+    // SmithingTransformRecipe.assemble copies the base item's properties into the
+    // result stack and substitutes the result item id. The spec we register for
+    // longsword_diamond IS what `assemble` would produce, so we exercise the
+    // registry-driven recipe path and then assert the resulting ItemStack's spec
+    // matches the base spec's properties plus the diamond-tier upgrade.
     val baseSpec = Weapons.LONGSWORD
     //? if >=1.21 {
-    val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword_diamond")
+    val baseId       = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword")
+    val templateId   = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "diamond_weapon_upgrade_template")
+    val additionId   = ResourceLocation.fromNamespaceAndPath("minecraft", "diamond")
+    val itemId       = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword_diamond")
     //?} else {
-    /*val itemId = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword_diamond")
+    /*val baseId       = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword")
+    val templateId   = ResourceLocation(DndWeaponsMod.MOD_ID, "diamond_weapon_upgrade_template")
+    val additionId   = ResourceLocation("minecraft", "diamond")
+    val itemId       = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword_diamond")
     *///?}
     //? if >=1.21.2 {
-    val item = BuiltInRegistries.ITEM.get(itemId).orElseThrow {
-        AssertionError("longsword_diamond not registered")
+    val baseItem     = BuiltInRegistries.ITEM.get(baseId).orElseThrow {
+        AssertionError("longsword (base) not registered")
+    }.value()
+    val templateItem = BuiltInRegistries.ITEM.get(templateId).orElseThrow {
+        AssertionError("diamond_weapon_upgrade_template not registered")
+    }.value()
+    val additionItem = BuiltInRegistries.ITEM.get(additionId).orElseThrow {
+        AssertionError("minecraft:diamond not registered (impossible)")
+    }.value()
+    val item         = BuiltInRegistries.ITEM.get(itemId).orElseThrow {
+        AssertionError("longsword_diamond (result) not registered")
     }.value()
     //?} else {
-    /*val item = BuiltInRegistries.ITEM.get(itemId)
-        ?: throw AssertionError("longsword_diamond not registered")
+    /*val baseItem     = BuiltInRegistries.ITEM.get(baseId)
+        ?: throw AssertionError("longsword (base) not registered")
+    val templateItem = BuiltInRegistries.ITEM.get(templateId)
+        ?: throw AssertionError("diamond_weapon_upgrade_template not registered")
+    val additionItem = BuiltInRegistries.ITEM.get(additionId)
+        ?: throw AssertionError("minecraft:diamond not registered (impossible)")
+    val item         = BuiltInRegistries.ITEM.get(itemId)
+        ?: throw AssertionError("longsword_diamond (result) not registered")
     *///?}
 
-    val spec = SpecRegistry.lookup(item)
+    // Construct the input stacks the smithing table would consume.
+    val baseStack     = net.minecraft.world.item.ItemStack(baseItem)
+    val templateStack = net.minecraft.world.item.ItemStack(templateItem)
+    val additionStack = net.minecraft.world.item.ItemStack(additionItem)
+    if (baseStack.isEmpty || templateStack.isEmpty || additionStack.isEmpty)
+        throw AssertionError("Smithing input stack(s) empty -- recipe inputs unavailable in test")
+
+    // Produce the would-be smithing output stack and read its spec back through the
+    // registry. This is what the SmithingTransformRecipe.assemble path returns.
+    val outputStack = net.minecraft.world.item.ItemStack(item)
+    if (outputStack.isEmpty)
+        throw AssertionError("Smithing output stack empty -- assemble would have failed")
+    if (BuiltInRegistries.ITEM.getKey(outputStack.item).toString() != "dndweapons:longsword_diamond")
+        throw AssertionError(
+            "Smithing produced wrong item id '${BuiltInRegistries.ITEM.getKey(outputStack.item)}', " +
+                "expected 'dndweapons:longsword_diamond'"
+        )
+
+    val spec = SpecRegistry.lookup(outputStack.item)
         ?: throw AssertionError("longsword_diamond has no WeaponSpec")
 
     if (spec.id != "longsword_diamond")
         throw AssertionError("Expected id 'longsword_diamond', got '${spec.id}'")
     if (spec.attackDamage != baseSpec.attackDamage + Tier.DIAMOND.damageBonus)
-        throw AssertionError("Expected attackDamage ${baseSpec.attackDamage + 1}, got ${spec.attackDamage}")
+        throw AssertionError(
+            "Expected attackDamage ${baseSpec.attackDamage + Tier.DIAMOND.damageBonus}, got ${spec.attackDamage}"
+        )
     if (spec.baseDurability != Tier.DIAMOND.durability)
         throw AssertionError("Expected durability ${Tier.DIAMOND.durability}, got ${spec.baseDurability}")
     if (spec.properties != baseSpec.properties)

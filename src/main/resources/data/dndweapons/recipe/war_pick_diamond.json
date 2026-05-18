@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": { "item": "dndweapons:diamond_weapon_upgrade_template" },
-  "base":     { "item": "dndweapons:war_pick" },
+  "template": "dndweapons:diamond_weapon_upgrade_template",
+  "base":     "dndweapons:war_pick",
   "addition": "#c:gems/diamond",
   "result":   { "id": "dndweapons:war_pick_diamond" }
 }

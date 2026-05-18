@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": { "item": "dndweapons:diamond_weapon_upgrade_template" },
-  "base":     { "item": "dndweapons:club" },
+  "template": "dndweapons:diamond_weapon_upgrade_template",
+  "base":     "dndweapons:club",
   "addition": "#c:gems/diamond",
   "result":   { "id": "dndweapons:club_diamond" }
 }

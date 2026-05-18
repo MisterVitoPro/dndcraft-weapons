@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "dndweapons:diamond_weapon_upgrade_template"
+  },
+  "base": {
+    "item": "dndweapons:glaive"
+  },
+  "addition": {
+    "tag": "c:gems/diamond"
+  },
+  "result": {
+    "id": "dndweapons:glaive_diamond"
+  }
+}

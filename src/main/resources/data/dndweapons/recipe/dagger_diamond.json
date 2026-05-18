@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": { "item": "dndweapons:diamond_weapon_upgrade_template" },
-  "base":     { "item": "dndweapons:dagger" },
+  "template": "dndweapons:diamond_weapon_upgrade_template",
+  "base":     "dndweapons:dagger",
   "addition": "#c:gems/diamond",
   "result":   { "id": "dndweapons:dagger_diamond" }
 }

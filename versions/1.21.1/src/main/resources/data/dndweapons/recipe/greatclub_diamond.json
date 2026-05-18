@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "dndweapons:diamond_weapon_upgrade_template"
+  },
+  "base": {
+    "item": "dndweapons:greatclub"
+  },
+  "addition": {
+    "tag": "c:gems/diamond"
+  },
+  "result": {
+    "id": "dndweapons:greatclub_diamond"
+  }
+}

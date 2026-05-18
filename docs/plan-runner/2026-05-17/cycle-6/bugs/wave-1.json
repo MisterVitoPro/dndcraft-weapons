@@ -1,0 +1,47 @@
+{
+  "wave_id": 1,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-1-agent-1": "CLEAN",
+    "wave-1-agent-2": "CLEAN",
+    "wave-1-agent-3": "BUGS_FOUND",
+    "wave-1-agent-4": "BUGS_FOUND",
+    "wave-1-agent-5": "CLEAN",
+    "wave-1-agent-6": "CLEAN"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-1-agent-3-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "SmithingTemplateTrades does not register trader trades on 26.1.2 (Fabric trade API removed)",
+      "file": "src/main/kotlin/com/dndweapons/trade/SmithingTemplateTrades.kt",
+      "line": null,
+      "evidence": "On 26.1.2 the function logs a notice and returns early; the fabric-object-builder-api-v1 23.0.13+b61fef4359 (the version bundled with fabric-api 0.144.0+26.1 for MC 26.1.2) no longer contains TradeOfferHelper.class -- verified by inspecting the jar contents.",
+      "expected": "Per cycle-5 acceptance criteria Task 3, trader trades should work on all 5 versions including 26.1.2.",
+      "suggested_fix": "Either (a) accept graceful degradation as implemented (templates remain obtainable via crafting and stronghold/bastion loot, which DO work on 26.1.2), or (b) implement a data-driven trade JSON in src/main/resources/data/.../trade for 26.1.2 since the Fabric helper is gone."
+    },
+    {
+      "bug_id": "wave-1-agent-4-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "Recipe canonicalization is not single-form across all 5 MC versions because vanilla codecs differ",
+      "file": "src/main/resources/data/dndweapons/recipe/longsword_diamond.json",
+      "line": null,
+      "evidence": "MC 1.21.1 Ingredient codec requires { item: ... } / { tag: ... } object form; MC 1.21.4+ HolderSet codec requires bare string ('minecraft:item' / '#namespace:tag') and rejects the object form. Per-jar codec inspection confirmed both formats are mutually exclusive.",
+      "expected": "Single canonical item-ref format that works on all 5 MC versions.",
+      "suggested_fix": "Implemented mitigation: shared recipe/ uses 1.21.4+ canonical form (bare strings, #-prefix tags, { id: ... } results). Per-version overlay at versions/1.21.1/src/main/resources/data/dndweapons/recipe/ (58 files) provides object-form recipes for 1.21.1 via processResources duplicatesStrategy=EXCLUDE first-wins. No overlay generated for 1.20.1 (different directory: recipes/ vs recipe/, and different result-key 'item' vs 'id'); 1.20.1 would need 58 additional overlay files in data/dndweapons/recipes/ to support smithing recipes there. Currently 1.20.1 has no smithing recipes (graceful degradation -- templates registered but cannot be used)."
+    },
+    {
+      "bug_id": "wave-1-agent-4-bug-2",
+      "severity": "P2",
+      "category": "missing_requirement",
+      "title": "1.20.1 has no smithing recipe overlay; 1.20.1 cannot craft tiered weapons via smithing table",
+      "file": "src/main/resources/data/dndweapons/recipe/",
+      "line": null,
+      "evidence": "1.20.1 reads recipe JSONs from data/<ns>/recipes/ (plural) while the shared smithing files live in data/<ns>/recipe/ (singular). No 1.20.1 overlay was generated for the 56 smithing recipes.",
+      "expected": "1.20.1 should also support smithing-table crafting of the tier upgrades, per Phase 4 acceptance.",
+      "suggested_fix": "Generate 56 per-version 1.20.1 overlay files under versions/1.20.1/src/main/resources/data/dndweapons/recipes/ with the 1.20.1 format: directory 'recipes/' (plural), result uses {item: ..., count: 1} (not {id: ...}), all ingredients use { tag: ... } / { item: ... } object form. Recipe-codegen script would simplify generating all 56."
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-17/cycle-5/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Fix SmithingTemplateItems.kt constructor arity version gating",
+          "task_excerpt_lines": "8-21",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/item/SmithingTemplateItems.kt"
+          ],
+          "acceptance_criteria": [
+            "SmithingTemplateItem constructor call is stonecutter-gated by version: 7-arg form (no Item.Properties) for 1.20.1; verified correct arg form for 1.21.1; 8-arg form with Item.Properties for >=1.21.2",
+            "./gradlew chiseledBuild passes on all 5 versions (1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2) with no unresolved-reference errors in this file"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Fix SmithingTemplateLootInjector.kt multiple version gates",
+          "task_excerpt_lines": "23-49",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/loot/SmithingTemplateLootInjector.kt"
+          ],
+          "acceptance_criteria": [
+            "The LootTableEvents.MODIFY lambda is stonecutter-gated: 3-param form for 1.20.1 and 1.21.1; 4-param form for versions where it supplies 4 params",
+            "The LootTableEvents import is stonecutter-gated: >=26.1.2 uses new qualified import path; older versions keep loot.v2",
+            "The builder.pool(LootPool.lootPool()...build()) injection block is stonecutter-gated for 1.20.1 using the correct 1.20.1 loot builder API",
+            "key.location().toString() is stonecutter-gated: split >=1.21.1 into >=1.21.1 <1.21.11 (using .location()) and >=1.21.11 (renamed method)",
+            "./gradlew chiseledBuild passes on all 5 versions with no unresolved-reference errors in this file"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "Fix SmithingTemplateTrades.kt multiple version gates",
+          "task_excerpt_lines": "51-73",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/trade/SmithingTemplateTrades.kt"
+          ],
+          "acceptance_criteria": [
+            "registerWanderingTraderOffers call is stonecutter-gated: split >=1.21.1 into >=1.21.1 <1.21.11 (with Int level argument) and >=1.21.11 (without level argument)",
+            "TradeOfferHelper import is stonecutter-gated: >=26.1.2 uses new import path; older versions keep v1 path",
+            "The 1.20.1 stonecutter block uses VillagerTrades.ItemListing (not TradeListing) with correct MerchantOffer constructor",
+            "./gradlew chiseledBuild passes on all 5 versions with no unresolved-reference errors in this file"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-4",
+          "task_title": "Canonicalize recipe tag/item-ref formats across recipe JSON",
+          "task_excerpt_lines": "75-119",
+          "owned_files": [
+            "src/main/resources/data/dndweapons/recipe/diamond_template_fragment.json",
+            "src/main/resources/data/dndweapons/recipe/netherite_template_fragment.json",
+            "src/main/resources/data/dndweapons/recipe/diamond_weapon_upgrade_template_assemble.json",
+            "src/main/resources/data/dndweapons/recipe/netherite_weapon_upgrade_template_assemble.json",
+            "src/main/resources/data/dndweapons/recipe/longsword_diamond.json"
+          ],
+          "acceptance_criteria": [
+            "All recipe files referencing tags use \"#c:...\" string-prefix form (no { \"tag\": \"c:...\" } object form anywhere in data/dndweapons/recipe/)",
+            "All 56 smithing_transform recipes use a single canonical item-ref format for template/base/result fields compatible with all 5 MC versions",
+            "./gradlew chiseledBuild passes with no recipe parse errors on all 5 versions",
+            "./gradlew chiseledRunGametest passes with no recipe-related failures"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-5",
+          "task_title": "Make SmithingGametest simulate in-world smithing craft",
+          "task_excerpt_lines": "121-141",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/SmithingGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "runDiamondPreservesSpec helper performs an in-world smithing craft simulating SmithingTransformRecipe with longsword + diamond_weapon_upgrade_template + diamond ingredient",
+            "Obtain output ItemStack from simulated craft and assert: item id matches longsword_diamond, attackDamage = base spec attackDamage + Tier.DIAMOND.damageBonus, baseDurability = 1561, relevant properties (VERSATILE etc.) preserved",
+            "Test method smithingDiamondUpgradePreservesSpec continues to pass on all 5 versions",
+            "Also fix wave-5-agent-2-bug-2: AssertionError message uses Tier.DIAMOND.damageBonus instead of literal 1",
+            "./gradlew chiseledRunGametest passes with 13 mod tests per version"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-6",
+          "task_title": "Add fireImmune assertion to WeaponSpecAtTierTest netherite case",
+          "task_excerpt_lines": "143-163",
+          "owned_files": [
+            "src/test/kotlin/com/dndweapons/catalog/WeaponSpecAtTierTest.kt"
+          ],
+          "acceptance_criteria": [
+            "atTierNetheriteSuffixesIdAndAddsTwoDamage test asserts assertTrue(Tier.NETHERITE.fireImmune)",
+            "All 4 WeaponSpecAtTierTest tests continue to pass"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Verify chiseledTest and chiseledRunGametest GREEN; update verification doc",
+          "task_excerpt_lines": "166-200",
+          "owned_files": [
+            "docs/superpowers/plans/phase-4-verification-final.md"
+          ],
+          "acceptance_criteria": [
+            "All P0 compilation bugs (Tasks 1, 2, 3) resolved first",
+            "./gradlew chiseledTest passes on all 5 versions",
+            "./gradlew chiseledRunGametest passes on all 5 versions with 13 mod tests per version",
+            "Verification doc docs/superpowers/plans/phase-4-verification-final.md updated to reflect GREEN status",
+            "Git tag applied as specified in the verification doc",
+            "Verification doc status updated from HOLD to DONE with tag reference"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}

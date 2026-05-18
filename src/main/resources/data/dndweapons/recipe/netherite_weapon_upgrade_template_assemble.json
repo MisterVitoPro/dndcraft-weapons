@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": { "id": "minecraft:netherite_upgrade_smithing_template" },
-  "base":     { "id": "dndweapons:netherite_template_core" },
-  "addition": { "tag": "c:ingots/netherite" },
+  "template": "minecraft:netherite_upgrade_smithing_template",
+  "base":     "dndweapons:netherite_template_core",
+  "addition": "#c:ingots/netherite",
   "result":   { "id": "dndweapons:netherite_weapon_upgrade_template" }
 }

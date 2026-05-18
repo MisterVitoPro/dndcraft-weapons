@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": { "item": "dndweapons:netherite_weapon_upgrade_template" },
-  "base":     { "item": "dndweapons:sickle_diamond" },
+  "template": "dndweapons:netherite_weapon_upgrade_template",
+  "base":     "dndweapons:sickle_diamond",
   "addition": "#c:ingots/netherite",
   "result":   { "id": "dndweapons:sickle_netherite" }
 }

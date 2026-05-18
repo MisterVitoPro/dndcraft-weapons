@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": { "item": "dndweapons:diamond_weapon_upgrade_template" },
-  "base":     { "item": "dndweapons:lance" },
+  "template": "dndweapons:diamond_weapon_upgrade_template",
+  "base":     "dndweapons:lance",
   "addition": "#c:gems/diamond",
   "result":   { "id": "dndweapons:lance_diamond" }
 }
