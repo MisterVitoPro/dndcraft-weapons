@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.io.File
 
 plugins {
     id("fabric-loom") version "1.16.2"
@@ -169,4 +170,103 @@ tasks.processResources {
 // recipe JSON is shipped in the sources artifact, not the shared one.
 tasks.withType<org.gradle.api.tasks.bundling.Jar>().configureEach {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// ===== Phase 6: Wiki generator =====
+
+tasks.register<JavaExec>("generateWiki") {
+    group = "wiki"
+    description = "Generate the player-facing Markdown wiki under build/wiki/."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.dndweapons.codegen.WikiGen")
+    val out = layout.buildDirectory.dir("wiki").get().asFile
+    val hand = rootProject.layout.projectDirectory.dir("wiki/handwritten").asFile
+    val sha = try {
+        providers.exec {
+            commandLine("git", "rev-parse", "--short", "HEAD")
+        }.standardOutput.asText.get().trim()
+    } catch (_: Exception) {
+        "local"
+    }
+    args(out.absolutePath, modVersion, sha, hand.absolutePath)
+    dependsOn("classes")
+    doFirst {
+        out.mkdirs()
+        if (!hand.exists()) {
+            throw GradleException("Missing handwritten wiki dir: $hand")
+        }
+    }
+}
+
+tasks.register("publishWiki") {
+    group = "wiki"
+    description = "Sync build/wiki/ to <repo>.wiki.git (push). Auth via env WIKI_PUBLISH_TOKEN."
+    dependsOn("generateWiki")
+    doLast {
+        val wikiDir = layout.buildDirectory.dir("wiki").get().asFile
+        val cloneDir = layout.buildDirectory.dir("wiki-repo").get().asFile
+        val token: String? = System.getenv("WIKI_PUBLISH_TOKEN")
+        val url = if (!token.isNullOrBlank()) {
+            "https://x-access-token:$token@github.com/MisterVitoPro/dndcraft-weapons.wiki.git"
+        } else {
+            "git@github.com:MisterVitoPro/dndcraft-weapons.wiki.git"
+        }
+        val dryRun = project.findProperty("dryRun")?.toString().toBoolean()
+
+        logger.lifecycle("publishWiki: source = $wikiDir")
+        logger.lifecycle("publishWiki: target = $url")
+        logger.lifecycle("publishWiki: dryRun = $dryRun")
+
+        if (cloneDir.exists()) cloneDir.deleteRecursively()
+        cloneDir.parentFile.mkdirs()
+
+        providers.exec {
+            commandLine("git", "clone", "--depth", "1", url, cloneDir.absolutePath)
+        }.result.get()
+
+        // Wipe everything except .git
+        cloneDir.listFiles()?.forEach { f ->
+            if (f.name != ".git") {
+                if (f.isDirectory) f.deleteRecursively() else f.delete()
+            }
+        }
+
+        // Copy generated + handwritten wiki output into the clone
+        wikiDir.listFiles()?.forEach { f ->
+            val dest = File(cloneDir, f.name)
+            if (f.isDirectory) f.copyRecursively(dest, overwrite = true)
+            else f.copyTo(dest, overwrite = true)
+        }
+
+        providers.exec {
+            workingDir = cloneDir
+            commandLine("git", "add", ".")
+        }.result.get()
+
+        // Check whether there is anything to commit
+        val status = providers.exec {
+            workingDir = cloneDir
+            commandLine("git", "status", "--porcelain")
+        }.standardOutput.asText.get().trim()
+        if (status.isEmpty()) {
+            logger.lifecycle("publishWiki: no changes to publish, exiting clean.")
+            return@doLast
+        }
+
+        val msg = "Wiki: sync from ${project.version}"
+        providers.exec {
+            workingDir = cloneDir
+            commandLine("git", "-c", "user.email=wiki-bot@dndcraft-weapons", "-c", "user.name=Wiki Bot", "commit", "-m", msg)
+        }.result.get()
+
+        if (dryRun) {
+            logger.lifecycle("publishWiki: dry-run mode, NOT pushing.")
+            return@doLast
+        }
+        providers.exec {
+            workingDir = cloneDir
+            commandLine("git", "push", "origin", "HEAD")
+        }.result.get()
+        logger.lifecycle("publishWiki: pushed to $url")
+    }
 }

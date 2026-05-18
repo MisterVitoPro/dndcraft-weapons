@@ -31,3 +31,7 @@ versions/*/run/
 
 # Per-version server log output from runGametest / runServer / runClient
 versions/*/logs/
+
+# Phase 6 wiki output -- regenerated each build
+build/wiki/
+build/wiki-repo/
