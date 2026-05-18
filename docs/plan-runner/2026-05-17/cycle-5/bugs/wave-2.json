@@ -1,0 +1,21 @@
+{
+  "wave_id": 2,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-2-agent-1": "BUGS_FOUND",
+    "wave-2-agent-2": "CLEAN"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-2-agent-1-bug-1",
+      "severity": "P2",
+      "category": "missing_requirement",
+      "title": "Netherite test does not assert fire flag as required by acceptance criterion",
+      "file": "src/test/kotlin/com/dndweapons/catalog/WeaponSpecAtTierTest.kt",
+      "line": 29,
+      "evidence": "@Test\nfun atTierNetheriteSuffixesIdAndAddsTwoDamage() {\n    val netherite = Weapons.GREATAXE.atTier(Tier.NETHERITE)\n    assertEquals(\"greataxe_netherite\", netherite.id)\n    assertEquals(\"Netherite Greataxe\", netherite.displayName)\n    assertEquals(Weapons.GREATAXE.attackDamage + 2, netherite.attackDamage)\n    assertEquals(2031, netherite.baseDurability)\n}",
+      "expected": "Acceptance criterion states the netherite test covers 'netherite suffix + damage + fire flag'. The test must assert the fire flag, e.g. assertTrue(Tier.NETHERITE.fireImmune).",
+      "suggested_fix": "Add 'assertTrue(Tier.NETHERITE.fireImmune)' inside the atTierNetheriteSuffixesIdAndAddsTwoDamage test."
+    }
+  ]
+}

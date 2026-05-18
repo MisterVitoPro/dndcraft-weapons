@@ -1,6 +1,7 @@
 package com.dndweapons.registry
 
 import com.dndweapons.DndWeaponsMod
+import com.dndweapons.catalog.Tier
 import com.dndweapons.catalog.WeaponSpec
 import com.dndweapons.compat.AttributeCompat
 import com.dndweapons.item.DndWeaponItem
@@ -18,9 +19,11 @@ import net.minecraft.world.item.Item
 
 class WeaponRegistrarImpl : WeaponRegistrar {
 
-    override fun register(spec: WeaponSpec) {
+    override fun register(spec: WeaponSpec, tier: Tier) {
         if (spec.isVanillaMapped) {
-            SpecRegistry.bindRoleTag(spec)
+            // Vanilla-mapped specs are only registered at IRON tier; the spec routes
+            // through SpecRegistry.bindRoleTag and no Item is created.
+            if (tier == Tier.IRON) SpecRegistry.bindRoleTag(spec)
             return
         }
 
@@ -32,14 +35,16 @@ class WeaponRegistrarImpl : WeaponRegistrar {
         val itemKey = ResourceKey.create(Registries.ITEM, itemId)
 
         //? if >=1.21.2 {
-        val settings = AttributeCompat.applyTo(Item.Properties().setId(itemKey), spec)
+        var props = Item.Properties().setId(itemKey)
         //?} else {
-        /*val settings = AttributeCompat.applyTo(Item.Properties(), spec)
+        /*var props = Item.Properties()
         *///?}
+        props = AttributeCompat.applyTo(props, spec)
+        if (tier.fireImmune) props = props.fireResistant()
 
-        val item = DndWeaponItem(spec, settings)
+        val item = DndWeaponItem(spec, props)
         Registry.register(BuiltInRegistries.ITEM, itemKey, item)
         SpecRegistry.bindRegistered(item, spec)
-        DndWeaponsMod.LOGGER.info("Registered weapon: {}", itemId)
+        DndWeaponsMod.LOGGER.info("Registered weapon: {} (tier={})", itemId, tier)
     }
 }

@@ -426,3 +426,21 @@ object Weapons {
         BLOWGUN, HAND_CROSSBOW, HEAVY_CROSSBOW, LONGBOW, MUSKET, PISTOL,
     )
 }
+
+/**
+ * Returns a copy of this WeaponSpec with the given tier applied. Tier affects:
+ *   - id: suffixed with "_diamond" / "_netherite" (iron leaves it untouched).
+ *   - displayName: prefixed with "Diamond " / "Netherite " (iron untouched).
+ *   - attackDamage: added to baseline (+1 diamond, +2 netherite).
+ *   - baseDurability: replaced with the tier's vanilla durability (250 / 1561 / 2031).
+ *
+ * Properties, attack speed, damage type, reach, and knockback carry over unchanged.
+ * The `vanillaRoleTag` field is preserved but in practice atTier() is only called for
+ * non-vanilla-mapped specs (see [Weapons.ALL_TIERED] filter).
+ */
+fun WeaponSpec.atTier(t: Tier): WeaponSpec = copy(
+    id = if (t == Tier.IRON) id else "$id${t.suffix}",
+    displayName = if (t == Tier.IRON) displayName else "${t.displayPrefix}$displayName",
+    attackDamage = attackDamage + t.damageBonus,
+    baseDurability = t.durability,
+)
