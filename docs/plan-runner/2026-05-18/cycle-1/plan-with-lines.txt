@@ -1,0 +1,1616 @@
+   1	# DnD Weapons Phase 5 — Acquisition (Loot, Trades, Mob Drops) Implementation Plan
+   2	
+   3	> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+   4	
+   5	**Goal:** Wire the 27 base iron-tier DnD weapons into vanilla structure loot, villager trades, and mob drops; add diamond-tier overlays for 4 endgame structures and netherite drops from Wither Skeleton / Piglin Brute / Warden; add a 100%-guaranteed random netherite weapon drop on Wither boss death.
+   6	
+   7	**Architecture:** Single declarative `AcquisitionCatalog` is the source of truth for all three surfaces. Thin per-concern registrars (`WeaponLootRegistrar`, `WeaponTradeRegistrar`, `WitherTrophyHandler`) read the catalog at mod init. On 26.1.2 the Fabric `TradeOfferHelper` API is absent — `Phase5TradeCodegen.kt` emits villager-trade JSON files into `data/dndweapons/villager_trades/` from the same catalog. All version drift (Fabric loot v2/v3 modules, 5/3/4-param `Modify` SAM, `location()`/`identifier()` rename, `ItemCost` vs `ItemStack` cost wrappers) is confined to the two registrar files; catalog data is version-agnostic.
+   8	
+   9	**Tech Stack:** Kotlin 2.3.21, Fabric Loom 1.16.2, Stonecutter 0.6, JUnit 5 for unit tests, Fabric Gametest API for runtime tests. MC target matrix: 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.
+  10	
+  11	**Spec:** `docs/superpowers/specs/2026-05-18-dnd-weapons-phase-5-design.md`
+  12	
+  13	---
+  14	
+  15	## File Map
+  16	
+  17	**New Kotlin files:**
+  18	- `src/main/kotlin/com/dndweapons/acquisition/StructureLoot.kt` — data class
+  19	- `src/main/kotlin/com/dndweapons/acquisition/MobDrop.kt` — data class
+  20	- `src/main/kotlin/com/dndweapons/acquisition/VillagerTradeEntry.kt` — data class
+  21	- `src/main/kotlin/com/dndweapons/acquisition/WeaponLookup.kt` — base-id + tier → Item resolver
+  22	- `src/main/kotlin/com/dndweapons/acquisition/AcquisitionCatalog.kt` — declarative source of truth
+  23	- `src/main/kotlin/com/dndweapons/loot/WeaponLootRegistrar.kt` — MODIFY hook for structures + mob drops
+  24	- `src/main/kotlin/com/dndweapons/loot/WitherTrophyHandler.kt` — Wither death event hook
+  25	- `src/main/kotlin/com/dndweapons/trade/WeaponTradeRegistrar.kt` — Weaponsmith + Fletcher (1.20.1–1.21.11 Kotlin path)
+  26	- `src/main/kotlin/com/dndweapons/codegen/Phase5TradeCodegen.kt` — runnable main; emits 26.1.2 trade JSONs
+  27	- `src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt` — 3 gametests
+  28	
+  29	**New unit test:**
+  30	- `src/test/kotlin/com/dndweapons/acquisition/AcquisitionCatalogTest.kt`
+  31	
+  32	**New data files (emitted by codegen, committed to repo):**
+  33	- `src/main/resources/data/dndweapons/villager_trades/weaponsmith_level1.json` … `_level5.json` (5 files)
+  34	- `src/main/resources/data/dndweapons/villager_trades/fletcher_level2.json` … `_level5.json` (4 files)
+  35	
+  36	**Modified Kotlin files:**
+  37	- `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt` — add 4 init calls (3 always, 1 stonecutter-gated for <26.1.2)
+  38	- `src/main/resources/fabric.mod.json` — add `AcquisitionGametest` to `fabric-gametest` entrypoint list
+  39	
+  40	---
+  41	
+  42	## Task 1: StructureLoot data class
+  43	
+  44	**Files:**
+  45	- Create: `src/main/kotlin/com/dndweapons/acquisition/StructureLoot.kt`
+  46	
+  47	- [ ] **Step 1: Write the data class**
+  48	
+  49	```kotlin
+  50	// src/main/kotlin/com/dndweapons/acquisition/StructureLoot.kt
+  51	package com.dndweapons.acquisition
+  52	
+  53	import com.dndweapons.catalog.Tier
+  54	
+  55	/**
+  56	 * One Phase 5 catalog entry for a vanilla structure loot table.
+  57	 *
+  58	 *  - [weapons] are base weapon ids (e.g. "longsword"); the resolved Item is looked up
+  59	 *    by combining the base id with [tier] at registration time via [WeaponLookup.byId].
+  60	 *  - [chancePct] is the pool weight for the weapon entry; the empty entry receives
+  61	 *    `100 - chancePct` so the pool's expected hit rate per chest opening matches.
+  62	 *  - [tier] is IRON for all base structures; DIAMOND for the 4 endgame structures
+  63	 *    (End City, Ancient City, Trial Chambers ominous vaults, Bastion treasure).
+  64	 *  - [minVersion] is `null` on most entries (apply to all 5 MC versions). Set to
+  65	 *    "1.21.1" for Trial Chambers (the structure does not exist on 1.20.1).
+  66	 */
+  67	data class StructureLoot(
+  68	    val weapons: List<String>,
+  69	    val chancePct: Int,
+  70	    val tier: Tier,
+  71	    val minVersion: String? = null,
+  72	)
+  73	```
+  74	
+  75	- [ ] **Step 2: Verify it compiles**
+  76	
+  77	Run: `./gradlew :1.20.1:compileKotlin`
+  78	Expected: BUILD SUCCESSFUL.
+  79	
+  80	- [ ] **Step 3: Commit**
+  81	
+  82	```bash
+  83	git add src/main/kotlin/com/dndweapons/acquisition/StructureLoot.kt
+  84	git commit -m "phase 5: StructureLoot data class"
+  85	```
+  86	
+  87	---
+  88	
+  89	## Task 2: MobDrop data class
+  90	
+  91	**Files:**
+  92	- Create: `src/main/kotlin/com/dndweapons/acquisition/MobDrop.kt`
+  93	
+  94	- [ ] **Step 1: Write the data class**
+  95	
+  96	```kotlin
+  97	// src/main/kotlin/com/dndweapons/acquisition/MobDrop.kt
+  98	package com.dndweapons.acquisition
+  99	
+ 100	/**
+ 101	 * One Phase 5 catalog entry for a vanilla mob loot table.
+ 102	 *
+ 103	 *  - [ironWeapon] is the base weapon id dropped at iron tier (e.g. "battleaxe").
+ 104	 *    Null means this mob has no iron-tier drop (used for Warden, which drops a
+ 105	 *    random netherite weapon only).
+ 106	 *  - [ironPct] and [netheritePct] are pool weights for two INDEPENDENT rolls:
+ 107	 *    one iron pool and one netherite pool inserted into the same mob loot table.
+ 108	 *    Both rolls can produce a drop on the same kill (the "stacked" policy from
+ 109	 *    the spec, decision #6).
+ 110	 *  - When [ironWeapon] is null, the iron roll is skipped entirely; the netherite
+ 111	 *    pool emits a random selection across all 27 netherite-tier weapons.
+ 112	 *  - When [ironWeapon] is non-null and [netheritePct] > 0, the netherite pool
+ 113	 *    emits the SAME weapon at netherite tier (e.g. Wither Skeleton drops glaive
+ 114	 *    at both iron and netherite tiers).
+ 115	 */
+ 116	data class MobDrop(
+ 117	    val ironWeapon: String?,
+ 118	    val ironPct: Int,
+ 119	    val netheritePct: Int = 0,
+ 120	)
+ 121	```
+ 122	
+ 123	- [ ] **Step 2: Verify it compiles**
+ 124	
+ 125	Run: `./gradlew :1.20.1:compileKotlin`
+ 126	Expected: BUILD SUCCESSFUL.
+ 127	
+ 128	- [ ] **Step 3: Commit**
+ 129	
+ 130	```bash
+ 131	git add src/main/kotlin/com/dndweapons/acquisition/MobDrop.kt
+ 132	git commit -m "phase 5: MobDrop data class"
+ 133	```
+ 134	
+ 135	---
+ 136	
+ 137	## Task 3: VillagerTradeEntry data class
+ 138	
+ 139	**Files:**
+ 140	- Create: `src/main/kotlin/com/dndweapons/acquisition/VillagerTradeEntry.kt`
+ 141	
+ 142	- [ ] **Step 1: Write the data class**
+ 143	
+ 144	```kotlin
+ 145	// src/main/kotlin/com/dndweapons/acquisition/VillagerTradeEntry.kt
+ 146	package com.dndweapons.acquisition
+ 147	
+ 148	/**
+ 149	 * One Phase 5 catalog entry for a villager trade offer.
+ 150	 *
+ 151	 *  - [weapon] is the base weapon id; trades always sell iron-tier weapons.
+ 152	 *  - [emeralds] is the input emerald cost; the output is one ItemStack of the
+ 153	 *    weapon (or [outputCount] for stackables like darts).
+ 154	 *  - [maxUses] is the trade's per-spawn use cap; vanilla weaponsmith defaults
+ 155	 *    are 8-12, so 12 is the catalog default.
+ 156	 *  - [xp] is the villager XP awarded per trade.
+ 157	 *
+ 158	 *  All trades are always-available within their level (no random selection
+ 159	 *  subset); the per-level lists in `AcquisitionCatalog.VILLAGER_TRADES` are
+ 160	 *  the complete trade pool for that profession-level combination.
+ 161	 */
+ 162	data class VillagerTradeEntry(
+ 163	    val weapon: String,
+ 164	    val emeralds: Int,
+ 165	    val outputCount: Int = 1,
+ 166	    val maxUses: Int = 12,
+ 167	    val xp: Int = 5,
+ 168	)
+ 169	```
+ 170	
+ 171	- [ ] **Step 2: Verify it compiles**
+ 172	
+ 173	Run: `./gradlew :1.20.1:compileKotlin`
+ 174	Expected: BUILD SUCCESSFUL.
+ 175	
+ 176	- [ ] **Step 3: Commit**
+ 177	
+ 178	```bash
+ 179	git add src/main/kotlin/com/dndweapons/acquisition/VillagerTradeEntry.kt
+ 180	git commit -m "phase 5: VillagerTradeEntry data class"
+ 181	```
+ 182	
+ 183	---
+ 184	
+ 185	## Task 4: WeaponLookup helper
+ 186	
+ 187	**Files:**
+ 188	- Create: `src/main/kotlin/com/dndweapons/acquisition/WeaponLookup.kt`
+ 189	
+ 190	- [ ] **Step 1: Write the helper**
+ 191	
+ 192	```kotlin
+ 193	// src/main/kotlin/com/dndweapons/acquisition/WeaponLookup.kt
+ 194	package com.dndweapons.acquisition
+ 195	
+ 196	import com.dndweapons.DndWeaponsMod
+ 197	import com.dndweapons.catalog.Tier
+ 198	import com.dndweapons.catalog.Weapons
+ 199	import net.minecraft.core.registries.BuiltInRegistries
+ 200	import net.minecraft.world.item.Item
+ 201	//? if >=1.21 {
+ 202	import net.minecraft.resources.ResourceLocation
+ 203	//?} else {
+ 204	/*import net.minecraft.resources.ResourceLocation*/
+ 205	//?}
+ 206	
+ 207	/**
+ 208	 * Resolves (base weapon id, tier) -> registered Item by consulting the Phase 4
+ 209	 * `Weapons.ALL_TIERED` list and the vanilla item registry. Used by both the
+ 210	 * loot registrar (to convert catalog entries into LootItem stacks) and the
+ 211	 * trade registrar (to build MerchantOffer result stacks).
+ 212	 *
+ 213	 * Returns null when:
+ 214	 *  - The base id is not in `Weapons.ALL`, OR
+ 215	 *  - The (id, tier) pair is not in `Weapons.ALL_TIERED` (e.g. requesting diamond
+ 216	 *    for a vanilla-mapped weapon like shortsword, or a ranged weapon excluded
+ 217	 *    from the tier ladder in Phase 4).
+ 218	 */
+ 219	object WeaponLookup {
+ 220	
+ 221	    fun byId(weaponId: String, tier: Tier): Item? {
+ 222	        val targetId = weaponId + tier.suffix
+ 223	        val location = resourceLocation(DndWeaponsMod.MOD_ID, targetId) ?: return null
+ 224	        val item = BuiltInRegistries.ITEM.get(location)
+ 225	        return when {
+ 226	            item == null -> null
+ 227	            item === BuiltInRegistries.ITEM.get(resourceLocation("minecraft", "air")) -> null
+ 228	            else -> item
+ 229	        }
+ 230	    }
+ 231	
+ 232	    /**
+ 233	     * All registered netherite-tier weapons. Used by the Warden mob-drop pool
+ 234	     * (random selection) and the Wither trophy event handler.
+ 235	     */
+ 236	    fun allNetherite(): List<Item> = Weapons.ALL_TIERED
+ 237	        .filter { (_, tier) -> tier == Tier.NETHERITE }
+ 238	        .mapNotNull { (spec, _) -> byId(spec.id.removeSuffix("_netherite"), Tier.NETHERITE) }
+ 239	
+ 240	    private fun resourceLocation(namespace: String, path: String): ResourceLocation? {
+ 241	        //? if >=1.21 {
+ 242	        return ResourceLocation.fromNamespaceAndPath(namespace, path)
+ 243	        //?} else {
+ 244	        /*return ResourceLocation(namespace, path)*/
+ 245	        //?}
+ 246	    }
+ 247	}
+ 248	```
+ 249	
+ 250	- [ ] **Step 2: Verify it compiles on all 5 versions**
+ 251	
+ 252	Run: `./gradlew chiseledBuild`
+ 253	Expected: BUILD SUCCESSFUL on 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.
+ 254	
+ 255	- [ ] **Step 3: Commit**
+ 256	
+ 257	```bash
+ 258	git add src/main/kotlin/com/dndweapons/acquisition/WeaponLookup.kt
+ 259	git commit -m "phase 5: WeaponLookup (id+tier -> Item resolver)"
+ 260	```
+ 261	
+ 262	---
+ 263	
+ 264	## Task 5: AcquisitionCatalog
+ 265	
+ 266	**Files:**
+ 267	- Create: `src/main/kotlin/com/dndweapons/acquisition/AcquisitionCatalog.kt`
+ 268	
+ 269	- [ ] **Step 1: Write the catalog**
+ 270	
+ 271	```kotlin
+ 272	// src/main/kotlin/com/dndweapons/acquisition/AcquisitionCatalog.kt
+ 273	package com.dndweapons.acquisition
+ 274	
+ 275	import com.dndweapons.DndWeaponsMod
+ 276	import com.dndweapons.catalog.Tier
+ 277	
+ 278	/**
+ 279	 * Single declarative source of truth for Phase 5 acquisition surfaces.
+ 280	 *
+ 281	 * - [STRUCTURE_LOOT]: 13 vanilla loot table IDs -> StructureLoot entry. Iron
+ 282	 *   for 9 entries; Diamond for 4 endgame entries (End City, Ancient City,
+ 283	 *   Trial Chambers ominous vaults, Bastion treasure).
+ 284	 * - [MOB_DROPS]: 7 mob loot table IDs -> MobDrop entry. Iron-only for 5;
+ 285	 *   stacked iron + netherite for Wither Skeleton (6%/1%) and Piglin Brute
+ 286	 *   (10%/2%); netherite-only random selection for Warden (5%).
+ 287	 * - [VILLAGER_TRADES]: 2 professions x 4-5 levels = ~25 trade entries.
+ 288	 *
+ 289	 * The Wither boss trophy (100% random netherite drop) is handled by
+ 290	 * [com.dndweapons.loot.WitherTrophyHandler] directly via the Fabric death
+ 291	 * event, not via loot tables, because the Wither has no straightforward
+ 292	 * weapon-bearing vanilla mob loot table.
+ 293	 *
+ 294	 * Wandering trader (Phase 4) is unmodified by Phase 5.
+ 295	 */
+ 296	object AcquisitionCatalog {
+ 297	
+ 298	    // ============================================================
+ 299	    // Structure loot
+ 300	    // ============================================================
+ 301	    val STRUCTURE_LOOT: Map<String, StructureLoot> = mapOf(
+ 302	        // Iron-tier structures (9 entries)
+ 303	        "minecraft:chests/stronghold_library" to StructureLoot(
+ 304	            weapons = listOf("quarterstaff", "whip", "sickle", "rapier"),
+ 305	            chancePct = 10, tier = Tier.IRON,
+ 306	        ),
+ 307	        "minecraft:chests/stronghold_corridor" to StructureLoot(
+ 308	            weapons = listOf("longsword", "mace", "battleaxe", "warhammer"),
+ 309	            chancePct = 12, tier = Tier.IRON,
+ 310	        ),
+ 311	        "minecraft:chests/woodland_mansion" to StructureLoot(
+ 312	            weapons = listOf("greatsword", "halberd", "rapier", "longsword"),
+ 313	            chancePct = 8, tier = Tier.IRON,
+ 314	        ),
+ 315	        "minecraft:chests/nether_bridge" to StructureLoot(
+ 316	            weapons = listOf("pike", "maul", "greataxe", "flail"),
+ 317	            chancePct = 10, tier = Tier.IRON,
+ 318	        ),
+ 319	        "minecraft:chests/desert_pyramid" to StructureLoot(
+ 320	            weapons = listOf("scimitar", "spear", "dart"),
+ 321	            chancePct = 12, tier = Tier.IRON,
+ 322	        ),
+ 323	        "minecraft:chests/jungle_temple" to StructureLoot(
+ 324	            weapons = listOf("blowgun", "sling", "dart"),
+ 325	            chancePct = 10, tier = Tier.IRON,
+ 326	        ),
+ 327	        "minecraft:chests/shipwreck_treasure" to StructureLoot(
+ 328	            weapons = listOf("pistol", "musket", "hand_crossbow", "sickle"),
+ 329	            chancePct = 8, tier = Tier.IRON,
+ 330	        ),
+ 331	        "minecraft:chests/underwater_ruin_big" to StructureLoot(
+ 332	            weapons = listOf("spear"),
+ 333	            chancePct = 6, tier = Tier.IRON,
+ 334	        ),
+ 335	        "minecraft:chests/pillager_outpost" to StructureLoot(
+ 336	            weapons = listOf("heavy_crossbow", "hand_crossbow"),
+ 337	            chancePct = 5, tier = Tier.IRON,
+ 338	        ),
+ 339	
+ 340	        // Diamond-tier endgame structures (4 entries)
+ 341	        "minecraft:chests/end_city_treasure" to StructureLoot(
+ 342	            weapons = listOf("greatsword", "longsword"),
+ 343	            chancePct = 5, tier = Tier.DIAMOND,
+ 344	        ),
+ 345	        "minecraft:chests/ancient_city" to StructureLoot(
+ 346	            weapons = listOf("morningstar", "war_pick", "whip"),
+ 347	            chancePct = 6, tier = Tier.DIAMOND,
+ 348	        ),
+ 349	        "minecraft:chests/trial_chambers/reward_ominous_unique" to StructureLoot(
+ 350	            weapons = listOf("rapier", "longsword", "pike"),
+ 351	            chancePct = 8, tier = Tier.DIAMOND,
+ 352	            minVersion = "1.21.1",
+ 353	        ),
+ 354	        "minecraft:chests/bastion_treasure" to StructureLoot(
+ 355	            weapons = listOf("glaive", "heavy_crossbow"),
+ 356	            chancePct = 3, tier = Tier.DIAMOND,
+ 357	        ),
+ 358	    )
+ 359	
+ 360	    // ============================================================
+ 361	    // Mob drops (iron tier; netherite is a separate stacked roll)
+ 362	    // ============================================================
+ 363	    val MOB_DROPS: Map<String, MobDrop> = mapOf(
+ 364	        "minecraft:entities/vindicator"      to MobDrop("battleaxe",      ironPct = 8),
+ 365	        "minecraft:entities/pillager"        to MobDrop("heavy_crossbow", ironPct = 4),
+ 366	        "minecraft:entities/wither_skeleton" to MobDrop("glaive",         ironPct = 6, netheritePct = 1),
+ 367	        "minecraft:entities/husk"            to MobDrop("club",           ironPct = 5),
+ 368	        "minecraft:entities/piglin_brute"    to MobDrop("maul",           ironPct = 10, netheritePct = 2),
+ 369	        "minecraft:entities/warden"          to MobDrop(null,             ironPct = 0,  netheritePct = 5),
+ 370	        "minecraft:entities/skeleton"        to MobDrop("dagger",         ironPct = 2),
+ 371	    )
+ 372	
+ 373	    // ============================================================
+ 374	    // Villager trades (Weaponsmith + Fletcher)
+ 375	    // ============================================================
+ 376	    val VILLAGER_TRADES: Map<String, Map<Int, List<VillagerTradeEntry>>> = mapOf(
+ 377	        "minecraft:weaponsmith" to mapOf(
+ 378	            1 to listOf(
+ 379	                VillagerTradeEntry("mace",         emeralds = 3),
+ 380	                VillagerTradeEntry("sickle",       emeralds = 4),
+ 381	                VillagerTradeEntry("quarterstaff", emeralds = 5),
+ 382	            ),
+ 383	            2 to listOf(
+ 384	                VillagerTradeEntry("spear",        emeralds = 4),
+ 385	                VillagerTradeEntry("club",         emeralds = 4),
+ 386	                VillagerTradeEntry("greatclub",    emeralds = 5),
+ 387	                VillagerTradeEntry("light_hammer", emeralds = 7),
+ 388	            ),
+ 389	            3 to listOf(
+ 390	                VillagerTradeEntry("longsword",   emeralds = 8),
+ 391	                VillagerTradeEntry("battleaxe",   emeralds = 10),
+ 392	                VillagerTradeEntry("warhammer",   emeralds = 10),
+ 393	                VillagerTradeEntry("morningstar", emeralds = 12),
+ 394	            ),
+ 395	            4 to listOf(
+ 396	                VillagerTradeEntry("glaive",  emeralds = 15),
+ 397	                VillagerTradeEntry("halberd", emeralds = 17),
+ 398	                VillagerTradeEntry("pike",    emeralds = 18),
+ 399	                VillagerTradeEntry("maul",    emeralds = 20),
+ 400	            ),
+ 401	            5 to listOf(
+ 402	                VillagerTradeEntry("greatsword", emeralds = 22),
+ 403	                VillagerTradeEntry("greataxe",   emeralds = 24),
+ 404	                VillagerTradeEntry("lance",      emeralds = 26),
+ 405	                VillagerTradeEntry("rapier",     emeralds = 28),
+ 406	            ),
+ 407	        ),
+ 408	        "minecraft:fletcher" to mapOf(
+ 409	            2 to listOf(VillagerTradeEntry("dart", emeralds = 5, outputCount = 8)),
+ 410	            3 to listOf(VillagerTradeEntry("hand_crossbow", emeralds = 10)),
+ 411	            4 to listOf(
+ 412	                VillagerTradeEntry("heavy_crossbow", emeralds = 15),
+ 413	                VillagerTradeEntry("longbow",        emeralds = 22),
+ 414	            ),
+ 415	            5 to listOf(
+ 416	                VillagerTradeEntry("blowgun", emeralds = 30),
+ 417	                VillagerTradeEntry("musket",  emeralds = 35),
+ 418	                VillagerTradeEntry("pistol",  emeralds = 35),
+ 419	            ),
+ 420	        ),
+ 421	    )
+ 422	
+ 423	    /**
+ 424	     * Init-time integrity check. Logs (does not throw) on any unknown weapon id.
+ 425	     * Intended for catching typos in this file; the gametest is the runtime check.
+ 426	     */
+ 427	    fun validate() {
+ 428	        val errors = mutableListOf<String>()
+ 429	        for ((tableId, loot) in STRUCTURE_LOOT) {
+ 430	            for (w in loot.weapons) {
+ 431	                if (WeaponLookup.byId(w, loot.tier) == null) {
+ 432	                    errors += "structure $tableId: $w (${loot.tier})"
+ 433	                }
+ 434	            }
+ 435	        }
+ 436	        for ((mobId, drop) in MOB_DROPS) {
+ 437	            drop.ironWeapon?.let { w ->
+ 438	                if (WeaponLookup.byId(w, Tier.IRON) == null) errors += "mob $mobId iron: $w"
+ 439	            }
+ 440	        }
+ 441	        for ((profession, levels) in VILLAGER_TRADES) {
+ 442	            for ((level, trades) in levels) {
+ 443	                for (t in trades) {
+ 444	                    if (WeaponLookup.byId(t.weapon, Tier.IRON) == null) {
+ 445	                        errors += "$profession level $level: ${t.weapon}"
+ 446	                    }
+ 447	                }
+ 448	            }
+ 449	        }
+ 450	        if (errors.isNotEmpty()) {
+ 451	            DndWeaponsMod.LOGGER.error("AcquisitionCatalog references unknown weapons: $errors")
+ 452	        } else {
+ 453	            DndWeaponsMod.LOGGER.info(
+ 454	                "AcquisitionCatalog validated: ${STRUCTURE_LOOT.size} structures, " +
+ 455	                "${MOB_DROPS.size} mobs, " +
+ 456	                "${VILLAGER_TRADES.values.sumOf { it.values.sumOf { l -> l.size } }} trades."
+ 457	            )
+ 458	        }
+ 459	    }
+ 460	}
+ 461	```
+ 462	
+ 463	- [ ] **Step 2: Verify it compiles on all 5 versions**
+ 464	
+ 465	Run: `./gradlew chiseledBuild`
+ 466	Expected: BUILD SUCCESSFUL on 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.
+ 467	
+ 468	- [ ] **Step 3: Commit**
+ 469	
+ 470	```bash
+ 471	git add src/main/kotlin/com/dndweapons/acquisition/AcquisitionCatalog.kt
+ 472	git commit -m "phase 5: AcquisitionCatalog (13 structures + 7 mobs + 25 trades)"
+ 473	```
+ 474	
+ 475	---
+ 476	
+ 477	## Task 6: AcquisitionCatalogTest (unit test)
+ 478	
+ 479	**Files:**
+ 480	- Create: `src/test/kotlin/com/dndweapons/acquisition/AcquisitionCatalogTest.kt`
+ 481	
+ 482	- [ ] **Step 1: Write the unit test**
+ 483	
+ 484	```kotlin
+ 485	// src/test/kotlin/com/dndweapons/acquisition/AcquisitionCatalogTest.kt
+ 486	package com.dndweapons.acquisition
+ 487	
+ 488	import com.dndweapons.catalog.Tier
+ 489	import com.dndweapons.catalog.Weapons
+ 490	import org.junit.jupiter.api.Assertions.assertEquals
+ 491	import org.junit.jupiter.api.Assertions.assertNotNull
+ 492	import org.junit.jupiter.api.Assertions.assertTrue
+ 493	import org.junit.jupiter.api.Test
+ 494	
+ 495	class AcquisitionCatalogTest {
+ 496	
+ 497	    @Test
+ 498	    fun structureLootWeaponIdsAreAllRegistered() {
+ 499	        for ((tableId, loot) in AcquisitionCatalog.STRUCTURE_LOOT) {
+ 500	            for (w in loot.weapons) {
+ 501	                val spec = Weapons.ALL.firstOrNull { it.id == w }
+ 502	                assertNotNull(spec, "structure '$tableId' references unknown weapon id '$w'")
+ 503	            }
+ 504	        }
+ 505	    }
+ 506	
+ 507	    @Test
+ 508	    fun mobDropIronWeaponIdsAreAllRegistered() {
+ 509	        for ((mobId, drop) in AcquisitionCatalog.MOB_DROPS) {
+ 510	            drop.ironWeapon?.let { w ->
+ 511	                val spec = Weapons.ALL.firstOrNull { it.id == w }
+ 512	                assertNotNull(spec, "mob '$mobId' references unknown iron weapon id '$w'")
+ 513	            }
+ 514	        }
+ 515	    }
+ 516	
+ 517	    @Test
+ 518	    fun villagerTradeWeaponIdsAreAllRegistered() {
+ 519	        for ((profession, levels) in AcquisitionCatalog.VILLAGER_TRADES) {
+ 520	            for ((level, trades) in levels) {
+ 521	                for (t in trades) {
+ 522	                    val spec = Weapons.ALL.firstOrNull { it.id == t.weapon }
+ 523	                    assertNotNull(spec, "$profession level $level: unknown weapon '${t.weapon}'")
+ 524	                }
+ 525	            }
+ 526	        }
+ 527	    }
+ 528	
+ 529	    @Test
+ 530	    fun structureLootChancePctIsInRange() {
+ 531	        for ((tableId, loot) in AcquisitionCatalog.STRUCTURE_LOOT) {
+ 532	            assertTrue(loot.chancePct in 1..100, "structure '$tableId' has out-of-range chancePct ${loot.chancePct}")
+ 533	        }
+ 534	    }
+ 535	
+ 536	    @Test
+ 537	    fun mobDropPctIsInRange() {
+ 538	        for ((mobId, drop) in AcquisitionCatalog.MOB_DROPS) {
+ 539	            assertTrue(drop.ironPct in 0..100, "mob '$mobId' ironPct ${drop.ironPct}")
+ 540	            assertTrue(drop.netheritePct in 0..100, "mob '$mobId' netheritePct ${drop.netheritePct}")
+ 541	            // At least one of the two must be non-zero or there's no point in the entry.
+ 542	            assertTrue(drop.ironPct > 0 || drop.netheritePct > 0, "mob '$mobId' has both pcts at zero")
+ 543	        }
+ 544	    }
+ 545	
+ 546	    @Test
+ 547	    fun diamondTierStructuresAreEndgameOnly() {
+ 548	        val diamondTables = AcquisitionCatalog.STRUCTURE_LOOT
+ 549	            .filter { (_, loot) -> loot.tier == Tier.DIAMOND }
+ 550	            .keys
+ 551	        val expected = setOf(
+ 552	            "minecraft:chests/end_city_treasure",
+ 553	            "minecraft:chests/ancient_city",
+ 554	            "minecraft:chests/trial_chambers/reward_ominous_unique",
+ 555	            "minecraft:chests/bastion_treasure",
+ 556	        )
+ 557	        assertEquals(expected, diamondTables, "diamond-tier structure set drifted from spec")
+ 558	    }
+ 559	
+ 560	    @Test
+ 561	    fun trialChambersIsGatedTo121Plus() {
+ 562	        val entry = AcquisitionCatalog.STRUCTURE_LOOT["minecraft:chests/trial_chambers/reward_ominous_unique"]
+ 563	        assertNotNull(entry)
+ 564	        assertEquals("1.21.1", entry!!.minVersion, "trial chambers must be gated to 1.21.1+")
+ 565	    }
+ 566	}
+ 567	```
+ 568	
+ 569	- [ ] **Step 2: Run the test to verify it passes**
+ 570	
+ 571	Run: `./gradlew :1.20.1:test --tests com.dndweapons.acquisition.AcquisitionCatalogTest`
+ 572	Expected: PASS (7 tests).
+ 573	
+ 574	- [ ] **Step 3: Commit**
+ 575	
+ 576	```bash
+ 577	git add src/test/kotlin/com/dndweapons/acquisition/AcquisitionCatalogTest.kt
+ 578	git commit -m "phase 5: AcquisitionCatalogTest (integrity check)"
+ 579	```
+ 580	
+ 581	---
+ 582	
+ 583	## Task 7: WeaponLootRegistrar
+ 584	
+ 585	**Files:**
+ 586	- Create: `src/main/kotlin/com/dndweapons/loot/WeaponLootRegistrar.kt`
+ 587	
+ 588	This is the largest single file in Phase 5. It mirrors Phase 4's `SmithingTemplateLootInjector.kt` stonecutter pattern for the multi-SAM `LootTableEvents.MODIFY` hook, but routes BOTH structure and mob loot table IDs through the same registrar.
+ 589	
+ 590	- [ ] **Step 1: Write the registrar**
+ 591	
+ 592	```kotlin
+ 593	// src/main/kotlin/com/dndweapons/loot/WeaponLootRegistrar.kt
+ 594	package com.dndweapons.loot
+ 595	
+ 596	import com.dndweapons.DndWeaponsMod
+ 597	import com.dndweapons.acquisition.AcquisitionCatalog
+ 598	import com.dndweapons.acquisition.MobDrop
+ 599	import com.dndweapons.acquisition.StructureLoot
+ 600	import com.dndweapons.acquisition.WeaponLookup
+ 601	import com.dndweapons.catalog.Tier
+ 602	//? if >=26.1.2 {
+ 603	/*import net.fabricmc.fabric.api.loot.v3.LootTableEvents
+ 604	*///?} else {
+ 605	import net.fabricmc.fabric.api.loot.v2.LootTableEvents
+ 606	//?}
+ 607	import net.minecraft.world.item.Item
+ 608	import net.minecraft.world.level.storage.loot.LootPool
+ 609	import net.minecraft.world.level.storage.loot.LootTable
+ 610	import net.minecraft.world.level.storage.loot.entries.EmptyLootItem
+ 611	import net.minecraft.world.level.storage.loot.entries.LootItem
+ 612	import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction
+ 613	import net.minecraft.world.level.storage.loot.providers.number.ConstantValue
+ 614	
+ 615	/**
+ 616	 * Phase 5 loot injector. Reads [AcquisitionCatalog] and adds loot pools to the
+ 617	 * relevant vanilla tables. Structure chests get one pool per matching entry
+ 618	 * (weapon vs empty, weighted by `chancePct`). Mob entities get up to two
+ 619	 * INDEPENDENT pools - one iron, one netherite - that roll separately on each
+ 620	 * kill.
+ 621	 *
+ 622	 * Three dimensions of version drift (mirrors Phase 4's SmithingTemplateLootInjector):
+ 623	 *  1. Fabric module path: v2 (1.20.1..1.21.11) vs v3 (26.1.2).
+ 624	 *  2. Modify SAM arity:
+ 625	 *     - v2 / 1.20.1                : 5 params (RM, LM, ResourceLocation, Builder, Source)
+ 626	 *     - v2 / 1.21.1..1.21.11       : 3 params (ResourceKey<LootTable>, Builder, Source)
+ 627	 *     - v3 / 26.1.2                : 4 params (ResourceKey<LootTable>, Builder, Source, Registries)
+ 628	 *  3. ResourceKey accessor for the table id:
+ 629	 *     - 1.20.1                     : ResourceLocation supplied as the 3rd SAM arg directly
+ 630	 *     - 1.21.1, 1.21.4             : key.location().toString()
+ 631	 *     - 1.21.11, 26.1.2            : key.identifier().toString()
+ 632	 */
+ 633	object WeaponLootRegistrar {
+ 634	
+ 635	    private const val MOD_VERSION_STRING: String =
+ 636	        //? if >=1.21.11 { /*"1.21.11"*///?}
+ 637	        //? if (>=1.21.4) & (<1.21.11) { /*"1.21.4"*///?}
+ 638	        //? if (>=1.21.1) & (<1.21.4) { /*"1.21.1"*///?}
+ 639	        //? if <1.21.1 {
+ 640	        "1.20.1"
+ 641	        //?}
+ 642	
+ 643	    fun register() {
+ 644	        //? if >=26.1.2 {
+ 645	        /*// v3 hook on 26.1.2: SAM is (key, builder, source, registries)
+ 646	        LootTableEvents.MODIFY.register { key, builder, _, _ ->
+ 647	            injectFor(key.identifier().toString(), builder)
+ 648	        }
+ 649	        *///?}
+ 650	        //? if >=1.21.11 {
+ 651	        //? if <26.1.2 {
+ 652	        /*// v2 hook on 1.21.11: 3-param SAM, identifier() rename
+ 653	        LootTableEvents.MODIFY.register { key, builder, _ ->
+ 654	            injectFor(key.identifier().toString(), builder)
+ 655	        }
+ 656	        *///?}
+ 657	        //?}
+ 658	        //? if >=1.21.1 {
+ 659	        //? if <1.21.11 {
+ 660	        // v2 hook on 1.21.1, 1.21.4: 3-param SAM, location() still present
+ 661	        LootTableEvents.MODIFY.register { key, builder, _ ->
+ 662	            injectFor(key.location().toString(), builder)
+ 663	        }
+ 664	        //?}
+ 665	        //?}
+ 666	        //? if <1.21.1 {
+ 667	        /*// v2 hook on 1.20.1: 5-param SAM, tableId is the 3rd arg (ResourceLocation)
+ 668	        LootTableEvents.MODIFY.register { _, _, tableId, builder, _ ->
+ 669	            injectFor(tableId.toString(), builder)
+ 670	        }
+ 671	        *///?}
+ 672	        DndWeaponsMod.LOGGER.info(
+ 673	            "Registered Phase 5 loot injectors " +
+ 674	            "(${AcquisitionCatalog.STRUCTURE_LOOT.size} structures, " +
+ 675	            "${AcquisitionCatalog.MOB_DROPS.size} mob tables)."
+ 676	        )
+ 677	    }
+ 678	
+ 679	    private fun injectFor(tableId: String, builder: LootTable.Builder) {
+ 680	        AcquisitionCatalog.STRUCTURE_LOOT[tableId]?.let { entry ->
+ 681	            if (versionApplies(entry)) {
+ 682	                builder.withPool(buildStructurePool(entry))
+ 683	            }
+ 684	        }
+ 685	        AcquisitionCatalog.MOB_DROPS[tableId]?.let { drop ->
+ 686	            if (drop.ironPct > 0)      builder.withPool(buildMobPool(drop, Tier.IRON))
+ 687	            if (drop.netheritePct > 0) builder.withPool(buildMobPool(drop, Tier.NETHERITE))
+ 688	        }
+ 689	    }
+ 690	
+ 691	    private fun versionApplies(entry: StructureLoot): Boolean {
+ 692	        if (entry.minVersion == null) return true
+ 693	        // Simple lexical compare works because our version strings use the same
+ 694	        // segmented MAJOR.MINOR.PATCH form throughout (1.20.1 < 1.21.1 < 1.21.4 etc.).
+ 695	        return compareVersionStrings(MOD_VERSION_STRING, entry.minVersion) >= 0
+ 696	    }
+ 697	
+ 698	    /** Returns negative if a < b, 0 if equal, positive if a > b. */
+ 699	    private fun compareVersionStrings(a: String, b: String): Int {
+ 700	        val ap = a.split('.').map { it.toIntOrNull() ?: 0 }
+ 701	        val bp = b.split('.').map { it.toIntOrNull() ?: 0 }
+ 702	        for (i in 0 until maxOf(ap.size, bp.size)) {
+ 703	            val ai = ap.getOrNull(i) ?: 0
+ 704	            val bi = bp.getOrNull(i) ?: 0
+ 705	            if (ai != bi) return ai - bi
+ 706	        }
+ 707	        return 0
+ 708	    }
+ 709	
+ 710	    private fun buildStructurePool(entry: StructureLoot): LootPool.Builder {
+ 711	        val pool = LootPool.lootPool().setRolls(ConstantValue.exactly(1.0f))
+ 712	        // Weighted weapon entries: each weapon shares the chancePct weight equally.
+ 713	        val perWeaponWeight = entry.chancePct / entry.weapons.size
+ 714	        for (weaponId in entry.weapons) {
+ 715	            val item: Item = WeaponLookup.byId(weaponId, entry.tier) ?: continue
+ 716	            pool.add(
+ 717	                LootItem.lootTableItem(item)
+ 718	                    .apply(SetItemCountFunction.setCount(ConstantValue.exactly(1.0f)))
+ 719	                    .setWeight(maxOf(perWeaponWeight, 1))
+ 720	            )
+ 721	        }
+ 722	        pool.add(EmptyLootItem.emptyItem().setWeight(maxOf(100 - entry.chancePct, 1)))
+ 723	        return pool
+ 724	    }
+ 725	
+ 726	    private fun buildMobPool(drop: MobDrop, tier: Tier): LootPool.Builder {
+ 727	        val pool = LootPool.lootPool().setRolls(ConstantValue.exactly(1.0f))
+ 728	        val pct = if (tier == Tier.IRON) drop.ironPct else drop.netheritePct
+ 729	        if (tier == Tier.NETHERITE && drop.ironWeapon == null) {
+ 730	            // Warden case: random selection across all 27 netherite-tier weapons.
+ 731	            // Each weapon entry has weight 1; empty entry weight balances the (100-pct).
+ 732	            val netheriteItems = WeaponLookup.allNetherite()
+ 733	            val perItemWeight = maxOf(pct / netheriteItems.size, 1)
+ 734	            for (item in netheriteItems) {
+ 735	                pool.add(
+ 736	                    LootItem.lootTableItem(item)
+ 737	                        .apply(SetItemCountFunction.setCount(ConstantValue.exactly(1.0f)))
+ 738	                        .setWeight(perItemWeight)
+ 739	                )
+ 740	            }
+ 741	            pool.add(EmptyLootItem.emptyItem().setWeight(maxOf(100 - pct, 1)))
+ 742	        } else {
+ 743	            // Iron OR netherite for a mob that has a single thematic weapon id.
+ 744	            val weaponId = drop.ironWeapon ?: return pool   // defensive; netherite-only handled above
+ 745	            val item = WeaponLookup.byId(weaponId, tier) ?: return pool
+ 746	            pool.add(
+ 747	                LootItem.lootTableItem(item)
+ 748	                    .apply(SetItemCountFunction.setCount(ConstantValue.exactly(1.0f)))
+ 749	                    .setWeight(pct)
+ 750	            )
+ 751	            pool.add(EmptyLootItem.emptyItem().setWeight(maxOf(100 - pct, 1)))
+ 752	        }
+ 753	        return pool
+ 754	    }
+ 755	}
+ 756	```
+ 757	
+ 758	- [ ] **Step 2: Verify it compiles on all 5 versions**
+ 759	
+ 760	Run: `./gradlew chiseledBuild`
+ 761	Expected: BUILD SUCCESSFUL on 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.
+ 762	
+ 763	- [ ] **Step 3: Commit**
+ 764	
+ 765	```bash
+ 766	git add src/main/kotlin/com/dndweapons/loot/WeaponLootRegistrar.kt
+ 767	git commit -m "phase 5: WeaponLootRegistrar (structures + mob drops)"
+ 768	```
+ 769	
+ 770	---
+ 771	
+ 772	## Task 8: WitherTrophyHandler
+ 773	
+ 774	**Files:**
+ 775	- Create: `src/main/kotlin/com/dndweapons/loot/WitherTrophyHandler.kt`
+ 776	
+ 777	- [ ] **Step 1: Write the handler**
+ 778	
+ 779	```kotlin
+ 780	// src/main/kotlin/com/dndweapons/loot/WitherTrophyHandler.kt
+ 781	package com.dndweapons.loot
+ 782	
+ 783	import com.dndweapons.DndWeaponsMod
+ 784	import com.dndweapons.acquisition.WeaponLookup
+ 785	import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLivingEntityEvents
+ 786	import net.minecraft.world.entity.EntityType
+ 787	import net.minecraft.world.item.ItemStack
+ 788	
+ 789	/**
+ 790	 * Phase 5: drops a single random netherite-tier DnD weapon when the Wither
+ 791	 * boss dies. 100% guaranteed drop on every Wither death. Uses Fabric's
+ 792	 * `ServerLivingEntityEvents.AFTER_DEATH` (available on all 5 target versions).
+ 793	 *
+ 794	 * The Wither's vanilla drops (nether star + experience) are unaffected; this
+ 795	 * handler only adds the trophy item.
+ 796	 */
+ 797	object WitherTrophyHandler {
+ 798	
+ 799	    fun register() {
+ 800	        ServerLivingEntityEvents.AFTER_DEATH.register { entity, _ ->
+ 801	            if (entity.type != EntityType.WITHER) return@register
+ 802	            val netheriteItems = WeaponLookup.allNetherite()
+ 803	            if (netheriteItems.isEmpty()) {
+ 804	                DndWeaponsMod.LOGGER.warn("WitherTrophyHandler: no netherite weapons registered; trophy not dropped.")
+ 805	                return@register
+ 806	            }
+ 807	            val chosen = netheriteItems.random(entity.random)
+ 808	            entity.spawnAtLocation(ItemStack(chosen))
+ 809	        }
+ 810	        DndWeaponsMod.LOGGER.info("Registered Wither trophy handler (100% random netherite weapon).")
+ 811	    }
+ 812	}
+ 813	```
+ 814	
+ 815	- [ ] **Step 2: Verify it compiles on all 5 versions**
+ 816	
+ 817	Run: `./gradlew chiseledBuild`
+ 818	Expected: BUILD SUCCESSFUL on 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.
+ 819	
+ 820	If `ServerLivingEntityEvents` is unresolved on any version, the import path moved — apply a stonecutter fork around the import line, mirroring the pattern Phase 4 used for `LootTableEvents` v2/v3.
+ 821	
+ 822	- [ ] **Step 3: Commit**
+ 823	
+ 824	```bash
+ 825	git add src/main/kotlin/com/dndweapons/loot/WitherTrophyHandler.kt
+ 826	git commit -m "phase 5: WitherTrophyHandler (100% random netherite trophy)"
+ 827	```
+ 828	
+ 829	---
+ 830	
+ 831	## Task 9: WeaponTradeRegistrar (Kotlin path, 1.20.1–1.21.11)
+ 832	
+ 833	**Files:**
+ 834	- Create: `src/main/kotlin/com/dndweapons/trade/WeaponTradeRegistrar.kt`
+ 835	
+ 836	This file is NEVER reached on 26.1.2 — its mod-init call is wrapped in `//? if <26.1.2` in Task 11. The file must still compile on 26.1.2 (since Kotlin source is shared across all versions); inside the 26.1.2 branch we stonecutter the body to a no-op stub. Mirrors the Phase 4 `SmithingTemplateTrades.kt` pattern.
+ 837	
+ 838	- [ ] **Step 1: Write the registrar**
+ 839	
+ 840	```kotlin
+ 841	// src/main/kotlin/com/dndweapons/trade/WeaponTradeRegistrar.kt
+ 842	package com.dndweapons.trade
+ 843	
+ 844	import com.dndweapons.DndWeaponsMod
+ 845	import com.dndweapons.acquisition.AcquisitionCatalog
+ 846	import com.dndweapons.acquisition.VillagerTradeEntry
+ 847	import com.dndweapons.acquisition.WeaponLookup
+ 848	import com.dndweapons.catalog.Tier
+ 849	//? if <26.1.2 {
+ 850	import net.fabricmc.fabric.api.`object`.builder.v1.trade.TradeOfferHelper
+ 851	//?}
+ 852	import net.minecraft.world.item.ItemStack
+ 853	import net.minecraft.world.item.Items
+ 854	//? if >=1.21.1 {
+ 855	import net.minecraft.world.item.trading.ItemCost
+ 856	//?}
+ 857	import net.minecraft.world.item.trading.MerchantOffer
+ 858	//? if <1.21.11 {
+ 859	import net.minecraft.world.entity.npc.VillagerTrades
+ 860	//?}
+ 861	//? if >=1.21.11 {
+ 862	//? if <26.1.2 {
+ 863	/*import net.minecraft.world.entity.npc.villager.VillagerTrades
+ 864	*///?}
+ 865	//?}
+ 866	//? if >=1.21.1 {
+ 867	import net.minecraft.core.registries.BuiltInRegistries
+ 868	//?}
+ 869	//? if <1.21.5 {
+ 870	import net.minecraft.world.entity.npc.VillagerProfession
+ 871	//?}
+ 872	
+ 873	/**
+ 874	 * Phase 5: registers Weaponsmith + Fletcher trades on 1.20.1, 1.21.1, 1.21.4,
+ 875	 * 1.21.11. 26.1.2 uses data-pack JSON trades (emitted by Phase5TradeCodegen)
+ 876	 * since Fabric removed TradeOfferHelper from the umbrella at 26.1.
+ 877	 *
+ 878	 * Trade signature drift across versions:
+ 879	 *  - 1.20.1                 : registerVillagerOffers(VillagerProfession, level, factories)
+ 880	 *                             MerchantOffer takes ItemStack costs (no ItemCost wrapper).
+ 881	 *  - 1.21.1, 1.21.4         : registerVillagerOffers(VillagerProfession, level, factories)
+ 882	 *                             MerchantOffer takes ItemCost.
+ 883	 *  - 1.21.11                : registerVillagerOffers(RegistryKey<VillagerProfession>, level, factories)
+ 884	 *                             ItemListing SAM gains a ServerLevel param (3-arg lambda).
+ 885	 *  - 26.1.2                 : Fabric API removed; this file's register() is stonecutter-stubbed.
+ 886	 *
+ 887	 * The version-specific build is in [buildOffer]; the per-profession dispatch
+ 888	 * is in [register].
+ 889	 */
+ 890	object WeaponTradeRegistrar {
+ 891	
+ 892	    fun register() {
+ 893	        //? if >=26.1.2 {
+ 894	        /*// Fabric TradeOfferHelper API removed at 26.1; trades ship as data-pack JSON.
+ 895	        DndWeaponsMod.LOGGER.info(
+ 896	            "Skipped WeaponTradeRegistrar Kotlin path on 26.1.2 (using data-pack JSON trades)."
+ 897	        )
+ 898	        return
+ 899	        *///?}
+ 900	
+ 901	        //? if <26.1.2 {
+ 902	        var registered = 0
+ 903	        for ((professionId, levels) in AcquisitionCatalog.VILLAGER_TRADES) {
+ 904	            val profession = resolveProfession(professionId) ?: continue
+ 905	            for ((level, trades) in levels) {
+ 906	                //? if <1.21.5 {
+ 907	                TradeOfferHelper.registerVillagerOffers(profession, level) { factories ->
+ 908	                    for (trade in trades) {
+ 909	                        factories.add(VillagerTrades.ItemListing { _, _ -> buildOffer(trade) })
+ 910	                    }
+ 911	                }
+ 912	                //?} else {
+ 913	                /*TradeOfferHelper.registerVillagerOffers(profession, level) { factories ->
+ 914	                    for (trade in trades) {
+ 915	                        factories.add(VillagerTrades.ItemListing { _, _, _ -> buildOffer(trade) })
+ 916	                    }
+ 917	                }
+ 918	                *///?}
+ 919	                registered += trades.size
+ 920	            }
+ 921	        }
+ 922	        DndWeaponsMod.LOGGER.info(
+ 923	            "Registered $registered Phase 5 villager trades (Weaponsmith + Fletcher)."
+ 924	        )
+ 925	        //?}
+ 926	    }
+ 927	
+ 928	    //? if <26.1.2 {
+ 929	    private fun resolveProfession(id: String): Any? {
+ 930	        //? if <1.21.5 {
+ 931	        return when (id) {
+ 932	            "minecraft:weaponsmith" -> VillagerProfession.WEAPONSMITH
+ 933	            "minecraft:fletcher"    -> VillagerProfession.FLETCHER
+ 934	            else -> null
+ 935	        }
+ 936	        //?} else {
+ 937	        /*val location = net.minecraft.resources.ResourceLocation.parse(id)
+ 938	        val key = net.minecraft.resources.ResourceKey.create(
+ 939	            net.minecraft.core.registries.Registries.VILLAGER_PROFESSION,
+ 940	            location,
+ 941	        )
+ 942	        return key
+ 943	        *///?}
+ 944	    }
+ 945	
+ 946	    private fun buildOffer(trade: VillagerTradeEntry): MerchantOffer? {
+ 947	        val result = WeaponLookup.byId(trade.weapon, Tier.IRON) ?: return null
+ 948	        val resultStack = ItemStack(result, trade.outputCount)
+ 949	        //? if >=1.21.1 {
+ 950	        return MerchantOffer(
+ 951	            ItemCost(Items.EMERALD, trade.emeralds),
+ 952	            java.util.Optional.empty(),
+ 953	            resultStack,
+ 954	            0,                  // uses
+ 955	            trade.maxUses,
+ 956	            trade.xp,
+ 957	            0.05f,              // price multiplier
+ 958	        )
+ 959	        //?} else {
+ 960	        /*return MerchantOffer(
+ 961	            ItemStack(Items.EMERALD, trade.emeralds),
+ 962	            ItemStack.EMPTY,
+ 963	            resultStack,
+ 964	            0,                  // uses
+ 965	            trade.maxUses,
+ 966	            trade.xp,
+ 967	            0.05f,
+ 968	        )
+ 969	        *///?}
+ 970	    }
+ 971	    //?}
+ 972	}
+ 973	```
+ 974	
+ 975	- [ ] **Step 2: Verify it compiles on all 5 versions**
+ 976	
+ 977	Run: `./gradlew chiseledBuild`
+ 978	Expected: BUILD SUCCESSFUL on 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.
+ 979	
+ 980	On 26.1.2 the file compiles to a stub that just logs and returns. On 1.21.11 the `ItemListing` lambda is 3-arg; on older versions it's 2-arg.
+ 981	
+ 982	- [ ] **Step 3: Commit**
+ 983	
+ 984	```bash
+ 985	git add src/main/kotlin/com/dndweapons/trade/WeaponTradeRegistrar.kt
+ 986	git commit -m "phase 5: WeaponTradeRegistrar (Weaponsmith + Fletcher, 1.20.1-1.21.11)"
+ 987	```
+ 988	
+ 989	---
+ 990	
+ 991	## Task 10: Phase5TradeCodegen + 26.1.2 trade JSONs
+ 992	
+ 993	**Files:**
+ 994	- Create: `src/main/kotlin/com/dndweapons/codegen/Phase5TradeCodegen.kt`
+ 995	- Create: `src/main/resources/data/dndweapons/villager_trades/weaponsmith_level1.json`
+ 996	- Create: `src/main/resources/data/dndweapons/villager_trades/weaponsmith_level2.json`
+ 997	- Create: `src/main/resources/data/dndweapons/villager_trades/weaponsmith_level3.json`
+ 998	- Create: `src/main/resources/data/dndweapons/villager_trades/weaponsmith_level4.json`
+ 999	- Create: `src/main/resources/data/dndweapons/villager_trades/weaponsmith_level5.json`
+1000	- Create: `src/main/resources/data/dndweapons/villager_trades/fletcher_level2.json`
+1001	- Create: `src/main/resources/data/dndweapons/villager_trades/fletcher_level3.json`
+1002	- Create: `src/main/resources/data/dndweapons/villager_trades/fletcher_level4.json`
+1003	- Create: `src/main/resources/data/dndweapons/villager_trades/fletcher_level5.json`
+1004	
+1005	26.1.2 reads villager-trade rebalance JSONs from `data/<namespace>/villager_trades/`. The exact schema must be confirmed against a vanilla example before emitting; the structure below is the expected form. The codegen runs as a Kotlin `main()` that reads `AcquisitionCatalog.VILLAGER_TRADES` and writes one file per profession-level pair.
+1006	
+1007	- [ ] **Step 1: Write the codegen Kotlin source**
+1008	
+1009	```kotlin
+1010	// src/main/kotlin/com/dndweapons/codegen/Phase5TradeCodegen.kt
+1011	@file:JvmName("Phase5TradeCodegen")
+1012	package com.dndweapons.codegen
+1013	
+1014	import com.dndweapons.acquisition.AcquisitionCatalog
+1015	import com.dndweapons.acquisition.VillagerTradeEntry
+1016	import java.io.File
+1017	
+1018	/**
+1019	 * Emits the 9 villager-trade JSON files Minecraft 26.1.2 loads as a trade
+1020	 * rebalance data pack. The same trades that
+1021	 * [com.dndweapons.trade.WeaponTradeRegistrar] registers via Fabric API on
+1022	 * 1.20.1-1.21.11 are emitted here as JSON for 26.1.2.
+1023	 *
+1024	 * Run via `./gradlew :26.1.2:runPhase5TradeCodegen` (or directly with `kotlin
+1025	 * com.dndweapons.codegen.Phase5TradeCodegen`). The output files are committed
+1026	 * to the repo; this main is only re-run when [AcquisitionCatalog.VILLAGER_TRADES]
+1027	 * is edited.
+1028	 */
+1029	fun main() {
+1030	    val outputRoot = File("src/main/resources/data/dndweapons/villager_trades")
+1031	    outputRoot.mkdirs()
+1032	    var written = 0
+1033	    for ((professionId, levels) in AcquisitionCatalog.VILLAGER_TRADES) {
+1034	        val professionSlug = professionId.removePrefix("minecraft:")
+1035	        for ((level, trades) in levels) {
+1036	            val fileName = "${professionSlug}_level${level}.json"
+1037	            File(outputRoot, fileName).writeText(buildJson(professionId, level, trades))
+1038	            written++
+1039	        }
+1040	    }
+1041	    println("Phase5TradeCodegen: wrote $written trade JSONs to ${outputRoot.path}")
+1042	}
+1043	
+1044	private fun buildJson(professionId: String, level: Int, trades: List<VillagerTradeEntry>): String {
+1045	    val tradeEntries = trades.joinToString(",\n") { tradeJson(it) }
+1046	    return """{
+1047	  "profession": "$professionId",
+1048	  "level": $level,
+1049	  "trades": [
+1050	$tradeEntries
+1051	  ]
+1052	}
+1053	"""
+1054	}
+1055	
+1056	private fun tradeJson(t: VillagerTradeEntry): String = """    {
+1057	      "input": [{ "id": "minecraft:emerald", "count": ${t.emeralds} }],
+1058	      "result": { "id": "dndweapons:${t.weapon}", "count": ${t.outputCount} },
+1059	      "max_uses": ${t.maxUses},
+1060	      "xp": ${t.xp},
+1061	      "price_multiplier": 0.05
+1062	    }"""
+1063	```
+1064	
+1065	- [ ] **Step 2: Run the codegen**
+1066	
+1067	Run: `./gradlew :26.1.2:runPhase5TradeCodegen` if a Gradle task exists; otherwise the dev agent should add a `runPhase5TradeCodegen` Gradle task to the existing `build.gradle.kts` under the `:26.1.2:` subproject, or run `kotlin com.dndweapons.codegen.Phase5TradeCodegen` directly against the compiled main classpath.
+1068	
+1069	Expected: 9 JSON files written under `src/main/resources/data/dndweapons/villager_trades/`.
+1070	
+1071	- [ ] **Step 3: Verify the emitted JSON shape**
+1072	
+1073	Spot-check `weaponsmith_level1.json`. Expected content (whitespace may differ):
+1074	
+1075	```json
+1076	{
+1077	  "profession": "minecraft:weaponsmith",
+1078	  "level": 1,
+1079	  "trades": [
+1080	    {
+1081	      "input": [{ "id": "minecraft:emerald", "count": 3 }],
+1082	      "result": { "id": "dndweapons:mace", "count": 1 },
+1083	      "max_uses": 12,
+1084	      "xp": 5,
+1085	      "price_multiplier": 0.05
+1086	    },
+1087	    {
+1088	      "input": [{ "id": "minecraft:emerald", "count": 4 }],
+1089	      "result": { "id": "dndweapons:sickle", "count": 1 },
+1090	      "max_uses": 12,
+1091	      "xp": 5,
+1092	      "price_multiplier": 0.05
+1093	    },
+1094	    {
+1095	      "input": [{ "id": "minecraft:emerald", "count": 5 }],
+1096	      "result": { "id": "dndweapons:quarterstaff", "count": 1 },
+1097	      "max_uses": 12,
+1098	      "xp": 5,
+1099	      "price_multiplier": 0.05
+1100	    }
+1101	  ]
+1102	}
+1103	```
+1104	
+1105	- [ ] **Step 4: Verify all 9 files exist**
+1106	
+1107	```bash
+1108	ls src/main/resources/data/dndweapons/villager_trades/ | wc -l
+1109	```
+1110	
+1111	Expected: 9 (weaponsmith_level1..5 + fletcher_level2..5).
+1112	
+1113	- [ ] **Step 5: Verify build succeeds (no recipe parse errors)**
+1114	
+1115	Run: `./gradlew chiseledBuild`
+1116	Expected: BUILD SUCCESSFUL on all 5 versions. The 26.1.2 build should log no errors about the trade JSONs. Older versions ignore them silently.
+1117	
+1118	- [ ] **Step 6: Commit**
+1119	
+1120	```bash
+1121	git add src/main/kotlin/com/dndweapons/codegen/Phase5TradeCodegen.kt \
+1122	        src/main/resources/data/dndweapons/villager_trades/
+1123	git commit -m "phase 5: trade codegen + 9 villager-trade JSONs (26.1.2 data pack)"
+1124	```
+1125	
+1126	---
+1127	
+1128	## Task 11: Wire Phase 5 into DndWeaponsMod.onInitialize()
+1129	
+1130	**Files:**
+1131	- Modify: `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt` (add 4 init calls after the Phase 4 block)
+1132	
+1133	- [ ] **Step 1: Add imports**
+1134	
+1135	At the top of `DndWeaponsMod.kt`, after the existing Phase 4 imports, add:
+1136	
+1137	```kotlin
+1138	import com.dndweapons.acquisition.AcquisitionCatalog
+1139	import com.dndweapons.loot.WeaponLootRegistrar
+1140	import com.dndweapons.loot.WitherTrophyHandler
+1141	//? if <26.1.2 {
+1142	import com.dndweapons.trade.WeaponTradeRegistrar
+1143	//?}
+1144	```
+1145	
+1146	- [ ] **Step 2: Add init calls**
+1147	
+1148	After the Phase 4 `SmithingTemplateTrades.register()` call in `onInitialize()`, append:
+1149	
+1150	```kotlin
+1151	// Phase 5: acquisition
+1152	AcquisitionCatalog.validate()
+1153	WeaponLootRegistrar.register()
+1154	WitherTrophyHandler.register()
+1155	//? if <26.1.2 {
+1156	WeaponTradeRegistrar.register()
+1157	//?}
+1158	LOGGER.info("Phase 5 acquisition surface registered.")
+1159	```
+1160	
+1161	- [ ] **Step 3: Verify it compiles on all 5 versions**
+1162	
+1163	Run: `./gradlew chiseledBuild`
+1164	Expected: BUILD SUCCESSFUL on 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.
+1165	
+1166	- [ ] **Step 4: Verify all existing gametests still pass (no regression)**
+1167	
+1168	Run: `./gradlew chiseledRunGametest`
+1169	Expected: PASS on all 5 versions. The Phase 4 test count (13 per version) is unchanged because Phase 5 hasn't added gametests yet.
+1170	
+1171	- [ ] **Step 5: Commit**
+1172	
+1173	```bash
+1174	git add src/main/kotlin/com/dndweapons/DndWeaponsMod.kt
+1175	git commit -m "phase 5: wire AcquisitionCatalog/LootRegistrar/Trophy/Trades into mod init"
+1176	```
+1177	
+1178	---
+1179	
+1180	## Task 12: AcquisitionGametest scaffold + fabric.mod.json registration
+1181	
+1182	**Files:**
+1183	- Create: `src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt` (with the first @GameTest method — see Task 13 for the test body)
+1184	- Modify: `src/main/resources/fabric.mod.json` (add `AcquisitionGametest` to the `fabric-gametest` entrypoint list)
+1185	
+1186	This task only creates the file skeleton + entrypoint registration; Tasks 13/14/15 add the three @GameTest methods. The skeleton must include the stonecutter-gated class declaration so the version-specific `@GameTest(template=...)` vs `@GameTest(structure=...)` attribute is correct.
+1187	
+1188	- [ ] **Step 1: Create the AcquisitionGametest file skeleton**
+1189	
+1190	```kotlin
+1191	// src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt
+1192	package com.dndweapons.test
+1193	
+1194	//? if <1.21.5 {
+1195	import net.fabricmc.fabric.api.gametest.v1.FabricGameTest
+1196	//?}
+1197	import net.minecraft.gametest.framework.GameTest
+1198	import net.minecraft.gametest.framework.GameTestHelper
+1199	
+1200	/**
+1201	 * Phase 5 acquisition gametests. Three smoke tests:
+1202	 *  1. Stronghold corridor loot table produces a mod weapon over N rolls.
+1203	 *  2. Weaponsmith level-1 trades include a mod weapon.
+1204	 *  3. Vindicator drops a mod battleaxe in a small kill batch.
+1205	 *
+1206	 * Class declaration is version-gated like CombatHooksGametest and
+1207	 * SmithingGametest: pre-1.21.5 extends FabricGameTest with `template`,
+1208	 * post-1.21.5 is a bare class with `structure`.
+1209	 */
+1210	//? if <1.21.5 {
+1211	class AcquisitionGametest : FabricGameTest {
+1212	    // Phase 5 gametests will be appended here in Tasks 13-15.
+1213	}
+1214	//?} else {
+1215	/*class AcquisitionGametest {
+1216	    // Phase 5 gametests will be appended here in Tasks 13-15.
+1217	}
+1218	*///?}
+1219	```
+1220	
+1221	- [ ] **Step 2: Register the test class in fabric.mod.json**
+1222	
+1223	Open `src/main/resources/fabric.mod.json` and find the `fabric-gametest` entrypoint list. After Phase 4's `"com.dndweapons.test.SmithingGametest"` entry, add:
+1224	
+1225	```json
+1226	"com.dndweapons.test.AcquisitionGametest"
+1227	```
+1228	
+1229	The full entrypoint list (after edit) should look like:
+1230	
+1231	```json
+1232	"fabric-gametest": [
+1233	    "com.dndweapons.test.RegistrationGametest",
+1234	    "com.dndweapons.test.WeaponInteractionGametest",
+1235	    "com.dndweapons.test.CombatHooksGametest",
+1236	    "com.dndweapons.test.SmithingGametest",
+1237	    "com.dndweapons.test.AcquisitionGametest"
+1238	]
+1239	```
+1240	
+1241	- [ ] **Step 3: Verify it compiles on all 5 versions**
+1242	
+1243	Run: `./gradlew chiseledBuild`
+1244	Expected: BUILD SUCCESSFUL on all 5 versions.
+1245	
+1246	- [ ] **Step 4: Verify all existing gametests still pass**
+1247	
+1248	Run: `./gradlew chiseledRunGametest`
+1249	Expected: PASS on all 5 versions. Test count is still 13 (the empty AcquisitionGametest class contributes no tests yet).
+1250	
+1251	- [ ] **Step 5: Commit**
+1252	
+1253	```bash
+1254	git add src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt src/main/resources/fabric.mod.json
+1255	git commit -m "phase 5: AcquisitionGametest scaffold + fabric.mod.json entrypoint"
+1256	```
+1257	
+1258	---
+1259	
+1260	## Task 13: Gametest — strongholdCorridorContainsModWeapon
+1261	
+1262	**Files:**
+1263	- Modify: `src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt` (append first @GameTest method + helper)
+1264	
+1265	- [ ] **Step 1: Add the @GameTest method + helper**
+1266	
+1267	Inside both stonecutter branches of `AcquisitionGametest` (the `<1.21.5` class body and the `>=1.21.5` class body), append the method:
+1268	
+1269	```kotlin
+1270	//? if <1.21.5 {
+1271	@GameTest(template = "fabric-gametest-api-v1:empty")
+1272	fun strongholdCorridorContainsModWeapon(ctx: GameTestHelper) {
+1273	    runStrongholdCorridorCheck(ctx)
+1274	}
+1275	//?} else {
+1276	/*@GameTest(structure = "fabric-gametest-api-v1:empty")
+1277	fun strongholdCorridorContainsModWeapon(ctx: GameTestHelper) {
+1278	    runStrongholdCorridorCheck(ctx)
+1279	}
+1280	*///?}
+1281	```
+1282	
+1283	Then at file scope (after the class declaration), append the helper function:
+1284	
+1285	```kotlin
+1286	private fun runStrongholdCorridorCheck(ctx: GameTestHelper) {
+1287	    val server = ctx.level.server
+1288	    val table = run {
+1289	        //? if <1.21.5 {
+1290	        val lootData = server.lootData
+1291	        val location = net.minecraft.resources.ResourceLocation.parse("minecraft:chests/stronghold_corridor")
+1292	        lootData.getLootTable(location)
+1293	        //?} else {
+1294	        /*val lootData = server.reloadableRegistries().lookup()
+1295	        val key = net.minecraft.resources.ResourceKey.create(
+1296	            net.minecraft.core.registries.Registries.LOOT_TABLE,
+1297	            net.minecraft.resources.ResourceLocation.parse("minecraft:chests/stronghold_corridor"),
+1298	        )
+1299	        lootData.lookup(net.minecraft.core.registries.Registries.LOOT_TABLE).orElseThrow().get(key).orElseThrow()
+1300	        *///?}
+1301	    }
+1302	    val rng = net.minecraft.util.RandomSource.create(42L)
+1303	    val context = net.minecraft.world.level.storage.loot.LootParams.Builder(ctx.level)
+1304	        .create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.CHEST)
+1305	    var hits = 0
+1306	    repeat(200) {
+1307	        val items = table.getRandomItems(context, rng)
+1308	        if (items.any { it.descriptionId.startsWith("item.dndweapons.") }) hits++
+1309	    }
+1310	    if (hits == 0) {
+1311	        throw AssertionError(
+1312	            "Stronghold corridor produced no dndweapons items in 200 rolls (12% chance, expected ~24)."
+1313	        )
+1314	    }
+1315	    ctx.succeed()
+1316	}
+1317	```
+1318	
+1319	- [ ] **Step 2: Verify it compiles on all 5 versions**
+1320	
+1321	Run: `./gradlew chiseledBuild`
+1322	Expected: BUILD SUCCESSFUL on all 5 versions.
+1323	
+1324	- [ ] **Step 3: Run the gametest on 1.20.1**
+1325	
+1326	Run: `./gradlew :1.20.1:runGametest`
+1327	Expected: PASS (strongholdCorridorContainsModWeapon). Test count is now 14 mod tests.
+1328	
+1329	- [ ] **Step 4: Run on all 5 versions**
+1330	
+1331	Run: `./gradlew chiseledRunGametest`
+1332	Expected: PASS on all 5 versions (14 mod tests per version).
+1333	
+1334	- [ ] **Step 5: Commit**
+1335	
+1336	```bash
+1337	git add src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt
+1338	git commit -m "phase 5: gametest strongholdCorridorContainsModWeapon"
+1339	```
+1340	
+1341	---
+1342	
+1343	## Task 14: Gametest — weaponsmithLevelOneTradesIncludeModWeapon
+1344	
+1345	**Files:**
+1346	- Modify: `src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt` (append second @GameTest + helper)
+1347	
+1348	- [ ] **Step 1: Add the @GameTest method**
+1349	
+1350	Inside both stonecutter branches of `AcquisitionGametest`, append:
+1351	
+1352	```kotlin
+1353	//? if <1.21.5 {
+1354	@GameTest(template = "fabric-gametest-api-v1:empty")
+1355	fun weaponsmithLevelOneTradesIncludeModWeapon(ctx: GameTestHelper) {
+1356	    runWeaponsmithLevelOneCheck(ctx)
+1357	}
+1358	//?} else {
+1359	/*@GameTest(structure = "fabric-gametest-api-v1:empty")
+1360	fun weaponsmithLevelOneTradesIncludeModWeapon(ctx: GameTestHelper) {
+1361	    runWeaponsmithLevelOneCheck(ctx)
+1362	}
+1363	*///?}
+1364	```
+1365	
+1366	Then at file scope append the helper:
+1367	
+1368	```kotlin
+1369	private fun runWeaponsmithLevelOneCheck(ctx: GameTestHelper) {
+1370	    //? if >=26.1.2 {
+1371	    /*// 26.1.2 ships trades as a data pack. Verify the JSON is loaded.
+1372	    val rm = ctx.level.server.resourceManager
+1373	    val found = rm.listResources("villager_trades") { it.path.endsWith("weaponsmith_level1.json") }
+1374	        .keys.any { it.namespace == "dndweapons" }
+1375	    if (!found) {
+1376	        throw AssertionError("dndweapons weaponsmith_level1.json not loaded by ResourceManager on 26.1.2")
+1377	    }
+1378	    *///?} else {
+1379	    // 1.20.1-1.21.11 path: query VillagerTrades.TRADES for the profession + level 1.
+1380	    val profession = net.minecraft.world.entity.npc.VillagerProfession.WEAPONSMITH
+1381	    val trades = net.minecraft.world.entity.npc.VillagerTrades.TRADES[profession]
+1382	        ?.get(1) ?: emptyArray()
+1383	    val rng = net.minecraft.util.RandomSource.create(0L)
+1384	    // Use the villager that gametest helpers spawn at the test origin, then
+1385	    // probe each ItemListing for a mod weapon result.
+1386	    val villager = ctx.spawnWithNoFreeWill(
+1387	        net.minecraft.world.entity.EntityType.VILLAGER,
+1388	        net.minecraft.core.BlockPos(2, 2, 2),
+1389	    )
+1390	    val hasModWeapon = trades.any { listing ->
+1391	        //? if <1.21.5 {
+1392	        val offer = listing.getOffer(villager, rng)
+1393	        //?} else {
+1394	        /*val offer = listing.getOffer(ctx.level, villager, rng)
+1395	        *///?}
+1396	        offer?.result?.descriptionId?.startsWith("item.dndweapons.") == true
+1397	    }
+1398	    if (!hasModWeapon) {
+1399	        throw AssertionError(
+1400	            "Weaponsmith level 1 has no dndweapons trades (Phase 5 WeaponTradeRegistrar failed)."
+1401	        )
+1402	    }
+1403	    //?}
+1404	    ctx.succeed()
+1405	}
+1406	```
+1407	
+1408	- [ ] **Step 2: Verify it compiles on all 5 versions**
+1409	
+1410	Run: `./gradlew chiseledBuild`
+1411	Expected: BUILD SUCCESSFUL on all 5 versions.
+1412	
+1413	- [ ] **Step 3: Run on all 5 versions**
+1414	
+1415	Run: `./gradlew chiseledRunGametest`
+1416	Expected: PASS on all 5 versions (15 mod tests per version).
+1417	
+1418	- [ ] **Step 4: Commit**
+1419	
+1420	```bash
+1421	git add src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt
+1422	git commit -m "phase 5: gametest weaponsmithLevelOneTradesIncludeModWeapon"
+1423	```
+1424	
+1425	---
+1426	
+1427	## Task 15: Gametest — vindicatorBattleaxeDropsAtExpectedRate
+1428	
+1429	**Files:**
+1430	- Modify: `src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt` (append third @GameTest + helper)
+1431	
+1432	- [ ] **Step 1: Add the @GameTest method**
+1433	
+1434	Inside both stonecutter branches of `AcquisitionGametest`, append:
+1435	
+1436	```kotlin
+1437	//? if <1.21.5 {
+1438	@GameTest(template = "fabric-gametest-api-v1:empty")
+1439	fun vindicatorBattleaxeDropsAtExpectedRate(ctx: GameTestHelper) {
+1440	    runVindicatorBattleaxeCheck(ctx)
+1441	}
+1442	//?} else {
+1443	/*@GameTest(structure = "fabric-gametest-api-v1:empty")
+1444	fun vindicatorBattleaxeDropsAtExpectedRate(ctx: GameTestHelper) {
+1445	    runVindicatorBattleaxeCheck(ctx)
+1446	}
+1447	*///?}
+1448	```
+1449	
+1450	Then at file scope append the helper:
+1451	
+1452	```kotlin
+1453	private fun runVindicatorBattleaxeCheck(ctx: GameTestHelper) {
+1454	    var battleaxeDrops = 0
+1455	    val spawnPos = net.minecraft.core.BlockPos(2, 2, 2)
+1456	    repeat(100) {
+1457	        val v = ctx.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.VINDICATOR, spawnPos)
+1458	        v.health = 0.1f
+1459	        v.hurt(ctx.level.damageSources().generic(), 999f)
+1460	        val center = ctx.absolutePos(spawnPos).center
+1461	        val box = net.minecraft.world.phys.AABB(
+1462	            center.x - 4, center.y - 4, center.z - 4,
+1463	            center.x + 4, center.y + 4, center.z + 4,
+1464	        )
+1465	        val nearby = ctx.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity::class.java, box)
+1466	        for (e in nearby) {
+1467	            if (e.item.descriptionId == "item.dndweapons.battleaxe") battleaxeDrops++
+1468	            e.discard()
+1469	        }
+1470	    }
+1471	    if (battleaxeDrops !in 1..30) {
+1472	        throw AssertionError(
+1473	            "Vindicator battleaxe drops out of expected range (got $battleaxeDrops/100; expected ~8, accepted 1-30)."
+1474	        )
+1475	    }
+1476	    ctx.succeed()
+1477	}
+1478	```
+1479	
+1480	- [ ] **Step 2: Verify it compiles on all 5 versions**
+1481	
+1482	Run: `./gradlew chiseledBuild`
+1483	Expected: BUILD SUCCESSFUL on all 5 versions.
+1484	
+1485	- [ ] **Step 3: Run on all 5 versions**
+1486	
+1487	Run: `./gradlew chiseledRunGametest`
+1488	Expected: PASS on all 5 versions (16 mod tests per version).
+1489	
+1490	If the test fails because the vindicator drop range is too wide or too narrow, adjust the assertion bounds — the bound `1..30` is a generous RNG-noise envelope for an 8% expected rate over 100 trials. A failure with `0` drops would indicate the mob loot injector isn't wired up; a failure outside the upper bound suggests the chancePct is being misinterpreted (likely as weight directly, not as percentage).
+1491	
+1492	- [ ] **Step 4: Commit**
+1493	
+1494	```bash
+1495	git add src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt
+1496	git commit -m "phase 5: gametest vindicatorBattleaxeDropsAtExpectedRate"
+1497	```
+1498	
+1499	---
+1500	
+1501	## Task 16: Full matrix verification + Phase 5 verification doc
+1502	
+1503	**Files:**
+1504	- Create: `docs/superpowers/plans/phase-5-verification-final.md`
+1505	
+1506	- [ ] **Step 1: Run the full verification matrix**
+1507	
+1508	Run in sequence:
+1509	
+1510	```bash
+1511	./gradlew chiseledBuild       # all 5 versions must compile
+1512	./gradlew chiseledTest        # JUnit unit tests (AcquisitionCatalogTest + Phase 1-4 tests)
+1513	./gradlew chiseledRunGametest # 16 mod tests per version (13 from Phase 1-4 + 3 from Phase 5)
+1514	```
+1515	
+1516	Expected per-version results:
+1517	
+1518	| Version | chiseledBuild | chiseledTest | chiseledRunGametest |
+1519	|---|---|---|---|
+1520	| 1.20.1 | PASS | PASS (all unit tests including AcquisitionCatalogTest) | 16/16 PASS |
+1521	| 1.21.1 | PASS | PASS | 16/16 PASS |
+1522	| 1.21.4 | PASS | PASS | 16/16 PASS |
+1523	| 1.21.11 | PASS | PASS | 16/16 PASS |
+1524	| 26.1.2 | PASS | PASS | 16/16 PASS (trade test verifies JSON data pack) |
+1525	
+1526	If any version fails, document the failure in the verification doc rather than silently dropping. Do not apply the git tag until all 5 are GREEN.
+1527	
+1528	- [ ] **Step 2: Write the verification doc**
+1529	
+1530	Create `docs/superpowers/plans/phase-5-verification-final.md` with the following structure (fill in the actual results captured in Step 1):
+1531	
+1532	```markdown
+1533	# Phase 5 Verification — Acquisition (Loot, Trades, Mob Drops)
+1534	
+1535	**Date:** <today>
+1536	**Status:** <GREEN | HOLD>
+1537	
+1538	## Top-line results
+1539	
+1540	| Version | chiseledBuild | chiseledTest | chiseledRunGametest |
+1541	|---|---|---|---|
+1542	| 1.20.1  | <result> | <result> | <count>/<count> |
+1543	| 1.21.1  | <result> | <result> | <count>/<count> |
+1544	| 1.21.4  | <result> | <result> | <count>/<count> |
+1545	| 1.21.11 | <result> | <result> | <count>/<count> |
+1546	| 26.1.2  | <result> | <result> | <count>/<count> |
+1547	
+1548	## New artifacts in Phase 5
+1549	
+1550	- 1 catalog file (~250 lines)
+1551	- 4 acquisition data class / helper files (StructureLoot, MobDrop, VillagerTradeEntry, WeaponLookup)
+1552	- 1 loot registrar (~250 lines, 5-fork stonecutter)
+1553	- 1 Wither trophy handler
+1554	- 1 trade registrar (~200 lines, 1.20.1-1.21.11 only)
+1555	- 1 codegen main + 9 trade JSONs (26.1.2 only)
+1556	- 1 gametest class with 3 @GameTest methods (smoke tests)
+1557	- 1 unit test class with 7 tests (catalog integrity)
+1558	- 2 modified files (DndWeaponsMod.kt, fabric.mod.json)
+1559	
+1560	## Test deltas
+1561	
+1562	- Phase 4 baseline: 13 mod gametests per version, ~12 JUnit unit tests
+1563	- Phase 5 adds: 3 mod gametests + 7 JUnit unit tests
+1564	- Phase 5 total: 16 mod gametests per version, ~19 JUnit unit tests
+1565	
+1566	## Tag command (run only after all 5 versions GREEN)
+1567	
+1568	git tag phase-5-acquisition
+1569	git push origin phase-5-acquisition
+1570	
+1571	**Status: <HOLD | apply tag>**
+1572	
+1573	## Known issues / deferrals
+1574	
+1575	(list any catalog entries that didn't apply on a particular version, any per-version flake, etc.)
+1576	```
+1577	
+1578	- [ ] **Step 3: Apply the git tag (only if all 5 versions GREEN)**
+1579	
+1580	```bash
+1581	git tag phase-5-acquisition
+1582	git push origin phase-5-acquisition
+1583	```
+1584	
+1585	If any version is RED, leave the tag unapplied and update the doc's Status line to HOLD with a description of the failure.
+1586	
+1587	- [ ] **Step 4: Commit the verification doc**
+1588	
+1589	```bash
+1590	git add docs/superpowers/plans/phase-5-verification-final.md
+1591	git commit -m "phase 5: final verification doc"
+1592	```
+1593	
+1594	---
+1595	
+1596	## Self-review notes
+1597	
+1598	This plan implements every requirement in the Phase 5 design spec:
+1599	
+1600	| Spec section | Tasks |
+1601	|---|---|
+1602	| §3 Architecture (file layout) | Tasks 1-12 cover every new file in the spec's file map |
+1603	| §4 Catalog data shape | Tasks 1-5 (data classes + WeaponLookup + AcquisitionCatalog) |
+1604	| §5 Data flow / loot injection | Task 7 (WeaponLootRegistrar with 5-fork stonecutter pattern) |
+1605	| §5 Wither trophy | Task 8 (WitherTrophyHandler) |
+1606	| §5 Villager trades Kotlin path | Task 9 (WeaponTradeRegistrar) |
+1607	| §5 Villager trades 26.1.2 data path | Task 10 (Phase5TradeCodegen + 9 JSONs) |
+1608	| §5 Loot table ID accessor (5-fork) | Embedded in Task 7's `injectFor` SAM lambdas |
+1609	| §6 Error handling | `validate()` in Task 5; catalog tolerates unknown weapons silently in registrars |
+1610	| §7 Gametests (3 smoke) | Tasks 13, 14, 15 |
+1611	| §7 Unit test | Task 6 (AcquisitionCatalogTest with 7 tests) |
+1612	| §8 Build matrix | Task 16 |
+1613	| §9 File map | All tasks combined match the spec's file map exactly |
+1614	| §10 Assumptions to verify | The "If `ServerLivingEntityEvents` is unresolved..." note in Task 8 covers Fabric event drift; loot table ID assumptions covered by Task 16 verification |
+1615	
+1616	No placeholders. Every step has actual code or a concrete command. Function and type names are consistent across tasks (`WeaponLookup.byId`, `AcquisitionCatalog.STRUCTURE_LOOT`, etc.).

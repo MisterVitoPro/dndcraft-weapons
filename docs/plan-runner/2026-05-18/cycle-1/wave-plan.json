@@ -1,0 +1,327 @@
+{
+  "source_plan": "docs/superpowers/plans/2026-05-18-dnd-weapons-phase-5-acquisition.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "StructureLoot data class",
+          "task_excerpt_lines": "42-86",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/acquisition/StructureLoot.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions",
+            "Data class has correct fields: weapons, chancePct, tier, minVersion",
+            "Commit created with message 'phase 5: StructureLoot data class'"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "MobDrop data class",
+          "task_excerpt_lines": "89-134",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/acquisition/MobDrop.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions",
+            "Data class has correct fields: ironWeapon, ironPct, netheritePct",
+            "Commit created with message 'phase 5: MobDrop data class'"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "VillagerTradeEntry data class",
+          "task_excerpt_lines": "137-182",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/acquisition/VillagerTradeEntry.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions",
+            "Data class has correct fields: weapon, emeralds, outputCount, maxUses, xp",
+            "Commit created with message 'phase 5: VillagerTradeEntry data class'"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "WeaponLookup helper (id+tier resolver)",
+          "task_excerpt_lines": "185-261",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/acquisition/WeaponLookup.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions with chiseledBuild",
+            "byId() function resolves weapon id + tier to Item",
+            "allNetherite() returns list of all netherite-tier weapons",
+            "Handles ResourceLocation API differences via stonecutter (1.21+ vs 1.20.1)",
+            "Commit created with message 'phase 5: WeaponLookup (id+tier -> Item resolver)'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-2-agent-2",
+          "task_title": "AcquisitionCatalog (declarative source of truth)",
+          "task_excerpt_lines": "264-474",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/acquisition/AcquisitionCatalog.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions",
+            "STRUCTURE_LOOT map has 13 entries (9 iron + 4 diamond), all with correct weapon lists",
+            "MOB_DROPS map has 7 entries with proper iron/netherite percentages",
+            "VILLAGER_TRADES map has weaponsmith (5 levels) and fletcher (4 levels) trades",
+            "validate() function checks all weapons exist and logs results",
+            "Commit created with message 'phase 5: AcquisitionCatalog (13 structures + 7 mobs + 25 trades)'"
+          ],
+          "recommended_model": "opus"
+        }
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {
+          "agent_id": "wave-3-agent-1",
+          "task_title": "AcquisitionCatalogTest (unit test with 7 tests)",
+          "task_excerpt_lines": "477-580",
+          "owned_files": [
+            "src/test/kotlin/com/dndweapons/acquisition/AcquisitionCatalogTest.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions",
+            "7 JUnit 5 tests pass: structureLootWeaponIdsAreAllRegistered, mobDropIronWeaponIdsAreAllRegistered, villagerTradeWeaponIdsAreAllRegistered, structureLootChancePctIsInRange, mobDropPctIsInRange, diamondTierStructuresAreEndgameOnly, trialChambersIsGatedTo121Plus",
+            "Commit created with message 'phase 5: AcquisitionCatalogTest (integrity check)'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-3-agent-2",
+          "task_title": "WeaponLootRegistrar (structures + mob drops)",
+          "task_excerpt_lines": "583-769",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/loot/WeaponLootRegistrar.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions with chiseledBuild",
+            "Implements MODIFY hook for loot tables with 5-fork stonecutter for Fabric v2/v3 and SAM arity differences",
+            "buildStructurePool() creates weighted pools with weapon entries + empty item",
+            "buildMobPool() handles both iron-only, netherite-only (Warden random), and stacked iron+netherite cases",
+            "versionApplies() correctly gates Trial Chambers loot to 1.21.1+",
+            "compareVersionStrings() works for semantic version comparison",
+            "Commit created with message 'phase 5: WeaponLootRegistrar (structures + mob drops)'"
+          ],
+          "recommended_model": "opus"
+        },
+        {
+          "agent_id": "wave-3-agent-3",
+          "task_title": "WitherTrophyHandler (100% random netherite trophy)",
+          "task_excerpt_lines": "772-828",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/loot/WitherTrophyHandler.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions with chiseledBuild",
+            "Uses ServerLivingEntityEvents.AFTER_DEATH to detect Wither death",
+            "Picks random netherite weapon via WeaponLookup.allNetherite()",
+            "Spawns trophy ItemStack at death location",
+            "Logs warning if no netherite weapons registered",
+            "Commit created with message 'phase 5: WitherTrophyHandler (100% random netherite trophy)'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-3-agent-4",
+          "task_title": "WeaponTradeRegistrar (Weaponsmith + Fletcher, 1.20.1-1.21.11)",
+          "task_excerpt_lines": "831-988",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/trade/WeaponTradeRegistrar.kt"
+          ],
+          "acceptance_criteria": [
+            "File compiles on all 5 MC versions with chiseledBuild",
+            "On 26.1.2: stonecutter-stubbed to no-op log (Fabric API removed)",
+            "On 1.20.1-1.21.11: registers villager trades via TradeOfferHelper",
+            "Handles version-specific trade signature drift: ItemStack vs ItemCost, VillagerProfession vs RegistryKey, 2-arg vs 3-arg ItemListing lambda",
+            "buildOffer() creates MerchantOffer with emerald cost and weapon result",
+            "resolveProfession() maps profession IDs to vanilla objects",
+            "Commit created with message 'phase 5: WeaponTradeRegistrar (Weaponsmith + Fletcher, 1.20.1-1.21.11)'"
+          ],
+          "recommended_model": "opus"
+        },
+        {
+          "agent_id": "wave-3-agent-5",
+          "task_title": "Phase5TradeCodegen + 26.1.2 trade JSONs (9 files)",
+          "task_excerpt_lines": "991-1125",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/codegen/Phase5TradeCodegen.kt",
+            "src/main/resources/data/dndweapons/villager_trades/weaponsmith_level1.json",
+            "src/main/resources/data/dndweapons/villager_trades/weaponsmith_level2.json",
+            "src/main/resources/data/dndweapons/villager_trades/weaponsmith_level3.json",
+            "src/main/resources/data/dndweapons/villager_trades/weaponsmith_level4.json",
+            "src/main/resources/data/dndweapons/villager_trades/weaponsmith_level5.json",
+            "src/main/resources/data/dndweapons/villager_trades/fletcher_level2.json",
+            "src/main/resources/data/dndweapons/villager_trades/fletcher_level3.json",
+            "src/main/resources/data/dndweapons/villager_trades/fletcher_level4.json",
+            "src/main/resources/data/dndweapons/villager_trades/fletcher_level5.json"
+          ],
+          "acceptance_criteria": [
+            "Phase5TradeCodegen.kt compiles on all 5 MC versions",
+            "Codegen runs successfully and writes 9 JSON files to src/main/resources/data/dndweapons/villager_trades/",
+            "Each JSON has correct structure: profession, level, trades array with input/result/max_uses/xp/price_multiplier",
+            "Spot-check weaponsmith_level1.json matches expected format with mace, sickle, quarterstaff trades",
+            "chiseledBuild succeeds on all 5 versions with JSONs present",
+            "Commit created with message 'phase 5: trade codegen + 9 villager-trade JSONs (26.1.2 data pack)'"
+          ],
+          "recommended_model": "opus"
+        }
+      ]
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {
+          "agent_id": "wave-4-agent-1",
+          "task_title": "Wire Phase 5 into DndWeaponsMod.onInitialize()",
+          "task_excerpt_lines": "1128-1177",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/DndWeaponsMod.kt"
+          ],
+          "acceptance_criteria": [
+            "Add 4 imports: AcquisitionCatalog, WeaponLootRegistrar, WitherTrophyHandler, (stonecutter-gated) WeaponTradeRegistrar",
+            "Add 4 init calls in onInitialize(): AcquisitionCatalog.validate(), WeaponLootRegistrar.register(), WitherTrophyHandler.register(), (stonecutter-gated <26.1.2) WeaponTradeRegistrar.register()",
+            "Add log line 'Phase 5 acquisition surface registered.'",
+            "chiseledBuild succeeds on all 5 versions",
+            "chiseledRunGametest passes all 13 existing tests (no regression)",
+            "Commit created with message 'phase 5: wire AcquisitionCatalog/LootRegistrar/Trophy/Trades into mod init'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 5,
+      "agents": [
+        {
+          "agent_id": "wave-5-agent-1",
+          "task_title": "AcquisitionGametest scaffold + fabric.mod.json registration",
+          "task_excerpt_lines": "1180-1257",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt",
+            "src/main/resources/fabric.mod.json"
+          ],
+          "acceptance_criteria": [
+            "Create AcquisitionGametest.kt with version-gated class declaration (FabricGameTest for <1.21.5, bare class for >=1.21.5)",
+            "Add stonecutter-gated template vs structure attributes for @GameTest methods",
+            "Register class in fabric.mod.json fabric-gametest entrypoint list after SmithingGametest",
+            "chiseledBuild succeeds on all 5 versions",
+            "chiseledRunGametest passes all 13 existing tests (empty AcquisitionGametest contributes no new tests yet)",
+            "Commit created with message 'phase 5: AcquisitionGametest scaffold + fabric.mod.json entrypoint'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 6,
+      "agents": [
+        {
+          "agent_id": "wave-6-agent-1",
+          "task_title": "Gametest - strongholdCorridorContainsModWeapon",
+          "task_excerpt_lines": "1260-1340",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "Add @GameTest method (version-gated with template/structure attributes) and runStrongholdCorridorCheck helper function",
+            "Test loads stronghold_corridor loot table and rolls 200 times",
+            "Verifies at least one hit contains a dndweapons item (12% expected rate)",
+            "chiseledBuild succeeds on all 5 versions",
+            "chiseledRunGametest passes all 14 tests (13 existing + 1 new)",
+            "Commit created with message 'phase 5: gametest strongholdCorridorContainsModWeapon'"
+          ],
+          "recommended_model": "opus"
+        }
+      ]
+    },
+    {
+      "wave_id": 7,
+      "agents": [
+        {
+          "agent_id": "wave-7-agent-1",
+          "task_title": "Gametest - weaponsmithLevelOneTradesIncludeModWeapon",
+          "task_excerpt_lines": "1343-1424",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "Add @GameTest method and runWeaponsmithLevelOneCheck helper function",
+            "On 26.1.2: check if weaponsmith_level1.json is loaded by ResourceManager",
+            "On 1.20.1-1.21.11: query VillagerTrades.TRADES for WEAPONSMITH level 1 and check for mod weapon results",
+            "Version-gated code for both 26.1.2 data-pack path and 1.20.1-1.21.11 Kotlin API path",
+            "Version-gated ItemListing SAM: 2-arg for <1.21.5, 3-arg for >=1.21.5 (adds ServerLevel)",
+            "chiseledBuild succeeds on all 5 versions",
+            "chiseledRunGametest passes all 15 tests (13 existing + 2 new)",
+            "Commit created with message 'phase 5: gametest weaponsmithLevelOneTradesIncludeModWeapon'"
+          ],
+          "recommended_model": "opus"
+        }
+      ]
+    },
+    {
+      "wave_id": 8,
+      "agents": [
+        {
+          "agent_id": "wave-8-agent-1",
+          "task_title": "Gametest - vindicatorBattleaxeDropsAtExpectedRate",
+          "task_excerpt_lines": "1427-1498",
+          "owned_files": [
+            "src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt"
+          ],
+          "acceptance_criteria": [
+            "Add @GameTest method and runVindicatorBattleaxeCheck helper function",
+            "Spawn 100 vindicators, kill each, collect dropped items within 8-block radius",
+            "Count battleaxe drops and verify count is in range 1..30 (8% expected rate over 100 trials)",
+            "Discard items after counting to avoid entity spam",
+            "chiseledBuild succeeds on all 5 versions",
+            "chiseledRunGametest passes all 16 tests (13 existing + 3 new)",
+            "Commit created with message 'phase 5: gametest vindicatorBattleaxeDropsAtExpectedRate'"
+          ],
+          "recommended_model": "opus"
+        }
+      ]
+    },
+    {
+      "wave_id": 9,
+      "agents": [
+        {
+          "agent_id": "wave-9-agent-1",
+          "task_title": "Full matrix verification + Phase 5 verification doc",
+          "task_excerpt_lines": "1501-1593",
+          "owned_files": [
+            "docs/superpowers/plans/phase-5-verification-final.md"
+          ],
+          "acceptance_criteria": [
+            "Run chiseledBuild on all 5 MC versions and verify BUILD SUCCESSFUL",
+            "Run chiseledTest on all 5 MC versions and verify all JUnit tests pass (including 7 new AcquisitionCatalogTest tests)",
+            "Run chiseledRunGametest on all 5 MC versions and verify 16/16 tests pass per version",
+            "Create verification doc with results table, status (GREEN or HOLD), artifact summary, test deltas, and optional git tag command",
+            "If all 5 versions GREEN: apply git tag 'phase-5-acquisition' and push",
+            "If any version RED: leave tag unapplied, document failure in Known issues section, update Status to HOLD",
+            "Commit verification doc with message 'phase 5: final verification doc'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}
