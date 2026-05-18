@@ -2,9 +2,79 @@
   "cycle": 5,
   "input_plan": "D:/minecraft/mods/dnd-weapons/docs/superpowers/plans/2026-05-18-dnd-weapons-phase-6-wiki.md",
   "started_at": "2026-05-18T15:07:28-07:00",
-  "completed_at": null,
+  "completed_at": "2026-05-18T15:23:14-07:00",
   "context7_available": true,
-  "waves": [],
-  "total_bugs": 0,
-  "next_cycle_plan": null
+  "waves": [
+    {
+      "wave_id": 1,
+      "duration_seconds": 179,
+      "agents": [
+        {"agent_id": "wave-1-agent-1", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-2", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-3", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "56e8ba24149ad940149577c159f65b6b6537b30c",
+      "skipped_reason": null
+    },
+    {
+      "wave_id": 2,
+      "duration_seconds": 51,
+      "agents": [
+        {"agent_id": "wave-2-agent-1", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "c2a6080d03fc8dd12298bfdb75c74836351aa918",
+      "skipped_reason": null
+    },
+    {
+      "wave_id": 3,
+      "duration_seconds": 40,
+      "agents": [
+        {"agent_id": "wave-3-agent-1", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "012384fe4697021f1a32770e26c358ea8c188a9a",
+      "skipped_reason": null
+    },
+    {
+      "wave_id": 4,
+      "duration_seconds": 107,
+      "agents": [
+        {"agent_id": "wave-4-agent-1", "dev_status": "DONE"},
+        {"agent_id": "wave-4-agent-2", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "3a9b3ea1c86f96eb502243a29523bd7a42e4f2f7",
+      "skipped_reason": null
+    },
+    {
+      "wave_id": 5,
+      "duration_seconds": 21,
+      "agents": [
+        {"agent_id": "wave-5-agent-1", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "046fdae0afb9751f78d72bc3ee7ce27e8625464b",
+      "skipped_reason": null
+    },
+    {
+      "wave_id": 6,
+      "duration_seconds": 343,
+      "agents": [
+        {"agent_id": "wave-6-agent-1", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 1,
+      "commit_sha": "a0e55228a7ce0e904af4fb2f1e8b693ba7f017be",
+      "skipped_reason": null
+    }
+  ],
+  "total_bugs": 1,
+  "next_cycle_plan": "docs/plan-runner/2026-05-18/cycle-5/fix-plan.md"
 }
