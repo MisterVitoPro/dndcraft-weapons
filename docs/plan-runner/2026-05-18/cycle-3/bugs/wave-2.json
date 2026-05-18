@@ -1,0 +1,31 @@
+{
+  "wave_id": 2,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-2-agent-1": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-2-agent-1-bug-1",
+      "severity": "P2",
+      "category": "scope_drift",
+      "title": "Three pre-existing Phase 4 gametest regressions blocking the 16/16 chiseledRunGametest criterion (out of Phase 5 scope)",
+      "file": "src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt",
+      "line": null,
+      "evidence": "combathooksgametest.heavysweepguarddoesnotboostsecondary, combathooksgametest.vanillaironswordcarriesfinessehook, and tooltipinjectiongametest.vanillaironswordtooltipcontainsstatblock fail with assertion errors on 1.20.1, 1.21.1, 1.21.4, and 26.1.2. They predate Phase 5 and were masked by compile failures in cycles 1 and 2.",
+      "expected": "16/16 gametests pass per version (Task 4 acceptance criterion)",
+      "suggested_fix": "Open a separate Phase 4 follow-up cycle. The verification doc has been updated to document this scope split: Phase 5 acquisition is GREEN, full chiseledRunGametest remains HOLD pending Phase 4 fixes."
+    },
+    {
+      "bug_id": "wave-2-agent-1-bug-2",
+      "severity": "P2",
+      "category": "scope_drift",
+      "title": "26.1.2 smithing gametest regression (Phase 4, out of Phase 5 scope)",
+      "file": "src/main/kotlin/com/dndweapons/test/SmithingGametest.kt",
+      "line": null,
+      "evidence": "26.1.2 only: dndweapons:smithing_gametest_netherite_fire_immunity_fires fails. Specific to the 26.1.2 fork; Phase 4 work.",
+      "expected": "16/16 gametests pass per version on 26.1.2",
+      "suggested_fix": "Phase 4 26.1.2 smithing template fork investigation; not in Phase 5 plan scope."
+    }
+  ]
+}

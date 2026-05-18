@@ -99,7 +99,10 @@ private fun runStrongholdCorridorCheck(ctx: GameTestHelper) {
     val table = server.reloadableRegistries().getLootTable(key)
     //?}
     val rng = net.minecraft.util.RandomSource.create(42L)
+    // CHEST loot context requires an ORIGIN parameter; supply test origin in world.
+    val originPos = ctx.absolutePos(net.minecraft.core.BlockPos(2, 2, 2)).center
     val context = net.minecraft.world.level.storage.loot.LootParams.Builder(ctx.level)
+        .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, originPos)
         .create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.CHEST)
     var hits = 0
     repeat(200) {
