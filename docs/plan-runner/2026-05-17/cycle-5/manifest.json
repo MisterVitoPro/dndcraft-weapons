@@ -2,7 +2,6 @@
   "cycle": 5,
   "input_plan": "docs/superpowers/plans/2026-05-17-dnd-weapons-phase-4-smithing-ladder.md",
   "started_at": "2026-05-17T21:41:33-07:00",
-  "completed_at": null,
   "context7_available": true,
   "waves": [
     {
@@ -91,8 +90,20 @@
       "wave_bug_count": 0,
       "commit_sha": "efbde1a7138897c20632ca2d38bab55a9abdc824",
       "skipped_reason": null
+    },
+    {
+      "wave_id": 8,
+      "duration_seconds": 352,
+      "agents": [
+        {"agent_id": "wave-8-agent-1", "dev_status": "DONE_WITH_CONCERNS"}
+      ],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 10,
+      "commit_sha": "40a72e619de4ff4238b70df5aa1a74c52986d15b",
+      "skipped_reason": null
     }
   ],
-  "total_bugs": 0,
-  "next_cycle_plan": null
+  "total_bugs": 18,
+  "next_cycle_plan": "docs/plan-runner/2026-05-17/cycle-5/fix-plan.md",
+  "completed_at": "2026-05-17T22:52:00-07:00"
 }
