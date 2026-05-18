@@ -1,0 +1,20 @@
+{
+  "cycle": 6,
+  "input_plan": "docs/plan-runner/2026-05-18/cycle-5/fix-plan.md",
+  "started_at": "2026-05-18T15:23:30-07:00",
+  "completed_at": "2026-05-18T15:25:00-07:00",
+  "context7_available": true,
+  "notes": "Cycle 5's fix-plan was applied inline in the same session (no fresh-context subagent dispatch tool available in this environment). The single P2 bug -- CI workflow command line + artifact path -- was fixed by replacing ':1.21.4:generateWiki publishWiki' with 'chiseledGenerateWiki :1.21.4:publishWiki' and updating the artifact-upload path from '1.21.4/build/wiki/' to 'versions/1.21.4/build/wiki/'. YAML re-validated.",
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [{"agent_id": "wave-1-agent-1", "dev_status": "DONE"}],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": null,
+      "skipped_reason": null
+    }
+  ],
+  "total_bugs": 0,
+  "next_cycle_plan": null
+}

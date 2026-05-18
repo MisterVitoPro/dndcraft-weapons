@@ -33,13 +33,16 @@ jobs:
       - name: Generate + publish wiki
         env:
           WIKI_PUBLISH_TOKEN: ${{ secrets.WIKI_PUBLISH_TOKEN }}
-        run: ./gradlew :1.21.4:generateWiki publishWiki
+        # chiseledGenerateWiki wraps generateWiki across all 5 Stonecutter forks so
+        # source-set srcDirs are swapped to chiseledSrc before compileKotlin runs.
+        # The 1.21.4 fork's output is then published via :1.21.4:publishWiki.
+        run: ./gradlew chiseledGenerateWiki :1.21.4:publishWiki
 
       - name: Upload generated wiki as workflow artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: generated-wiki
-          path: 1.21.4/build/wiki/
+          path: versions/1.21.4/build/wiki/
           if-no-files-found: warn
           retention-days: 14
