@@ -1,0 +1,1110 @@
+   1	# DnD Weapons Phase 6 -- Wiki Generator Implementation Plan
+   2	
+   3	> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+   4	
+   5	**Goal:** Auto-generate a player-facing GitHub Wiki from the existing `Weapons.ALL` and `AcquisitionCatalog` source-of-truth catalogs; add `generateWiki` and `publishWiki` Gradle tasks that emit to `build/wiki/` and sync to the wiki sidecar repo respectively; ship one CI workflow that publishes on `v*` / `phase-*` tag pushes.
+   6	
+   7	**Architecture:** A single Kotlin runnable `main` (`WikiGen.kt`) reads `Weapons.ALL` plus `AcquisitionCatalog.{STRUCTURE_LOOT, MOB_DROPS, VILLAGER_TRADES}`, builds a weapon -> acquisition-facts inverse index (`AcquisitionLookup`), renders each weapon spec through hand-rolled `buildString` templates in `WikiTemplates`, copies 11 hand-authored Markdown pages from `wiki/handwritten/` verbatim, and writes everything under `build/wiki/`. No MC API calls; no version drift -- catalog data is identical across all 5 forks. Gradle wraps the main in `generateWiki` (`JavaExec` against `:1.21.4:` runtime classpath) and `publishWiki` (shallow-clone of `<repo>.wiki.git`, copy, commit, push, auth via env var `WIKI_PUBLISH_TOKEN`).
+   8	
+   9	**Tech Stack:** Kotlin 2.3.21, Fabric Loom 1.16.2, Stonecutter 0.6, JUnit 5 for unit tests. No new runtime dependencies. MC target matrix unchanged: 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2. The wiki generator runs against any single fork (CI pins `:1.21.4:`).
+  10	
+  11	**Spec:** `docs/superpowers/specs/2026-05-18-dnd-weapons-phase-6-design.md`
+  12	
+  13	---
+  14	
+  15	## File Map
+  16	
+  17	**New Kotlin files:**
+  18	- `src/main/kotlin/com/dndweapons/codegen/wiki/WikiPaths.kt` -- filename + URL-slug helpers
+  19	- `src/main/kotlin/com/dndweapons/codegen/wiki/AcquisitionLookup.kt` -- weapon-id -> acquisition facts inverse index
+  20	- `src/main/kotlin/com/dndweapons/codegen/wiki/WikiTemplates.kt` -- buildString page renderers
+  21	- `src/main/kotlin/com/dndweapons/codegen/WikiGen.kt` -- runnable `main`
+  22	
+  23	**New unit test:**
+  24	- `src/test/kotlin/com/dndweapons/codegen/WikiGenTest.kt` -- 5 smoke tests
+  25	
+  26	**New hand-authored Markdown (committed verbatim, ships placeholder content in v1.0):**
+  27	- `wiki/handwritten/Home.md`
+  28	- `wiki/handwritten/Getting-Started.md`
+  29	- `wiki/handwritten/Combat-Mechanics.md`
+  30	- `wiki/handwritten/Smithing-Upgrade-System.md`
+  31	- `wiki/handwritten/Vanilla-Mapped-Weapons.md`
+  32	- `wiki/handwritten/Acquisition-Guide.md`
+  33	- `wiki/handwritten/Material-Gating.md`
+  34	- `wiki/handwritten/Version-Notes.md`
+  35	- `wiki/handwritten/DnD-Translation-Philosophy.md`
+  36	- `wiki/handwritten/Future-Work.md`
+  37	- `wiki/handwritten/_Sidebar.md`
+  38	- `wiki/handwritten/_Footer.md`
+  39	
+  40	**New CI workflow:**
+  41	- `.github/workflows/wiki-publish.yml`
+  42	
+  43	**Modified files:**
+  44	- `build.gradle.kts` -- add `generateWiki` (`JavaExec`) and `publishWiki` (Exec) tasks
+  45	- `.gitignore` -- add `build/wiki/` and `build/wiki-repo/`
+  46	
+  47	---
+  48	
+  49	## Task 1: WikiPaths.kt -- filename and slug helpers
+  50	
+  51	**Files:**
+  52	- Create: `src/main/kotlin/com/dndweapons/codegen/wiki/WikiPaths.kt`
+  53	
+  54	- [ ] **Step 1: Write the helpers**
+  55	
+  56	```kotlin
+  57	// src/main/kotlin/com/dndweapons/codegen/wiki/WikiPaths.kt
+  58	package com.dndweapons.codegen.wiki
+  59	
+  60	import com.dndweapons.catalog.Category
+  61	
+  62	/**
+  63	 * Filename/URL helpers for the GitHub Wiki output. GitHub Wiki uses
+  64	 * hyphen-separated PascalCase filenames; spaces in display names map to hyphens.
+  65	 *
+  66	 * Examples:
+  67	 *   "Longsword"       -> "Longsword.md"        / link target "Longsword"
+  68	 *   "Hand Crossbow"   -> "Hand-Crossbow.md"    / link target "Hand-Crossbow"
+  69	 *   "Light Crossbow"  -> "Light-Crossbow.md"   / link target "Light-Crossbow"
+  70	 */
+  71	object WikiPaths {
+  72	
+  73	    /** Convert a WeaponSpec.displayName to a wiki page filename (with `.md`). */
+  74	    fun weaponFilename(displayName: String): String =
+  75	        "${pageSlug(displayName)}.md"
+  76	
+  77	    /** Convert a WeaponSpec.displayName to a GitHub Wiki link target (no `.md`, hyphen-separated). */
+  78	    fun pageSlug(displayName: String): String =
+  79	        displayName.trim().replace(Regex("\\s+"), "-")
+  80	
+  81	    /** Convert a Category to its category-index filename. */
+  82	    fun categoryIndexFilename(category: Category): String =
+  83	        "${categoryIndexSlug(category)}.md"
+  84	
+  85	    /** Convert a Category to its category-index slug (link target). */
+  86	    fun categoryIndexSlug(category: Category): String = when (category) {
+  87	        Category.SIMPLE_MELEE   -> "Simple-Melee"
+  88	        Category.SIMPLE_RANGED  -> "Simple-Ranged"
+  89	        Category.MARTIAL_MELEE  -> "Martial-Melee"
+  90	        Category.MARTIAL_RANGED -> "Martial-Ranged"
+  91	    }
+  92	
+  93	    /** Human-readable label for a Category (used in headings). */
+  94	    fun categoryLabel(category: Category): String = when (category) {
+  95	        Category.SIMPLE_MELEE   -> "Simple Melee Weapons"
+  96	        Category.SIMPLE_RANGED  -> "Simple Ranged Weapons"
+  97	        Category.MARTIAL_MELEE  -> "Martial Melee Weapons"
+  98	        Category.MARTIAL_RANGED -> "Martial Ranged Weapons"
+  99	    }
+ 100	}
+ 101	```
+ 102	
+ 103	- [ ] **Step 2: Verify it compiles**
+ 104	
+ 105	Run: `./gradlew :1.21.4:compileKotlin`
+ 106	Expected: BUILD SUCCESSFUL.
+ 107	
+ 108	---
+ 109	
+ 110	## Task 2: AcquisitionLookup.kt -- inverse index over AcquisitionCatalog
+ 111	
+ 112	**Files:**
+ 113	- Create: `src/main/kotlin/com/dndweapons/codegen/wiki/AcquisitionLookup.kt`
+ 114	
+ 115	- [ ] **Step 1: Write the lookup**
+ 116	
+ 117	```kotlin
+ 118	// src/main/kotlin/com/dndweapons/codegen/wiki/AcquisitionLookup.kt
+ 119	package com.dndweapons.codegen.wiki
+ 120	
+ 121	import com.dndweapons.acquisition.AcquisitionCatalog
+ 122	import com.dndweapons.catalog.Tier
+ 123	
+ 124	/**
+ 125	 * Inverse index: for each weapon id (e.g. "longsword"), where can the player
+ 126	 * acquire it? Built once at WikiGen time from the three AcquisitionCatalog maps.
+ 127	 *
+ 128	 * Used by WikiTemplates to render the "Acquisition" section of each weapon page.
+ 129	 */
+ 130	class AcquisitionLookup private constructor(
+ 131	    private val byWeaponId: Map<String, List<AcquisitionFact>>,
+ 132	) {
+ 133	
+ 134	    fun factsFor(weaponId: String): List<AcquisitionFact> =
+ 135	        byWeaponId[weaponId].orEmpty()
+ 136	
+ 137	    companion object {
+ 138	        fun build(): AcquisitionLookup {
+ 139	            val out = linkedMapOf<String, MutableList<AcquisitionFact>>()
+ 140	
+ 141	            // Structure loot
+ 142	            for ((tableId, entry) in AcquisitionCatalog.STRUCTURE_LOOT) {
+ 143	                val tableLabel = friendlyStructure(tableId)
+ 144	                for (weaponId in entry.weapons) {
+ 145	                    out.getOrPut(weaponId) { mutableListOf() }
+ 146	                        .add(
+ 147	                            AcquisitionFact.StructureChest(
+ 148	                                tableLabel = tableLabel,
+ 149	                                chancePct = entry.chancePct,
+ 150	                                tier = entry.tier,
+ 151	                                minVersion = entry.minVersion,
+ 152	                            )
+ 153	                        )
+ 154	                }
+ 155	            }
+ 156	
+ 157	            // Mob drops
+ 158	            for ((entityId, drop) in AcquisitionCatalog.MOB_DROPS) {
+ 159	                val mobLabel = friendlyMob(entityId)
+ 160	                val ironWeapon = drop.ironWeapon
+ 161	                if (ironWeapon != null && drop.ironPct > 0) {
+ 162	                    out.getOrPut(ironWeapon) { mutableListOf() }
+ 163	                        .add(AcquisitionFact.MobDrop(mobLabel, drop.ironPct, Tier.IRON))
+ 164	                }
+ 165	                // Netherite mob drops with a specific weapon are stacked alongside the
+ 166	                // iron drop; netherite-with-null-weapon (Warden) is a random pick and
+ 167	                // is documented on every netherite weapon page via NetheriteRandomDrop.
+ 168	                if (ironWeapon != null && drop.netheritePct > 0) {
+ 169	                    out.getOrPut(ironWeapon) { mutableListOf() }
+ 170	                        .add(AcquisitionFact.MobDrop(mobLabel, drop.netheritePct, Tier.NETHERITE))
+ 171	                }
+ 172	            }
+ 173	
+ 174	            // Villager trades
+ 175	            for ((profession, levels) in AcquisitionCatalog.VILLAGER_TRADES) {
+ 176	                val profLabel = friendlyProfession(profession)
+ 177	                for ((level, trades) in levels) {
+ 178	                    for (trade in trades) {
+ 179	                        out.getOrPut(trade.weapon) { mutableListOf() }
+ 180	                            .add(
+ 181	                                AcquisitionFact.VillagerTrade(
+ 182	                                    profession = profLabel,
+ 183	                                    level = level,
+ 184	                                    emeralds = trade.emeralds,
+ 185	                                )
+ 186	                            )
+ 187	                    }
+ 188	                }
+ 189	            }
+ 190	
+ 191	            return AcquisitionLookup(out)
+ 192	        }
+ 193	
+ 194	        private fun friendlyStructure(tableId: String): String = tableId
+ 195	            .removePrefix("minecraft:chests/")
+ 196	            .replace('_', ' ')
+ 197	            .split(' ', '/')
+ 198	            .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+ 199	
+ 200	        private fun friendlyMob(entityId: String): String = entityId
+ 201	            .removePrefix("minecraft:entities/")
+ 202	            .replace('_', ' ')
+ 203	            .split(' ')
+ 204	            .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+ 205	
+ 206	        private fun friendlyProfession(profession: String): String = profession
+ 207	            .removePrefix("minecraft:")
+ 208	            .replace('_', ' ')
+ 209	            .split(' ')
+ 210	            .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+ 211	    }
+ 212	}
+ 213	
+ 214	/** Tagged union describing one acquisition source for one weapon. */
+ 215	sealed interface AcquisitionFact {
+ 216	    data class StructureChest(
+ 217	        val tableLabel: String,
+ 218	        val chancePct: Int,
+ 219	        val tier: Tier,
+ 220	        val minVersion: String?,
+ 221	    ) : AcquisitionFact
+ 222	
+ 223	    data class MobDrop(
+ 224	        val mobLabel: String,
+ 225	        val chancePct: Int,
+ 226	        val tier: Tier,
+ 227	    ) : AcquisitionFact
+ 228	
+ 229	    data class VillagerTrade(
+ 230	        val profession: String,
+ 231	        val level: Int,
+ 232	        val emeralds: Int,
+ 233	    ) : AcquisitionFact
+ 234	}
+ 235	```
+ 236	
+ 237	- [ ] **Step 2: Verify it compiles**
+ 238	
+ 239	Run: `./gradlew :1.21.4:compileKotlin`
+ 240	Expected: BUILD SUCCESSFUL.
+ 241	
+ 242	---
+ 243	
+ 244	## Task 3: WikiTemplates.kt -- page renderers
+ 245	
+ 246	**Files:**
+ 247	- Create: `src/main/kotlin/com/dndweapons/codegen/wiki/WikiTemplates.kt`
+ 248	
+ 249	- [ ] **Step 1: Write the templates**
+ 250	
+ 251	```kotlin
+ 252	// src/main/kotlin/com/dndweapons/codegen/wiki/WikiTemplates.kt
+ 253	package com.dndweapons.codegen.wiki
+ 254	
+ 255	import com.dndweapons.catalog.Category
+ 256	import com.dndweapons.catalog.DamageType
+ 257	import com.dndweapons.catalog.Property
+ 258	import com.dndweapons.catalog.RangeKind
+ 259	import com.dndweapons.catalog.WeaponSpec
+ 260	
+ 261	/**
+ 262	 * Hand-rolled buildString-based Markdown templates. No external templating
+ 263	 * library. Each function returns a complete page body (no trailing newline
+ 264	 * normalization beyond a single trailing newline).
+ 265	 */
+ 266	object WikiTemplates {
+ 267	
+ 268	    fun renderWeaponPage(spec: WeaponSpec, lookup: AcquisitionLookup): String = buildString {
+ 269	        appendLine("# ${spec.displayName}")
+ 270	        appendLine()
+ 271	        appendLine(
+ 272	            "> **Category:** ${labelFor(spec.category)}  |  " +
+ 273	                "**Damage type:** ${labelFor(spec.damageType)}  |  " +
+ 274	                "**DnD dice:** ${spec.diceText}" +
+ 275	                (spec.versatileDice?.let { " (versatile $it)" } ?: "")
+ 276	        )
+ 277	        appendLine()
+ 278	
+ 279	        if (spec.isVanillaMapped) {
+ 280	            appendLine(renderVanillaCallout(spec))
+ 281	            appendLine()
+ 282	        }
+ 283	
+ 284	        appendLine("## Stats")
+ 285	        appendLine()
+ 286	        appendLine("| Property | Value |")
+ 287	        appendLine("|---|---|")
+ 288	        val dmgCell =
+ 289	            if (spec.versatileBonus > 0) "${spec.attackDamage} (+${spec.versatileBonus} versatile)"
+ 290	            else "${spec.attackDamage}"
+ 291	        appendLine("| Attack damage | $dmgCell |")
+ 292	        appendLine("| Attack speed | ${spec.attackSpeed} |")
+ 293	        appendLine("| Reach bonus | ${spec.reachBonus} |")
+ 294	        appendLine("| Knockback bonus | +${spec.knockbackBonus} |")
+ 295	        val propsCell = if (spec.properties.isEmpty()) "(none)"
+ 296	                        else spec.properties.sortedBy { it.name }.joinToString(", ") { labelFor(it) }
+ 297	        appendLine("| Properties | $propsCell |")
+ 298	        appendLine("| Range | ${labelFor(spec.ranged)} |")
+ 299	        appendLine("| Base durability | ${spec.baseDurability} |")
+ 300	        appendLine()
+ 301	
+ 302	        appendLine("## Tiers")
+ 303	        appendLine()
+ 304	        if (spec.isVanillaMapped) {
+ 305	            appendLine("Vanilla material progression applies. No smithing template required.")
+ 306	        } else {
+ 307	            appendLine(
+ 308	                "This weapon supports the full smithing-upgrade ladder " +
+ 309	                    "(iron -> diamond -> netherite), as described in " +
+ 310	                    "[Smithing-Upgrade-System](Smithing-Upgrade-System)."
+ 311	            )
+ 312	        }
+ 313	        appendLine()
+ 314	
+ 315	        appendLine("## Acquisition")
+ 316	        appendLine()
+ 317	        val facts = lookup.factsFor(spec.id)
+ 318	        if (spec.isVanillaMapped) {
+ 319	            appendLine(
+ 320	                "Acquired via the vanilla Minecraft item (see callout above). " +
+ 321	                    "Not present in any structure loot, villager trade, or mob drop in v1.0."
+ 322	            )
+ 323	        } else if (facts.isEmpty()) {
+ 324	            appendLine(
+ 325	                "Crafting only. Not present in any structure loot, villager trade, " +
+ 326	                    "or mob drop in v1.0."
+ 327	            )
+ 328	        } else {
+ 329	            for (fact in facts) {
+ 330	                appendLine("- ${renderFactLine(fact)}")
+ 331	            }
+ 332	        }
+ 333	        appendLine()
+ 334	
+ 335	        appendLine("## Combat behaviour")
+ 336	        appendLine()
+ 337	        appendLine(
+ 338	            "Properties translated to vanilla-feeling hooks per the " +
+ 339	                "[Combat-Mechanics](Combat-Mechanics) page."
+ 340	        )
+ 341	        if (spec.properties.isNotEmpty()) {
+ 342	            appendLine()
+ 343	            for (prop in spec.properties.sortedBy { it.name }) {
+ 344	                appendLine("- **${labelFor(prop)}**: ${propertyHookSummary(prop)}")
+ 345	            }
+ 346	        }
+ 347	    }
+ 348	
+ 349	    fun renderCategoryIndex(category: Category, specs: List<WeaponSpec>): String = buildString {
+ 350	        appendLine("# ${WikiPaths.categoryLabel(category)}")
+ 351	        appendLine()
+ 352	        appendLine("| Weapon | Damage | Properties | Notes |")
+ 353	        appendLine("|---|---|---|---|")
+ 354	        for (spec in specs.filter { it.category == category }.sortedBy { it.displayName }) {
+ 355	            val link = WikiPaths.pageSlug(spec.displayName)
+ 356	            val propsCell = if (spec.properties.isEmpty()) "-"
+ 357	                            else spec.properties.sortedBy { it.name }.joinToString(", ") { labelFor(it) }
+ 358	            val notes = if (spec.isVanillaMapped) "Vanilla-mapped" else ""
+ 359	            appendLine("| [${spec.displayName}]($link) | ${spec.attackDamage} | $propsCell | $notes |")
+ 360	        }
+ 361	    }
+ 362	
+ 363	    fun renderHomeHeader(modVersion: String, buildSha: String): String = buildString {
+ 364	        appendLine("<!-- AUTO-GENERATED HEADER -->")
+ 365	        appendLine(
+ 366	            "**DnD Weapons** for Minecraft -- v$modVersion, build $buildSha. " +
+ 367	                "Supported MC versions: 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2."
+ 368	        )
+ 369	        appendLine()
+ 370	        appendLine("----")
+ 371	        appendLine()
+ 372	        appendLine("<!-- HANDWRITTEN BODY -->")
+ 373	    }
+ 374	
+ 375	    // ----- private helpers -----
+ 376	
+ 377	    private fun renderVanillaCallout(spec: WeaponSpec): String {
+ 378	        val vanillaName = when (spec.id) {
+ 379	            "shortsword"     -> "Iron Sword (and any vanilla sword tier)"
+ 380	            "shortbow"       -> "Bow"
+ 381	            "light_crossbow" -> "Crossbow"
+ 382	            "trident"        -> "Trident"
+ 383	            else             -> "vanilla item"
+ 384	        }
+ 385	        return ":information_source:  **This weapon is represented by the vanilla Minecraft " +
+ 386	            "$vanillaName.** When you craft or pick up the vanilla item, it carries " +
+ 387	            "the ${spec.displayName} identity: tooltip stat block, combat hooks, and " +
+ 388	            "role tag. No separate item is registered."
+ 389	    }
+ 390	
+ 391	    private fun renderFactLine(fact: AcquisitionFact): String = when (fact) {
+ 392	        is AcquisitionFact.StructureChest -> {
+ 393	            val versionNote = fact.minVersion?.let { " _(${it}+ only)_" } ?: ""
+ 394	            "Structure chest: **${fact.tableLabel}** -- ${fact.chancePct}% (${labelFor(fact.tier)} tier)$versionNote"
+ 395	        }
+ 396	        is AcquisitionFact.MobDrop ->
+ 397	            "Mob drop: **${fact.mobLabel}** -- ${fact.chancePct}% (${labelFor(fact.tier)} tier)"
+ 398	        is AcquisitionFact.VillagerTrade ->
+ 399	            "Villager trade: **${fact.profession}** level ${fact.level} -- ${fact.emeralds} emeralds"
+ 400	    }
+ 401	
+ 402	    private fun propertyHookSummary(prop: Property): String = when (prop) {
+ 403	        Property.LIGHT       -> "+1 damage when offhand also holds a Light weapon (dual-wield)"
+ 404	        Property.HEAVY       -> "+1 knockback level on hit"
+ 405	        Property.FINESSE     -> "+20% damage when attacker is sprinting"
+ 406	        Property.VERSATILE   -> "+versatile damage bonus when wielded two-handed"
+ 407	        Property.TWO_HANDED  -> "Requires both hands; offhand items prevent attack"
+ 408	        Property.REACH       -> "+1 block attack range"
+ 409	        Property.THROWN      -> "Right-click to throw as a ranged projectile"
+ 410	        Property.AMMUNITION  -> "Requires the appropriate ammo item"
+ 411	        Property.LOADING     -> "Reload animation between shots"
+ 412	        Property.SPECIAL     -> "See weapon-specific notes"
+ 413	    }
+ 414	
+ 415	    private fun labelFor(category: Category): String = WikiPaths.categoryLabel(category)
+ 416	        .removeSuffix(" Weapons")
+ 417	
+ 418	    private fun labelFor(dt: DamageType): String = when (dt) {
+ 419	        DamageType.SLASHING    -> "Slashing"
+ 420	        DamageType.PIERCING    -> "Piercing"
+ 421	        DamageType.BLUDGEONING -> "Bludgeoning"
+ 422	    }
+ 423	
+ 424	    private fun labelFor(p: Property): String =
+ 425	        p.name.lowercase().replaceFirstChar(Char::titlecase).replace('_', ' ')
+ 426	
+ 427	    private fun labelFor(r: RangeKind): String = when (r) {
+ 428	        RangeKind.NONE   -> "Melee"
+ 429	        RangeKind.THROWN -> "Thrown"
+ 430	        RangeKind.BOW    -> "Bow"
+ 431	        RangeKind.CROSSBOW -> "Crossbow"
+ 432	        RangeKind.FIREARM  -> "Firearm"
+ 433	    }
+ 434	
+ 435	    private fun labelFor(t: com.dndweapons.catalog.Tier): String = when (t) {
+ 436	        com.dndweapons.catalog.Tier.IRON      -> "Iron"
+ 437	        com.dndweapons.catalog.Tier.DIAMOND   -> "Diamond"
+ 438	        com.dndweapons.catalog.Tier.NETHERITE -> "Netherite"
+ 439	    }
+ 440	}
+ 441	```
+ 442	
+ 443	> NOTE: The `Property`, `RangeKind`, `Tier`, `Category`, `DamageType` enums already exist in `src/main/kotlin/com/dndweapons/catalog/`. If any enum variant referenced above does not exist (e.g. `Property.SPECIAL` may be named differently), the agent MUST inspect the actual enum file and map the cases exactly. Do not invent variants. The `else` branch at the bottom of `propertyHookSummary` may be necessary if there are properties not enumerated above; if so, return `"(see weapon notes)"` for any unhandled case.
+ 444	
+ 445	- [ ] **Step 2: Verify it compiles**
+ 446	
+ 447	Run: `./gradlew :1.21.4:compileKotlin`
+ 448	Expected: BUILD SUCCESSFUL.
+ 449	
+ 450	---
+ 451	
+ 452	## Task 4: WikiGen.kt -- runnable main
+ 453	
+ 454	**Files:**
+ 455	- Create: `src/main/kotlin/com/dndweapons/codegen/WikiGen.kt`
+ 456	
+ 457	- [ ] **Step 1: Write the runnable**
+ 458	
+ 459	```kotlin
+ 460	// src/main/kotlin/com/dndweapons/codegen/WikiGen.kt
+ 461	package com.dndweapons.codegen
+ 462	
+ 463	import com.dndweapons.catalog.Category
+ 464	import com.dndweapons.catalog.Weapons
+ 465	import com.dndweapons.codegen.wiki.AcquisitionLookup
+ 466	import com.dndweapons.codegen.wiki.WikiPaths
+ 467	import com.dndweapons.codegen.wiki.WikiTemplates
+ 468	import java.nio.file.Files
+ 469	import java.nio.file.Path
+ 470	import java.nio.file.StandardCopyOption
+ 471	import kotlin.io.path.createDirectories
+ 472	import kotlin.io.path.exists
+ 473	import kotlin.io.path.readText
+ 474	import kotlin.io.path.writeText
+ 475	import kotlin.streams.toList
+ 476	
+ 477	/**
+ 478	 * Phase 6 wiki generator. Reads Weapons.ALL and AcquisitionCatalog from the
+ 479	 * compiled source set and emits Markdown under args[0] (default: build/wiki/).
+ 480	 *
+ 481	 * Run via Gradle:
+ 482	 *   ./gradlew :1.21.4:generateWiki
+ 483	 *
+ 484	 * Direct invocation:
+ 485	 *   java -cp <main runtime classpath> com.dndweapons.codegen.WikiGenKt <out-dir>
+ 486	 */
+ 487	object WikiGen {
+ 488	
+ 489	    fun run(outDir: Path, modVersion: String, buildSha: String, handwrittenDir: Path) {
+ 490	        val weaponsOut = outDir.resolve("Weapons")
+ 491	        weaponsOut.createDirectories()
+ 492	
+ 493	        val lookup = AcquisitionLookup.build()
+ 494	        val allSpecs = Weapons.ALL
+ 495	
+ 496	        // 1. Per-weapon pages
+ 497	        for (spec in allSpecs) {
+ 498	            val md = WikiTemplates.renderWeaponPage(spec, lookup)
+ 499	            weaponsOut.resolve(WikiPaths.weaponFilename(spec.displayName)).writeText(md)
+ 500	        }
+ 501	
+ 502	        // 2. Category indexes
+ 503	        for (cat in Category.values()) {
+ 504	            val md = WikiTemplates.renderCategoryIndex(cat, allSpecs)
+ 505	            weaponsOut.resolve(WikiPaths.categoryIndexFilename(cat)).writeText(md)
+ 506	        }
+ 507	
+ 508	        // 3. Handwritten pages (verbatim) + Home.md (mixed)
+ 509	        if (!handwrittenDir.exists()) {
+ 510	            error("Handwritten dir does not exist: $handwrittenDir")
+ 511	        }
+ 512	        Files.list(handwrittenDir).use { stream ->
+ 513	            for (path in stream.toList()) {
+ 514	                val name = path.fileName.toString()
+ 515	                if (!name.endsWith(".md")) continue
+ 516	                val target = outDir.resolve(name)
+ 517	                if (name == "Home.md") {
+ 518	                    val header = WikiTemplates.renderHomeHeader(modVersion, buildSha)
+ 519	                    target.writeText(header + "\n" + path.readText())
+ 520	                } else {
+ 521	                    Files.copy(path, target, StandardCopyOption.REPLACE_EXISTING)
+ 522	                }
+ 523	            }
+ 524	        }
+ 525	
+ 526	        // 4. Summary
+ 527	        val pageCount = allSpecs.size + Category.values().size
+ 528	        val handwrittenCount = Files.list(handwrittenDir).use { it.count() }
+ 529	        println("WikiGen: wrote $pageCount auto-generated pages and $handwrittenCount handwritten pages into $outDir")
+ 530	    }
+ 531	
+ 532	    @JvmStatic
+ 533	    fun main(args: Array<String>) {
+ 534	        val outDir = Path.of(args.getOrNull(0) ?: "build/wiki")
+ 535	        val modVersion = args.getOrNull(1) ?: System.getProperty("modVersion") ?: "dev"
+ 536	        val buildSha = args.getOrNull(2) ?: System.getProperty("buildSha") ?: "local"
+ 537	        val handwrittenDir = Path.of(args.getOrNull(3) ?: "wiki/handwritten")
+ 538	        run(outDir, modVersion, buildSha, handwrittenDir)
+ 539	    }
+ 540	}
+ 541	```
+ 542	
+ 543	- [ ] **Step 2: Verify it compiles**
+ 544	
+ 545	Run: `./gradlew :1.21.4:compileKotlin`
+ 546	Expected: BUILD SUCCESSFUL.
+ 547	
+ 548	---
+ 549	
+ 550	## Task 5: WikiGenTest.kt -- 5 smoke tests
+ 551	
+ 552	**Files:**
+ 553	- Create: `src/test/kotlin/com/dndweapons/codegen/WikiGenTest.kt`
+ 554	
+ 555	- [ ] **Step 1: Write the test**
+ 556	
+ 557	```kotlin
+ 558	// src/test/kotlin/com/dndweapons/codegen/WikiGenTest.kt
+ 559	package com.dndweapons.codegen
+ 560	
+ 561	import com.dndweapons.acquisition.AcquisitionCatalog
+ 562	import com.dndweapons.catalog.Category
+ 563	import com.dndweapons.catalog.Weapons
+ 564	import com.dndweapons.codegen.wiki.WikiPaths
+ 565	import org.junit.jupiter.api.Assertions.assertEquals
+ 566	import org.junit.jupiter.api.Assertions.assertNotNull
+ 567	import org.junit.jupiter.api.Assertions.assertTrue
+ 568	import org.junit.jupiter.api.BeforeAll
+ 569	import org.junit.jupiter.api.Test
+ 570	import org.junit.jupiter.api.TestInstance
+ 571	import org.junit.jupiter.api.io.TempDir
+ 572	import java.nio.file.Files
+ 573	import java.nio.file.Path
+ 574	import kotlin.io.path.createDirectories
+ 575	import kotlin.io.path.exists
+ 576	import kotlin.io.path.readText
+ 577	import kotlin.io.path.writeText
+ 578	
+ 579	@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+ 580	class WikiGenTest {
+ 581	
+ 582	    @TempDir lateinit var tmp: Path
+ 583	    private lateinit var outDir: Path
+ 584	
+ 585	    @BeforeAll
+ 586	    fun setup() {
+ 587	        // Build a minimal handwritten dir with placeholders so WikiGen.run can succeed.
+ 588	        val hand = tmp.resolve("handwritten")
+ 589	        hand.createDirectories()
+ 590	        for (name in listOf(
+ 591	            "Home.md", "Getting-Started.md", "Combat-Mechanics.md",
+ 592	            "Smithing-Upgrade-System.md", "Vanilla-Mapped-Weapons.md",
+ 593	            "Acquisition-Guide.md", "Material-Gating.md", "Version-Notes.md",
+ 594	            "DnD-Translation-Philosophy.md", "Future-Work.md",
+ 595	            "_Sidebar.md", "_Footer.md",
+ 596	        )) {
+ 597	            hand.resolve(name).writeText("# $name placeholder\n")
+ 598	        }
+ 599	
+ 600	        outDir = tmp.resolve("out")
+ 601	        WikiGen.run(outDir, modVersion = "test-1.0", buildSha = "deadbeef", handwrittenDir = hand)
+ 602	    }
+ 603	
+ 604	    @Test
+ 605	    fun everyWeaponInCatalogRendersToAFile() {
+ 606	        for (spec in Weapons.ALL) {
+ 607	            val expected = outDir.resolve("Weapons").resolve(WikiPaths.weaponFilename(spec.displayName))
+ 608	            assertTrue(expected.exists(), "Expected weapon page at $expected")
+ 609	        }
+ 610	    }
+ 611	
+ 612	    @Test
+ 613	    fun everyCategoryIndexExists() {
+ 614	        for (cat in Category.values()) {
+ 615	            val expected = outDir.resolve("Weapons").resolve(WikiPaths.categoryIndexFilename(cat))
+ 616	            assertTrue(expected.exists(), "Expected category index at $expected")
+ 617	            val text = expected.readText()
+ 618	            for (spec in Weapons.ALL.filter { it.category == cat }) {
+ 619	                assertTrue(
+ 620	                    text.contains(spec.displayName),
+ 621	                    "Category index ${expected.fileName} missing ${spec.displayName}",
+ 622	                )
+ 623	            }
+ 624	        }
+ 625	    }
+ 626	
+ 627	    @Test
+ 628	    fun vanillaMappedPagesIncludeTheCallout() {
+ 629	        val vanillaIds = setOf("shortsword", "shortbow", "light_crossbow", "trident")
+ 630	        val vanillaSpecs = Weapons.ALL.filter { it.id in vanillaIds }
+ 631	        assertEquals(4, vanillaSpecs.size, "Expected 4 vanilla-mapped specs in catalog")
+ 632	        for (spec in vanillaSpecs) {
+ 633	            val page = outDir.resolve("Weapons").resolve(WikiPaths.weaponFilename(spec.displayName))
+ 634	            val text = page.readText()
+ 635	            assertTrue(
+ 636	                text.contains("represented by the vanilla"),
+ 637	                "Vanilla callout missing on ${page.fileName}",
+ 638	            )
+ 639	        }
+ 640	    }
+ 641	
+ 642	    @Test
+ 643	    fun acquisitionSectionListsAtLeastOneCatalogEntryForKnownWeapon() {
+ 644	        // longsword appears in stronghold_corridor (Phase 5 catalog) -- verify the rendered page reflects it.
+ 645	        val hasLongsword = AcquisitionCatalog.STRUCTURE_LOOT.values.any { "longsword" in it.weapons }
+ 646	        assertTrue(hasLongsword, "Test precondition: longsword must appear in STRUCTURE_LOOT")
+ 647	
+ 648	        val longswordSpec = Weapons.ALL.first { it.id == "longsword" }
+ 649	        val page = outDir.resolve("Weapons").resolve(WikiPaths.weaponFilename(longswordSpec.displayName))
+ 650	        val text = page.readText()
+ 651	        assertTrue(
+ 652	            text.contains("Structure chest:"),
+ 653	            "Longsword page should list at least one structure-chest acquisition fact",
+ 654	        )
+ 655	    }
+ 656	
+ 657	    @Test
+ 658	    fun handwrittenPagesAreCopied() {
+ 659	        val handFiles = listOf(
+ 660	            "Getting-Started.md", "Combat-Mechanics.md", "_Sidebar.md", "_Footer.md",
+ 661	        )
+ 662	        for (name in handFiles) {
+ 663	            val out = outDir.resolve(name)
+ 664	            assertTrue(out.exists(), "Handwritten file $name was not copied to $outDir")
+ 665	        }
+ 666	        // Home.md is the mixed page; ensure it exists and has BOTH the auto header and the handwritten body.
+ 667	        val home = outDir.resolve("Home.md")
+ 668	        assertTrue(home.exists())
+ 669	        val homeText = home.readText()
+ 670	        assertTrue(homeText.contains("AUTO-GENERATED HEADER"), "Home.md missing auto-generated header")
+ 671	        assertTrue(homeText.contains("Home.md placeholder"), "Home.md missing handwritten body")
+ 672	    }
+ 673	}
+ 674	```
+ 675	
+ 676	- [ ] **Step 2: Verify tests compile**
+ 677	
+ 678	Run: `./gradlew :1.21.4:compileTestKotlin`
+ 679	Expected: BUILD SUCCESSFUL.
+ 680	
+ 681	---
+ 682	
+ 683	## Task 6: Hand-authored Markdown placeholders (12 files)
+ 684	
+ 685	**Files:**
+ 686	- Create: `wiki/handwritten/Home.md`
+ 687	- Create: `wiki/handwritten/Getting-Started.md`
+ 688	- Create: `wiki/handwritten/Combat-Mechanics.md`
+ 689	- Create: `wiki/handwritten/Smithing-Upgrade-System.md`
+ 690	- Create: `wiki/handwritten/Vanilla-Mapped-Weapons.md`
+ 691	- Create: `wiki/handwritten/Acquisition-Guide.md`
+ 692	- Create: `wiki/handwritten/Material-Gating.md`
+ 693	- Create: `wiki/handwritten/Version-Notes.md`
+ 694	- Create: `wiki/handwritten/DnD-Translation-Philosophy.md`
+ 695	- Create: `wiki/handwritten/Future-Work.md`
+ 696	- Create: `wiki/handwritten/_Sidebar.md`
+ 697	- Create: `wiki/handwritten/_Footer.md`
+ 698	
+ 699	Each file is a one-section Markdown placeholder. Real content gets filled in post-Phase-6. The agent should write each file with the structure below, varying only the title and the one-sentence body.
+ 700	
+ 701	- [ ] **Step 1: Write Home.md**
+ 702	
+ 703	```markdown
+ 704	Welcome to the **DnD Weapons** wiki -- a Fabric mod that brings the simple
+ 705	and martial weapons from the *Dungeons & Dragons 2024 Player's Handbook* into
+ 706	Minecraft, translated into vanilla-feeling mechanics.
+ 707	
+ 708	See the [Getting-Started](Getting-Started) page for an introduction, or jump
+ 709	straight to a weapon category in the sidebar.
+ 710	```
+ 711	
+ 712	- [ ] **Step 2: Write Getting-Started.md**
+ 713	
+ 714	```markdown
+ 715	# Getting Started
+ 716	
+ 717	(Placeholder.) This page will cover: installation, finding your first DnD
+ 718	weapon, the smithing upgrade ladder, and where to look for acquisition
+ 719	opportunities. For now, see the master design spec under `docs/superpowers/`
+ 720	in the repo.
+ 721	```
+ 722	
+ 723	- [ ] **Step 3: Write Combat-Mechanics.md**
+ 724	
+ 725	```markdown
+ 726	# Combat Mechanics
+ 727	
+ 728	(Placeholder.) The DnD weapon properties (Light, Heavy, Finesse, Versatile,
+ 729	Reach, Thrown, Two-Handed, Special) translate to vanilla-feeling combat
+ 730	hooks. See each weapon page for the property list and behaviour summary.
+ 731	```
+ 732	
+ 733	- [ ] **Step 4: Write Smithing-Upgrade-System.md**
+ 734	
+ 735	```markdown
+ 736	# Smithing Upgrade System
+ 737	
+ 738	(Placeholder.) Iron-tier base weapons can be upgraded to diamond, then to
+ 739	netherite, via the vanilla smithing table using dedicated smithing templates.
+ 740	See the Phase 4 design for details.
+ 741	```
+ 742	
+ 743	- [ ] **Step 5: Write Vanilla-Mapped-Weapons.md**
+ 744	
+ 745	```markdown
+ 746	# Vanilla-Mapped Weapons
+ 747	
+ 748	(Placeholder.) Four DnD weapons are *not* registered as separate items --
+ 749	they ride on top of their vanilla equivalents: Shortsword on Iron Sword,
+ 750	Shortbow on Bow, Light Crossbow on Crossbow, Trident on Trident. They get
+ 751	tooltip + combat hooks via role tags.
+ 752	```
+ 753	
+ 754	- [ ] **Step 6: Write Acquisition-Guide.md**
+ 755	
+ 756	```markdown
+ 757	# Acquisition Guide
+ 758	
+ 759	(Placeholder.) DnD weapons are obtained through four surfaces: crafting,
+ 760	structure loot, villager trades, and mob drops. See the per-weapon pages
+ 761	for exact rates and locations.
+ 762	```
+ 763	
+ 764	- [ ] **Step 7: Write Material-Gating.md**
+ 765	
+ 766	```markdown
+ 767	# Material Gating
+ 768	
+ 769	(Placeholder.) All target MC versions (1.20.1 through 26.1.2) ship the same
+ 770	core materials (iron, diamond, netherite, copper, etc.), so no recipes are
+ 771	gated in v1.0. Future material additions (Mithril, Adamantine) are deferred.
+ 772	```
+ 773	
+ 774	- [ ] **Step 8: Write Version-Notes.md**
+ 775	
+ 776	```markdown
+ 777	# Version Notes
+ 778	
+ 779	(Placeholder.) Per-MC-version notes go here. Currently the catalog is
+ 780	identical across 1.20.1, 1.21.1, 1.21.4, 1.21.11, and 26.1.2; differences
+ 781	are limited to runtime API drift (loot tables v2/v3, trade signatures,
+ 782	identifier accessors) and don't affect catalog content.
+ 783	```
+ 784	
+ 785	- [ ] **Step 9: Write DnD-Translation-Philosophy.md**
+ 786	
+ 787	```markdown
+ 788	# DnD Translation Philosophy
+ 789	
+ 790	(Placeholder.) We translate DnD properties to mechanics that *feel* vanilla
+ 791	rather than reproducing the dice math literally. Damage values are
+ 792	calibrated so 1d8 = vanilla iron-sword damage (6).
+ 793	```
+ 794	
+ 795	- [ ] **Step 10: Write Future-Work.md**
+ 796	
+ 797	```markdown
+ 798	# Future Work
+ 799	
+ 800	(Placeholder.) DnD 5.5e Mastery properties, per-mob damage-type
+ 801	vulnerabilities, datapack-extensible catalog, and Patchouli in-game guide
+ 802	book are all parking-lot items for v1.1+.
+ 803	```
+ 804	
+ 805	- [ ] **Step 11: Write _Sidebar.md**
+ 806	
+ 807	```markdown
+ 808	**DnD Weapons**
+ 809	
+ 810	- [Home](Home)
+ 811	- [Getting Started](Getting-Started)
+ 812	- [Combat Mechanics](Combat-Mechanics)
+ 813	- [Smithing Upgrade System](Smithing-Upgrade-System)
+ 814	- [Vanilla-Mapped Weapons](Vanilla-Mapped-Weapons)
+ 815	- [Acquisition Guide](Acquisition-Guide)
+ 816	
+ 817	**Weapons**
+ 818	
+ 819	- [Simple Melee](Simple-Melee)
+ 820	- [Simple Ranged](Simple-Ranged)
+ 821	- [Martial Melee](Martial-Melee)
+ 822	- [Martial Ranged](Martial-Ranged)
+ 823	
+ 824	**Reference**
+ 825	
+ 826	- [Material Gating](Material-Gating)
+ 827	- [Version Notes](Version-Notes)
+ 828	- [DnD Translation Philosophy](DnD-Translation-Philosophy)
+ 829	- [Future Work](Future-Work)
+ 830	```
+ 831	
+ 832	- [ ] **Step 12: Write _Footer.md**
+ 833	
+ 834	```markdown
+ 835	---
+ 836	DnD Weapons mod by [MisterVitoPro](https://github.com/MisterVitoPro/dndcraft-weapons). Wiki auto-generated from the source catalog; do not edit pages directly -- edits will be overwritten by the next `publishWiki` run.
+ 837	```
+ 838	
+ 839	---
+ 840	
+ 841	## Task 7: Gradle task wiring -- generateWiki + publishWiki
+ 842	
+ 843	**Files:**
+ 844	- Modify: `build.gradle.kts`
+ 845	- Modify: `.gitignore`
+ 846	
+ 847	- [ ] **Step 1: Add the tasks to build.gradle.kts**
+ 848	
+ 849	Append the following block to `build.gradle.kts`, after the existing `tasks.withType<KotlinCompile>` blocks (or at the bottom of the file if those are not present). The task block is identical across all Stonecutter forks -- no version drift, no stonecutter directives needed.
+ 850	
+ 851	```kotlin
+ 852	// ===== Phase 6: Wiki generator =====
+ 853	
+ 854	tasks.register<JavaExec>("generateWiki") {
+ 855	    group = "wiki"
+ 856	    description = "Generate the player-facing Markdown wiki under build/wiki/."
+ 857	    classpath = sourceSets["main"].runtimeClasspath
+ 858	    mainClass.set("com.dndweapons.codegen.WikiGen")
+ 859	    val out = layout.buildDirectory.dir("wiki").get().asFile
+ 860	    val hand = rootProject.layout.projectDirectory.dir("wiki/handwritten").asFile
+ 861	    val sha = try {
+ 862	        providers.exec {
+ 863	            commandLine("git", "rev-parse", "--short", "HEAD")
+ 864	        }.standardOutput.asText.get().trim()
+ 865	    } catch (_: Exception) {
+ 866	        "local"
+ 867	    }
+ 868	    args(out.absolutePath, modVersion, sha, hand.absolutePath)
+ 869	    dependsOn("classes")
+ 870	    doFirst {
+ 871	        out.mkdirs()
+ 872	        if (!hand.exists()) {
+ 873	            throw GradleException("Missing handwritten wiki dir: $hand")
+ 874	        }
+ 875	    }
+ 876	}
+ 877	
+ 878	tasks.register("publishWiki") {
+ 879	    group = "wiki"
+ 880	    description = "Sync build/wiki/ to <repo>.wiki.git (push). Auth via env WIKI_PUBLISH_TOKEN."
+ 881	    dependsOn("generateWiki")
+ 882	    doLast {
+ 883	        val wikiDir = layout.buildDirectory.dir("wiki").get().asFile
+ 884	        val cloneDir = layout.buildDirectory.dir("wiki-repo").get().asFile
+ 885	        val token: String? = System.getenv("WIKI_PUBLISH_TOKEN")
+ 886	        val url = if (!token.isNullOrBlank()) {
+ 887	            "https://x-access-token:$token@github.com/MisterVitoPro/dndcraft-weapons.wiki.git"
+ 888	        } else {
+ 889	            "git@github.com:MisterVitoPro/dndcraft-weapons.wiki.git"
+ 890	        }
+ 891	        val dryRun = project.findProperty("dryRun")?.toString().toBoolean()
+ 892	
+ 893	        logger.lifecycle("publishWiki: source = $wikiDir")
+ 894	        logger.lifecycle("publishWiki: target = $url")
+ 895	        logger.lifecycle("publishWiki: dryRun = $dryRun")
+ 896	
+ 897	        if (cloneDir.exists()) cloneDir.deleteRecursively()
+ 898	        cloneDir.parentFile.mkdirs()
+ 899	
+ 900	        providers.exec {
+ 901	            commandLine("git", "clone", "--depth", "1", url, cloneDir.absolutePath)
+ 902	        }.result.get()
+ 903	
+ 904	        // Wipe everything except .git
+ 905	        cloneDir.listFiles()?.forEach { f ->
+ 906	            if (f.name != ".git") {
+ 907	                if (f.isDirectory) f.deleteRecursively() else f.delete()
+ 908	            }
+ 909	        }
+ 910	
+ 911	        // Copy generated + handwritten wiki output into the clone
+ 912	        wikiDir.listFiles()?.forEach { f ->
+ 913	            val dest = java.io.File(cloneDir, f.name)
+ 914	            if (f.isDirectory) f.copyRecursively(dest, overwrite = true)
+ 915	            else f.copyTo(dest, overwrite = true)
+ 916	        }
+ 917	
+ 918	        providers.exec {
+ 919	            workingDir = cloneDir
+ 920	            commandLine("git", "add", ".")
+ 921	        }.result.get()
+ 922	
+ 923	        // Check whether there is anything to commit
+ 924	        val status = providers.exec {
+ 925	            workingDir = cloneDir
+ 926	            commandLine("git", "status", "--porcelain")
+ 927	        }.standardOutput.asText.get().trim()
+ 928	        if (status.isEmpty()) {
+ 929	            logger.lifecycle("publishWiki: no changes to publish, exiting clean.")
+ 930	            return@doLast
+ 931	        }
+ 932	
+ 933	        val msg = "Wiki: sync from ${project.version}"
+ 934	        providers.exec {
+ 935	            workingDir = cloneDir
+ 936	            commandLine("git", "-c", "user.email=wiki-bot@dndcraft-weapons", "-c", "user.name=Wiki Bot", "commit", "-m", msg)
+ 937	        }.result.get()
+ 938	
+ 939	        if (dryRun) {
+ 940	            logger.lifecycle("publishWiki: dry-run mode, NOT pushing.")
+ 941	            return@doLast
+ 942	        }
+ 943	        providers.exec {
+ 944	            workingDir = cloneDir
+ 945	            commandLine("git", "push", "origin", "HEAD")
+ 946	        }.result.get()
+ 947	        logger.lifecycle("publishWiki: pushed to $url")
+ 948	    }
+ 949	}
+ 950	```
+ 951	
+ 952	- [ ] **Step 2: Add wiki paths to .gitignore**
+ 953	
+ 954	Append the following lines to `.gitignore` (create if it doesn't exist; preserve all existing rules):
+ 955	
+ 956	```
+ 957	# Phase 6 wiki output -- regenerated each build
+ 958	build/wiki/
+ 959	build/wiki-repo/
+ 960	```
+ 961	
+ 962	- [ ] **Step 3: Verify the task list resolves**
+ 963	
+ 964	Run: `./gradlew :1.21.4:tasks --group wiki`
+ 965	Expected output contains:
+ 966	```
+ 967	Wiki tasks
+ 968	----------
+ 969	generateWiki - Generate the player-facing Markdown wiki under build/wiki/.
+ 970	publishWiki - Sync build/wiki/ to <repo>.wiki.git (push). Auth via env WIKI_PUBLISH_TOKEN.
+ 971	```
+ 972	
+ 973	---
+ 974	
+ 975	## Task 8: GitHub Actions workflow
+ 976	
+ 977	**Files:**
+ 978	- Create: `.github/workflows/wiki-publish.yml`
+ 979	
+ 980	- [ ] **Step 1: Write the workflow**
+ 981	
+ 982	```yaml
+ 983	# .github/workflows/wiki-publish.yml
+ 984	name: Publish Wiki
+ 985	
+ 986	on:
+ 987	  push:
+ 988	    tags:
+ 989	      - 'v*'
+ 990	      - 'phase-*'
+ 991	
+ 992	jobs:
+ 993	  publish:
+ 994	    runs-on: ubuntu-latest
+ 995	    permissions:
+ 996	      contents: read
+ 997	
+ 998	    steps:
+ 999	      - name: Check out repo
+1000	        uses: actions/checkout@v4
+1001	
+1002	      - name: Set up Java 21
+1003	        uses: actions/setup-java@v4
+1004	        with:
+1005	          distribution: temurin
+1006	          java-version: 21
+1007	
+1008	      - name: Cache Gradle
+1009	        uses: actions/setup-java@v4
+1010	        with:
+1011	          distribution: temurin
+1012	          java-version: 21
+1013	          cache: gradle
+1014	
+1015	      - name: Generate + publish wiki
+1016	        env:
+1017	          WIKI_PUBLISH_TOKEN: ${{ secrets.WIKI_PUBLISH_TOKEN }}
+1018	        run: ./gradlew :1.21.4:generateWiki publishWiki
+1019	
+1020	      - name: Upload generated wiki as workflow artifact
+1021	        if: always()
+1022	        uses: actions/upload-artifact@v4
+1023	        with:
+1024	          name: generated-wiki
+1025	          path: 1.21.4/build/wiki/
+1026	          if-no-files-found: warn
+1027	          retention-days: 14
+1028	```
+1029	
+1030	- [ ] **Step 2: Verify workflow YAML parses**
+1031	
+1032	The file is YAML; verification is "loads without parse error". The CI provider's first run on the next tag push will surface any issues. No local verification step is required for this plan.
+1033	
+1034	---
+1035	
+1036	## Task 9: Run gradle matrix + write Phase 6 verification doc
+1037	
+1038	**Files:**
+1039	- Create: `docs/superpowers/plans/phase-6-verification-final.md`
+1040	
+1041	This is the final verification wave. The agent runs gradle, captures actual results, and documents them.
+1042	
+1043	- [ ] **Step 1: Run the full matrix verification**
+1044	
+1045	```
+1046	./gradlew chiseledBuild
+1047	./gradlew chiseledTest
+1048	./gradlew :1.21.4:generateWiki
+1049	```
+1050	
+1051	Capture per-version PASS/FAIL for the first two commands. The third runs against a single fork (1.21.4) and produces the wiki output.
+1052	
+1053	- [ ] **Step 2: Count and spot-check generated files**
+1054	
+1055	After `:1.21.4:generateWiki`:
+1056	```
+1057	ls 1.21.4/build/wiki/                       # expect 13 handwritten + Home.md + Weapons/ dir
+1058	ls 1.21.4/build/wiki/Weapons/ | wc -l       # expect 38 weapon pages + 4 category indexes = 42
+1059	grep -l "represented by the vanilla" 1.21.4/build/wiki/Weapons/{Shortsword,Shortbow,Light-Crossbow,Trident}.md
+1060	                                            # expect 4 hits
+1061	```
+1062	
+1063	- [ ] **Step 3: Write the verification doc**
+1064	
+1065	Create `docs/superpowers/plans/phase-6-verification-final.md` with this template, filled in with the actual results from steps 1-2:
+1066	
+1067	```markdown
+1068	# Phase 6 Verification -- Wiki Generator
+1069	
+1070	**Date:** <today>
+1071	**Status:** GREEN / HOLD (pick one based on results)
+1072	
+1073	## Top-line results
+1074	
+1075	| Version | chiseledBuild | chiseledTest | generateWiki (output file counts) |
+1076	|---|---|---|---|
+1077	| 1.20.1  | <PASS/FAIL>   | <PASS/FAIL>  | n/a (gen runs against 1.21.4 only)   |
+1078	| 1.21.1  | <PASS/FAIL>   | <PASS/FAIL>  | n/a |
+1079	| 1.21.4  | <PASS/FAIL>   | <PASS/FAIL>  | <weapon-page-count>, <category-page-count>, <handwritten-page-count> |
+1080	| 1.21.11 | <PASS/FAIL>   | <PASS/FAIL>  | n/a |
+1081	| 26.1.2  | <PASS/FAIL>   | <PASS/FAIL>  | n/a |
+1082	
+1083	## Commands run
+1084	
+1085	(paste exact command list run by the agent and BUILD SUCCESSFUL / FAILED line)
+1086	
+1087	## File counts after generateWiki
+1088	
+1089	- Auto-generated weapon pages: <N>  (expected 38)
+1090	- Category indexes: <N>             (expected 4)
+1091	- Handwritten pages copied: <N>     (expected 12, including Home.md mixed)
+1092	- Vanilla-mapped callouts: <N>      (expected 4 -- Shortsword, Shortbow, Light-Crossbow, Trident)
+1093	
+1094	## WikiGenTest results
+1095	
+1096	(per-version pass/fail of the 5 tests; should be identical across all 5 forks)
+1097	
+1098	## Tag command (NOT executed by plan-runner)
+1099	
+1100	```bash
+1101	git tag phase-6-wiki
+1102	git push origin phase-6-wiki
+1103	```
+1104	
+1105	Only apply manually after eyeballing the generated wiki output in `1.21.4/build/wiki/`.
+1106	```
+1107	
+1108	- [ ] **Step 4: Commit the verification doc**
+1109	
+1110	(Plan-runner orchestrator commits per wave; the agent only writes the file.)

@@ -1,0 +1,162 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/superpowers/plans/2026-05-18-dnd-weapons-phase-6-wiki.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "WikiPaths.kt -- filename and slug helpers",
+          "task_excerpt_lines": "49-107",
+          "owned_files": ["src/main/kotlin/com/dndweapons/codegen/wiki/WikiPaths.kt"],
+          "acceptance_criteria": [
+            "Create src/main/kotlin/com/dndweapons/codegen/wiki/WikiPaths.kt as specified in the plan",
+            "Object WikiPaths exposes weaponFilename, pageSlug, categoryIndexFilename, categoryIndexSlug, categoryLabel",
+            "Compiles via ./gradlew :1.21.4:compileKotlin"
+          ],
+          "recommended_model": "haiku"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "AcquisitionLookup.kt -- inverse index over AcquisitionCatalog",
+          "task_excerpt_lines": "110-241",
+          "owned_files": ["src/main/kotlin/com/dndweapons/codegen/wiki/AcquisitionLookup.kt"],
+          "acceptance_criteria": [
+            "Create src/main/kotlin/com/dndweapons/codegen/wiki/AcquisitionLookup.kt",
+            "AcquisitionLookup.build() reads STRUCTURE_LOOT, MOB_DROPS, VILLAGER_TRADES from AcquisitionCatalog and builds an inverse index keyed by weaponId",
+            "Provides sealed interface AcquisitionFact with StructureChest, MobDrop, VillagerTrade variants",
+            "Compiles via ./gradlew :1.21.4:compileKotlin"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "Hand-authored Markdown placeholders (12 files)",
+          "task_excerpt_lines": "683-838",
+          "owned_files": [
+            "wiki/handwritten/Home.md",
+            "wiki/handwritten/Getting-Started.md",
+            "wiki/handwritten/Combat-Mechanics.md",
+            "wiki/handwritten/Smithing-Upgrade-System.md",
+            "wiki/handwritten/Vanilla-Mapped-Weapons.md",
+            "wiki/handwritten/Acquisition-Guide.md",
+            "wiki/handwritten/Material-Gating.md",
+            "wiki/handwritten/Version-Notes.md",
+            "wiki/handwritten/DnD-Translation-Philosophy.md",
+            "wiki/handwritten/Future-Work.md",
+            "wiki/handwritten/_Sidebar.md",
+            "wiki/handwritten/_Footer.md"
+          ],
+          "acceptance_criteria": [
+            "Create all 12 Markdown files under wiki/handwritten/ with the placeholder content from the plan",
+            "Home.md, Getting-Started.md, Combat-Mechanics.md, Smithing-Upgrade-System.md, Vanilla-Mapped-Weapons.md, Acquisition-Guide.md, Material-Gating.md, Version-Notes.md, DnD-Translation-Philosophy.md, Future-Work.md, _Sidebar.md, _Footer.md all exist with the exact content from the plan"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "WikiTemplates.kt -- page renderers",
+          "task_excerpt_lines": "244-448",
+          "owned_files": ["src/main/kotlin/com/dndweapons/codegen/wiki/WikiTemplates.kt"],
+          "acceptance_criteria": [
+            "Create src/main/kotlin/com/dndweapons/codegen/wiki/WikiTemplates.kt",
+            "Object WikiTemplates exposes renderWeaponPage(spec, lookup), renderCategoryIndex(category, specs), renderHomeHeader(modVersion, buildSha)",
+            "Enum mappings (Property, RangeKind, Tier, DamageType, Category) MUST match the actual enum variants in src/main/kotlin/com/dndweapons/catalog/. Notably: Property.SPECIAL does NOT exist; the actual variant is Property.SPECIAL_LANCE. RangeKind has additional variants SLING and BLOWGUN that must be mapped. Do not invent variants -- inspect the source.",
+            "Compiles via ./gradlew :1.21.4:compileKotlin"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 3,
+      "agents": [
+        {
+          "agent_id": "wave-3-agent-1",
+          "task_title": "WikiGen.kt -- runnable main",
+          "task_excerpt_lines": "452-546",
+          "owned_files": ["src/main/kotlin/com/dndweapons/codegen/WikiGen.kt"],
+          "acceptance_criteria": [
+            "Create src/main/kotlin/com/dndweapons/codegen/WikiGen.kt",
+            "object WikiGen with main(args) reads Weapons.ALL + AcquisitionLookup.build(), writes per-weapon pages to outDir/Weapons/, category indexes to outDir/Weapons/, copies handwritten pages verbatim, and mixes Home.md with auto header + handwritten body",
+            "Compiles via ./gradlew :1.21.4:compileKotlin"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 4,
+      "agents": [
+        {
+          "agent_id": "wave-4-agent-1",
+          "task_title": "WikiGenTest.kt -- 5 smoke tests",
+          "task_excerpt_lines": "550-679",
+          "owned_files": ["src/test/kotlin/com/dndweapons/codegen/WikiGenTest.kt"],
+          "acceptance_criteria": [
+            "Create src/test/kotlin/com/dndweapons/codegen/WikiGenTest.kt",
+            "5 tests: everyWeaponInCatalogRendersToAFile, everyCategoryIndexExists, vanillaMappedPagesIncludeTheCallout, acquisitionSectionListsAtLeastOneCatalogEntryForKnownWeapon, handwrittenPagesAreCopied",
+            "Compiles via ./gradlew :1.21.4:compileTestKotlin"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-4-agent-2",
+          "task_title": "Gradle task wiring -- generateWiki + publishWiki",
+          "task_excerpt_lines": "841-961",
+          "owned_files": ["build.gradle.kts", ".gitignore"],
+          "acceptance_criteria": [
+            "Append the Phase 6 wiki task block to build.gradle.kts: tasks.register<JavaExec>(\"generateWiki\") {...} and tasks.register(\"publishWiki\") {...}",
+            "generateWiki uses sourceSets[\"main\"].runtimeClasspath and mainClass.set(\"com.dndweapons.codegen.WikiGen\")",
+            "Append build/wiki/ and build/wiki-repo/ rules to .gitignore (preserve existing rules)",
+            "./gradlew :1.21.4:tasks --group wiki resolves the two new tasks"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 5,
+      "agents": [
+        {
+          "agent_id": "wave-5-agent-1",
+          "task_title": "GitHub Actions workflow",
+          "task_excerpt_lines": "975-1032",
+          "owned_files": [".github/workflows/wiki-publish.yml"],
+          "acceptance_criteria": [
+            "Create .github/workflows/wiki-publish.yml exactly as specified",
+            "Triggers on push tags v* and phase-*",
+            "Sets up Java 21 temurin, runs ./gradlew :1.21.4:generateWiki publishWiki with env WIKI_PUBLISH_TOKEN",
+            "Uploads 1.21.4/build/wiki/ as workflow artifact"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 6,
+      "agents": [
+        {
+          "agent_id": "wave-6-agent-1",
+          "task_title": "Run gradle matrix + write Phase 6 verification doc",
+          "task_excerpt_lines": "1036-1110",
+          "owned_files": ["docs/superpowers/plans/phase-6-verification-final.md"],
+          "acceptance_criteria": [
+            "Run ./gradlew chiseledBuild and ./gradlew chiseledTest and ./gradlew :1.21.4:generateWiki",
+            "Capture per-version PASS/FAIL for first two; capture output counts for third",
+            "Write docs/superpowers/plans/phase-6-verification-final.md filled in with actual results",
+            "Acceptance: ./gradlew :1.21.4:generateWiki produces 38 weapon pages + 4 category indexes + 12 handwritten pages"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}
