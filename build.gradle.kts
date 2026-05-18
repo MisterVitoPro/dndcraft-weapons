@@ -189,6 +189,11 @@ tasks.register<JavaExec>("generateWiki") {
         "local"
     }
     args(out.absolutePath, modVersion, sha, hand.absolutePath)
+    // setupChiseledBuild rewires the project's source set to chiseledSrc/ so that
+    // Stonecutter directives in the shared sources are processed BEFORE compileKotlin
+    // runs. Without this, compileKotlin reads from the raw <root>/src/main/kotlin tree
+    // and fails on per-version directives (e.g. startRiding signature changes).
+    dependsOn("setupChiseledBuild")
     dependsOn("classes")
     doFirst {
         out.mkdirs()

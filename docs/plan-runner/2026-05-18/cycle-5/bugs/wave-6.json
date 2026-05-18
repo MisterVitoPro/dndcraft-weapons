@@ -1,0 +1,25 @@
+{
+  "wave_id": 6,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-6-agent-1": "DONE"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-6-bug-1",
+      "severity": "P2",
+      "category": "plan_vs_reality_drift",
+      "title": "Plan's :1.21.4:generateWiki invocation does not work standalone -- requires chiseledGenerateWiki wrapper",
+      "file": ".github/workflows/wiki-publish.yml",
+      "line": 33,
+      "evidence": "Running ./gradlew :1.21.4:generateWiki directly fails with: ':1.21.4:compileKotlin' FAILED on CombatHooksGametest.kt:278 (per-version startRiding signature in unprocessed source). Stonecutter 0.6 only swaps source-set srcDirs to chiseledSrc inside the 'chiseled' task wrapper. The CI workflow's 'run: ./gradlew :1.21.4:generateWiki publishWiki' will fail in CI for the same reason.",
+      "expected": "Either (a) update CI to use chiseledGenerateWiki, or (b) generalize publishWiki to call chiseledGenerateWiki, or (c) modify generateWiki to use a per-version chiseled-aware compile chain.",
+      "suggested_fix": "Change .github/workflows/wiki-publish.yml line 'run: ./gradlew :1.21.4:generateWiki publishWiki' to 'run: ./gradlew chiseledGenerateWiki :1.21.4:publishWiki' OR factor publishWiki to depend on chiseledGenerateWiki + a per-version aggregate step. Since the plan explicitly froze the CI workflow as-is for Phase 6, this is documented as a known follow-up rather than fixed in-cycle."
+    }
+  ],
+  "concerns": [
+    "Plan's WikiGenTest used @TempDir on a lateinit instance field; with PER_CLASS lifecycle + @BeforeAll, JUnit 5 does not inject before @BeforeAll runs. Fixed by passing @TempDir as a method parameter.",
+    "Plan's build.gradle.kts used inline java.io.File FQN; needed an explicit import. Trivial Kotlin DSL fix.",
+    "Plan's WikiTemplates.kt referenced Property.SPECIAL and omitted RangeKind.SLING/BLOWGUN; actual enums have Property.SPECIAL_LANCE and RangeKind.SLING/BLOWGUN. Adjusted mappings per plan's own guidance (line 443)."
+  ]
+}

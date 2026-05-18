@@ -18,3 +18,12 @@ stonecutter registerChiseled tasks.register("chiseledTest", stonecutter.chiseled
     group = "project"
     ofTask("test")
 }
+
+// Phase 6: chiseled wrapper for generateWiki so it can run via the per-version
+// Stonecutter pipeline (shared sources contain //? directives that require
+// Stonecutter source replacement to be active during compileKotlin).
+stonecutter registerChiseled tasks.register("chiseledGenerateWiki", stonecutter.chiseled) {
+    group = "wiki"
+    ofTask("generateWiki")
+}
+

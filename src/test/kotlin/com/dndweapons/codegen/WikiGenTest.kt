@@ -20,11 +20,10 @@ import kotlin.io.path.writeText
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WikiGenTest {
 
-    @TempDir lateinit var tmp: Path
     private lateinit var outDir: Path
 
     @BeforeAll
-    fun setup() {
+    fun setup(@TempDir tmp: Path) {
         // Build a minimal handwritten dir with placeholders so WikiGen.run can succeed.
         val hand = tmp.resolve("handwritten")
         hand.createDirectories()
