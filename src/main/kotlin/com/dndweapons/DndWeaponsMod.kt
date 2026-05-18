@@ -1,6 +1,7 @@
 package com.dndweapons
 
 import com.dndweapons.catalog.Weapons
+import com.dndweapons.registry.SmithingItemRegistrar
 import com.dndweapons.registry.SpecRegistry
 import com.dndweapons.registry.WeaponRegistrarImpl
 import net.fabricmc.api.ModInitializer
@@ -49,6 +50,9 @@ object DndWeaponsMod : ModInitializer {
 
         val registrar = WeaponRegistrarImpl()
         registrar.registerAll(Weapons.ALL_TIERED)
+
+        SmithingItemRegistrar.registerAll()
+        LOGGER.info("6 smithing-component items + 2 smithing-template items registered")
 
         SpecRegistry.init()
         // WeaponTooltipInjector.register() is intentionally NOT called here -

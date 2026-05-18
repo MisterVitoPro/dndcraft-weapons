@@ -1,0 +1,32 @@
+{
+  "wave_id": 5,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-5-agent-1": "CLEAN",
+    "wave-5-agent-2": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-5-agent-2-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "smithingDiamondUpgradePreservesSpec only checks SpecRegistry, never performs smithing-table craft",
+      "file": "src/main/kotlin/com/dndweapons/test/SmithingGametest.kt",
+      "line": 43,
+      "evidence": "private fun runDiamondPreservesSpec(ctx: GameTestHelper) { val item = BuiltInRegistries.ITEM.get(itemId)...; val spec = SpecRegistry.lookup(item) ?: throw ...; if (spec.id != \"longsword_diamond\") ... }",
+      "expected": "Test name 'smithingDiamondUpgradePreservesSpec' implies verifying that an in-world smithing-table upgrade produces a longsword_diamond with correct stats. Current test only verifies registration.",
+      "suggested_fix": "Expand to perform an in-world smithing craft: simulate the SmithingTransformRecipe with longsword + diamond_weapon_upgrade_template + diamond, obtain output ItemStack, assert id + SpecRegistry stats."
+    },
+    {
+      "bug_id": "wave-5-agent-2-bug-2",
+      "severity": "P3",
+      "category": "incorrect_implementation",
+      "title": "AssertionError message hardcodes '+1' instead of using Tier.DIAMOND.damageBonus",
+      "file": "src/main/kotlin/com/dndweapons/test/SmithingGametest.kt",
+      "line": 65,
+      "evidence": "throw AssertionError(\"Expected attackDamage ${baseSpec.attackDamage + 1}, got ${spec.attackDamage}\")",
+      "expected": "Use Tier.DIAMOND.damageBonus in the message to stay accurate if enum value ever changes.",
+      "suggested_fix": "Change `${baseSpec.attackDamage + 1}` to `${baseSpec.attackDamage + Tier.DIAMOND.damageBonus}`."
+    }
+  ]
+}

@@ -17,7 +17,8 @@
     "fabric-gametest": [
       { "adapter": "kotlin", "value": "com.dndweapons.test.RegistrationGametest" },
       { "adapter": "kotlin", "value": "com.dndweapons.test.CombatHooksGametest" },
-      { "adapter": "kotlin", "value": "com.dndweapons.test.TooltipInjectionGametest" }
+      { "adapter": "kotlin", "value": "com.dndweapons.test.TooltipInjectionGametest" },
+      { "adapter": "kotlin", "value": "com.dndweapons.test.SmithingGametest" }
     ]
   },
   "depends": {
