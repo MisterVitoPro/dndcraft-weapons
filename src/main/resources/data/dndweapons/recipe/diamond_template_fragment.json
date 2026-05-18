@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["PDP", "FDF", "PDP"],
+  "key": {
+    "P": { "item": "minecraft:paper" },
+    "D": { "tag": "c:gems/diamond" },
+    "F": { "item": "minecraft:flint" }
+  },
+  "result": { "id": "dndweapons:diamond_template_fragment", "count": 4 }
+}

@@ -1,0 +1,58 @@
+{
+  "wave_id": 1,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-1-agent-1": "CLEAN",
+    "wave-1-agent-2": "CLEAN",
+    "wave-1-agent-3": "CLEAN",
+    "wave-1-agent-4": "BUGS_FOUND",
+    "wave-1-agent-5": "BUGS_FOUND",
+    "wave-1-agent-6": "CLEAN"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-1-agent-4-bug-1",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Tag ingredients use object format instead of the codebase's established #-prefix string format",
+      "file": "src/main/resources/data/dndweapons/recipe/diamond_template_fragment.json",
+      "line": 7,
+      "evidence": "\"D\": { \"tag\": \"c:gems/diamond\" }",
+      "expected": "Existing recipes in this codebase use the string-prefix syntax, e.g. \"D\": \"#c:gems/diamond\". The object form { \"tag\": \"...\" } is valid in modern MC data-pack format but the other recipes in this project use the #-prefix string form, and at least the oldest supported MC versions (pre-1.21) may not accept the object tag syntax in crafting_shaped key entries.",
+      "suggested_fix": "Replace all { \"tag\": \"c:...\" } objects in agent-4's four recipe files (diamond_template_fragment.json key D, netherite_template_fragment.json key S) with the string form \"#c:...\", matching the convention used by all other recipes in data/dndweapons/recipe/."
+    },
+    {
+      "bug_id": "wave-1-agent-4-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Tag ingredient object format in netherite_template_fragment.json key S",
+      "file": "src/main/resources/data/dndweapons/recipe/netherite_template_fragment.json",
+      "line": 7,
+      "evidence": "\"S\": { \"tag\": \"c:gems/quartz\" }",
+      "expected": "String tag format \"#c:gems/quartz\" consistent with every other recipe in the codebase that uses tags (e.g. \"#c:ingots/iron\", \"#c:rods/wooden\").",
+      "suggested_fix": "Change to \"S\": \"#c:gems/quartz\""
+    },
+    {
+      "bug_id": "wave-1-agent-5-bug-1",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "smithing_transform recipe addition uses object tag form instead of #-prefix string form",
+      "file": "src/main/resources/data/dndweapons/recipe/diamond_weapon_upgrade_template_assemble.json",
+      "line": 3,
+      "evidence": "\"addition\": { \"tag\": \"c:gems/diamond\" }",
+      "expected": "addition field should use \"#c:gems/diamond\" string form consistent with codebase convention.",
+      "suggested_fix": "Change \"addition\": { \"tag\": \"c:gems/diamond\" } to \"addition\": \"#c:gems/diamond\""
+    },
+    {
+      "bug_id": "wave-1-agent-5-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "netherite smithing_transform addition uses object tag form inconsistent with codebase convention",
+      "file": "src/main/resources/data/dndweapons/recipe/netherite_weapon_upgrade_template_assemble.json",
+      "line": 5,
+      "evidence": "\"addition\": { \"tag\": \"c:ingots/netherite\" }",
+      "expected": "\"addition\": \"#c:ingots/netherite\" - matching the #-prefix string form used by all other tag references in this project's recipe files.",
+      "suggested_fix": "Change to \"addition\": \"#c:ingots/netherite\""
+    }
+  ]
+}

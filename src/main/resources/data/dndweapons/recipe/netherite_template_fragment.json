@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["OSO", "GNG", "OSO"],
+  "key": {
+    "O": { "item": "minecraft:obsidian" },
+    "S": { "tag": "c:gems/quartz" },
+    "G": { "item": "minecraft:ghast_tear" },
+    "N": { "item": "minecraft:netherite_scrap" }
+  },
+  "result": { "id": "dndweapons:netherite_template_fragment", "count": 4 }
+}

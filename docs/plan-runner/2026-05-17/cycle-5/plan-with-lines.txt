@@ -1,0 +1,1992 @@
+   1	# DnD Weapons Phase 4 — Smithing Ladder Implementation Plan
+   2	
+   3	> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+   4	
+   5	**Goal:** Add a smithing upgrade ladder (iron → diamond → netherite) to 27 registered melee + thrown DnD weapons, with two custom smithing-templates obtained via loot, wandering-trader trades, or a multi-step end-game craft.
+   6	
+   7	**Architecture:** Catalog-level `Tier` enum + `WeaponSpec.atTier()` extension produces 81 specs from 27 base specs; `WeaponRegistrarImpl` is parameterized on Tier and applies `.fireResistant()` for netherite. New `SmithingTemplateItems` registry covers the 2 templates + 2 cores + 4 components. Recipes/lang/models are emitted by a one-shot Kotlin codegen entry point; textures come from the `minecraft-asset-generator` agent. Phase 3 `SpecRegistry` and `PlayerAttackMixin` are unmodified — every tiered item is just another registered spec sharing the parent's properties.
+   8	
+   9	**Tech Stack:** Kotlin 2.3.21, Fabric Loom 1.16.2, Stonecutter 0.6, JUnit 5 for unit tests, Fabric Gametest API for runtime tests. MC target matrix: 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.
+  10	
+  11	**Spec:** `docs/superpowers/specs/2026-05-17-dnd-weapons-phase-4-design.md`
+  12	
+  13	---
+  14	
+  15	## File Map
+  16	
+  17	**New Kotlin files:**
+  18	- `src/main/kotlin/com/dndweapons/catalog/Tier.kt` — `Tier` enum
+  19	- `src/main/kotlin/com/dndweapons/item/SmithingTemplateItems.kt` — template + core item classes
+  20	- `src/main/kotlin/com/dndweapons/item/SmithingComponentItems.kt` — fragment + binding item classes
+  21	- `src/main/kotlin/com/dndweapons/registry/SmithingItemRegistrar.kt` — registers the 8 smithing items
+  22	- `src/main/kotlin/com/dndweapons/loot/SmithingTemplateLootInjector.kt` — stronghold/bastion loot injection
+  23	- `src/main/kotlin/com/dndweapons/trade/SmithingTemplateTrades.kt` — wandering-trader trades
+  24	- `src/main/kotlin/com/dndweapons/codegen/Phase4Codegen.kt` — one-shot main that emits recipes, lang, models
+  25	- `src/main/kotlin/com/dndweapons/test/SmithingGametest.kt` — 3 new gametests
+  26	
+  27	**New unit tests:**
+  28	- `src/test/kotlin/com/dndweapons/catalog/TierTest.kt`
+  29	- `src/test/kotlin/com/dndweapons/catalog/WeaponSpecAtTierTest.kt`
+  30	- `src/test/kotlin/com/dndweapons/catalog/WeaponsAllTieredTest.kt`
+  31	
+  32	**Modified Kotlin files:**
+  33	- `src/main/kotlin/com/dndweapons/catalog/Weapons.kt` — add `WeaponSpec.atTier()`, `Weapons.ALL_TIERED`
+  34	- `src/main/kotlin/com/dndweapons/registry/WeaponRegistrar.kt` — add `register(spec, tier)` to interface
+  35	- `src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt` — implement Tier param, call `.fireResistant()` for netherite
+  36	- `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt` — iterate `ALL_TIERED`, register smithing items + loot + trades
+  37	- `src/main/resources/fabric.mod.json` — (no change expected; mixins/entrypoints unchanged)
+  38	- `src/main/resources/assets/dndweapons/lang/en_us.json` — 66 new entries (emitted by codegen)
+  39	
+  40	**New data files (emitted by codegen, committed to repo):**
+  41	- `src/main/resources/data/dndweapons/recipe/<base>_diamond.json` × 27 — `smithing_transform` iron→diamond
+  42	- `src/main/resources/data/dndweapons/recipe/<base>_netherite.json` × 27 — `smithing_transform` diamond→netherite
+  43	- `src/main/resources/data/dndweapons/recipe/diamond_template_fragment.json` — 4×output crafting
+  44	- `src/main/resources/data/dndweapons/recipe/weapon_smithing_binding.json` — 1×output crafting
+  45	- `src/main/resources/data/dndweapons/recipe/netherite_template_fragment.json` — 4×output crafting
+  46	- `src/main/resources/data/dndweapons/recipe/infernal_binding.json` — 1×output crafting
+  47	- `src/main/resources/data/dndweapons/recipe/diamond_template_core.json` — shapeless crafting
+  48	- `src/main/resources/data/dndweapons/recipe/netherite_template_core.json` — shapeless crafting
+  49	- `src/main/resources/data/dndweapons/recipe/diamond_weapon_upgrade_template_assemble.json` — final smithing
+  50	- `src/main/resources/data/dndweapons/recipe/netherite_weapon_upgrade_template_assemble.json` — final smithing
+  51	
+  52	**New asset files:**
+  53	- `src/main/resources/assets/dndweapons/models/item/<id>.json` × 62 — auto-emitted models
+  54	- `src/main/resources/assets/dndweapons/textures/item/<id>.png` × 62 — Gemini-generated
+  55	
+  56	---
+  57	
+  58	## Task 1: Tier enum
+  59	
+  60	**Files:**
+  61	- Create: `src/main/kotlin/com/dndweapons/catalog/Tier.kt`
+  62	- Test: `src/test/kotlin/com/dndweapons/catalog/TierTest.kt`
+  63	
+  64	- [ ] **Step 1: Write the failing test**
+  65	
+  66	```kotlin
+  67	// src/test/kotlin/com/dndweapons/catalog/TierTest.kt
+  68	package com.dndweapons.catalog
+  69	
+  70	import org.junit.jupiter.api.Assertions.assertEquals
+  71	import org.junit.jupiter.api.Assertions.assertFalse
+  72	import org.junit.jupiter.api.Assertions.assertTrue
+  73	import org.junit.jupiter.api.Test
+  74	
+  75	class TierTest {
+  76	
+  77	    @Test
+  78	    fun ironTierIsBaseline() {
+  79	        assertEquals("", Tier.IRON.suffix)
+  80	        assertEquals("", Tier.IRON.displayPrefix)
+  81	        assertEquals(0, Tier.IRON.damageBonus)
+  82	        assertEquals(250, Tier.IRON.durability)
+  83	        assertFalse(Tier.IRON.fireImmune)
+  84	    }
+  85	
+  86	    @Test
+  87	    fun diamondTierAddsOneDamageAndVanillaDurability() {
+  88	        assertEquals("_diamond", Tier.DIAMOND.suffix)
+  89	        assertEquals("Diamond ", Tier.DIAMOND.displayPrefix)
+  90	        assertEquals(1, Tier.DIAMOND.damageBonus)
+  91	        assertEquals(1561, Tier.DIAMOND.durability)
+  92	        assertFalse(Tier.DIAMOND.fireImmune)
+  93	    }
+  94	
+  95	    @Test
+  96	    fun netheriteTierAddsTwoDamageAndIsFireImmune() {
+  97	        assertEquals("_netherite", Tier.NETHERITE.suffix)
+  98	        assertEquals("Netherite ", Tier.NETHERITE.displayPrefix)
+  99	        assertEquals(2, Tier.NETHERITE.damageBonus)
+ 100	        assertEquals(2031, Tier.NETHERITE.durability)
+ 101	        assertTrue(Tier.NETHERITE.fireImmune)
+ 102	    }
+ 103	}
+ 104	```
+ 105	
+ 106	- [ ] **Step 2: Run test to verify it fails**
+ 107	
+ 108	Run: `./gradlew :1.20.1:test --tests com.dndweapons.catalog.TierTest`
+ 109	Expected: FAIL with "Unresolved reference 'Tier'".
+ 110	
+ 111	- [ ] **Step 3: Write the Tier enum**
+ 112	
+ 113	```kotlin
+ 114	// src/main/kotlin/com/dndweapons/catalog/Tier.kt
+ 115	package com.dndweapons.catalog
+ 116	
+ 117	/**
+ 118	 * Material tier of a registered DnD weapon. Iron is the baseline produced by the
+ 119	 * existing Phase 2b WeaponSpec catalog; Diamond and Netherite are produced by
+ 120	 * applying [WeaponSpec.atTier] and registered as separate items in Phase 4.
+ 121	 *
+ 122	 * Durability values mirror vanilla MC's `Tiers.IRON/DIAMOND/NETHERITE.getUses()`
+ 123	 * (pinned here to avoid a per-version `Tiers` class lookup). `damageBonus` is
+ 124	 * additive on top of the base spec's `attackDamage` and feeds directly into
+ 125	 * `AttributeCompat` -> `Attributes.ATTACK_DAMAGE` modifier value.
+ 126	 */
+ 127	enum class Tier(
+ 128	    val suffix: String,
+ 129	    val displayPrefix: String,
+ 130	    val damageBonus: Int,
+ 131	    val durability: Int,
+ 132	    val fireImmune: Boolean,
+ 133	) {
+ 134	    IRON(suffix = "", displayPrefix = "", damageBonus = 0, durability = 250, fireImmune = false),
+ 135	    DIAMOND(suffix = "_diamond", displayPrefix = "Diamond ", damageBonus = 1, durability = 1561, fireImmune = false),
+ 136	    NETHERITE(suffix = "_netherite", displayPrefix = "Netherite ", damageBonus = 2, durability = 2031, fireImmune = true),
+ 137	}
+ 138	```
+ 139	
+ 140	- [ ] **Step 4: Run test to verify it passes**
+ 141	
+ 142	Run: `./gradlew :1.20.1:test --tests com.dndweapons.catalog.TierTest`
+ 143	Expected: PASS (3 tests).
+ 144	
+ 145	- [ ] **Step 5: Commit**
+ 146	
+ 147	```bash
+ 148	git add src/main/kotlin/com/dndweapons/catalog/Tier.kt src/test/kotlin/com/dndweapons/catalog/TierTest.kt
+ 149	git commit -m "phase 4: add Tier enum (iron/diamond/netherite)"
+ 150	```
+ 151	
+ 152	---
+ 153	
+ 154	## Task 2: WeaponSpec.atTier() extension
+ 155	
+ 156	**Files:**
+ 157	- Modify: `src/main/kotlin/com/dndweapons/catalog/Weapons.kt` (append at bottom of file)
+ 158	- Test: `src/test/kotlin/com/dndweapons/catalog/WeaponSpecAtTierTest.kt`
+ 159	
+ 160	- [ ] **Step 1: Write the failing test**
+ 161	
+ 162	```kotlin
+ 163	// src/test/kotlin/com/dndweapons/catalog/WeaponSpecAtTierTest.kt
+ 164	package com.dndweapons.catalog
+ 165	
+ 166	import org.junit.jupiter.api.Assertions.assertEquals
+ 167	import org.junit.jupiter.api.Test
+ 168	
+ 169	class WeaponSpecAtTierTest {
+ 170	
+ 171	    @Test
+ 172	    fun atTierIronReturnsIdenticalSpec() {
+ 173	        val base = Weapons.LONGSWORD
+ 174	        val iron = base.atTier(Tier.IRON)
+ 175	        assertEquals(base.id, iron.id)
+ 176	        assertEquals(base.displayName, iron.displayName)
+ 177	        assertEquals(base.attackDamage, iron.attackDamage)
+ 178	        assertEquals(base.baseDurability, iron.baseDurability)
+ 179	    }
+ 180	
+ 181	    @Test
+ 182	    fun atTierDiamondSuffixesIdAndAddsOneDamage() {
+ 183	        val diamond = Weapons.LONGSWORD.atTier(Tier.DIAMOND)
+ 184	        assertEquals("longsword_diamond", diamond.id)
+ 185	        assertEquals("Diamond Longsword", diamond.displayName)
+ 186	        assertEquals(Weapons.LONGSWORD.attackDamage + 1, diamond.attackDamage)
+ 187	        assertEquals(1561, diamond.baseDurability)
+ 188	    }
+ 189	
+ 190	    @Test
+ 191	    fun atTierNetheriteSuffixesIdAndAddsTwoDamage() {
+ 192	        val netherite = Weapons.GREATAXE.atTier(Tier.NETHERITE)
+ 193	        assertEquals("greataxe_netherite", netherite.id)
+ 194	        assertEquals("Netherite Greataxe", netherite.displayName)
+ 195	        assertEquals(Weapons.GREATAXE.attackDamage + 2, netherite.attackDamage)
+ 196	        assertEquals(2031, netherite.baseDurability)
+ 197	    }
+ 198	
+ 199	    @Test
+ 200	    fun atTierPreservesPropertiesAndAttackSpeed() {
+ 201	        val rapier = Weapons.RAPIER
+ 202	        val diamondRapier = rapier.atTier(Tier.DIAMOND)
+ 203	        assertEquals(rapier.properties, diamondRapier.properties)
+ 204	        assertEquals(rapier.attackSpeed, diamondRapier.attackSpeed)
+ 205	        assertEquals(rapier.reachBonus, diamondRapier.reachBonus)
+ 206	        assertEquals(rapier.knockbackBonus, diamondRapier.knockbackBonus)
+ 207	        assertEquals(rapier.damageType, diamondRapier.damageType)
+ 208	        assertEquals(rapier.category, diamondRapier.category)
+ 209	    }
+ 210	}
+ 211	```
+ 212	
+ 213	- [ ] **Step 2: Run test to verify it fails**
+ 214	
+ 215	Run: `./gradlew :1.20.1:test --tests com.dndweapons.catalog.WeaponSpecAtTierTest`
+ 216	Expected: FAIL with "Unresolved reference 'atTier'".
+ 217	
+ 218	- [ ] **Step 3: Add the extension function to Weapons.kt**
+ 219	
+ 220	Open `src/main/kotlin/com/dndweapons/catalog/Weapons.kt`. After the existing `object Weapons { ... }` block, append at the bottom of the file:
+ 221	
+ 222	```kotlin
+ 223	/**
+ 224	 * Returns a copy of this WeaponSpec with the given tier applied. Tier affects:
+ 225	 *   - id: suffixed with "_diamond" / "_netherite" (iron leaves it untouched).
+ 226	 *   - displayName: prefixed with "Diamond " / "Netherite " (iron untouched).
+ 227	 *   - attackDamage: added to baseline (+1 diamond, +2 netherite).
+ 228	 *   - baseDurability: replaced with the tier's vanilla durability (250 / 1561 / 2031).
+ 229	 *
+ 230	 * Properties, attack speed, damage type, reach, and knockback carry over unchanged.
+ 231	 * The `vanillaRoleTag` field is preserved but in practice atTier() is only called for
+ 232	 * non-vanilla-mapped specs (see [Weapons.ALL_TIERED] filter).
+ 233	 */
+ 234	fun WeaponSpec.atTier(t: Tier): WeaponSpec = copy(
+ 235	    id = if (t == Tier.IRON) id else "$id${t.suffix}",
+ 236	    displayName = if (t == Tier.IRON) displayName else "${t.displayPrefix}$displayName",
+ 237	    attackDamage = attackDamage + t.damageBonus,
+ 238	    baseDurability = t.durability,
+ 239	)
+ 240	```
+ 241	
+ 242	- [ ] **Step 4: Run test to verify it passes**
+ 243	
+ 244	Run: `./gradlew :1.20.1:test --tests com.dndweapons.catalog.WeaponSpecAtTierTest`
+ 245	Expected: PASS (4 tests).
+ 246	
+ 247	- [ ] **Step 5: Commit**
+ 248	
+ 249	```bash
+ 250	git add src/main/kotlin/com/dndweapons/catalog/Weapons.kt src/test/kotlin/com/dndweapons/catalog/WeaponSpecAtTierTest.kt
+ 251	git commit -m "phase 4: WeaponSpec.atTier() extension"
+ 252	```
+ 253	
+ 254	---
+ 255	
+ 256	## Task 3: Weapons.ALL_TIERED list
+ 257	
+ 258	**Files:**
+ 259	- Modify: `src/main/kotlin/com/dndweapons/catalog/Weapons.kt` (add inside the `object Weapons` block)
+ 260	- Test: `src/test/kotlin/com/dndweapons/catalog/WeaponsAllTieredTest.kt`
+ 261	
+ 262	- [ ] **Step 1: Write the failing test**
+ 263	
+ 264	```kotlin
+ 265	// src/test/kotlin/com/dndweapons/catalog/WeaponsAllTieredTest.kt
+ 266	package com.dndweapons.catalog
+ 267	
+ 268	import org.junit.jupiter.api.Assertions.assertEquals
+ 269	import org.junit.jupiter.api.Assertions.assertNotNull
+ 270	import org.junit.jupiter.api.Assertions.assertTrue
+ 271	import org.junit.jupiter.api.Test
+ 272	
+ 273	class WeaponsAllTieredTest {
+ 274	
+ 275	    @Test
+ 276	    fun allTieredExcludesVanillaMappedAndRangedNonThrown() {
+ 277	        for ((spec, _) in Weapons.ALL_TIERED) {
+ 278	            assertTrue(spec.vanillaRoleTag == null) { "${spec.id} is vanilla-mapped" }
+ 279	            assertTrue(spec.ranged == RangeKind.NONE || spec.ranged == RangeKind.THROWN) {
+ 280	                "${spec.id} has ranged=${spec.ranged}, not NONE/THROWN"
+ 281	            }
+ 282	        }
+ 283	    }
+ 284	
+ 285	    @Test
+ 286	    fun allTieredHasThreeEntriesPerBaseWeapon() {
+ 287	        val ids = Weapons.ALL_TIERED.map { (spec, _) -> spec.id }.toSet()
+ 288	        val baseIds = Weapons.ALL.filter { it.vanillaRoleTag == null && it.ranged in setOf(RangeKind.NONE, RangeKind.THROWN) }.map { it.id }
+ 289	        for (baseId in baseIds) {
+ 290	            assertTrue(baseId in ids) { "$baseId missing from ALL_TIERED" }
+ 291	            assertTrue("${baseId}_diamond" in ids) { "${baseId}_diamond missing" }
+ 292	            assertTrue("${baseId}_netherite" in ids) { "${baseId}_netherite missing" }
+ 293	        }
+ 294	    }
+ 295	
+ 296	    @Test
+ 297	    fun allTieredHasExpectedSize() {
+ 298	        val baseCount = Weapons.ALL.count { it.vanillaRoleTag == null && it.ranged in setOf(RangeKind.NONE, RangeKind.THROWN) }
+ 299	        assertEquals(baseCount * 3, Weapons.ALL_TIERED.size)
+ 300	    }
+ 301	
+ 302	    @Test
+ 303	    fun allTieredIdsAreUnique() {
+ 304	        val ids = Weapons.ALL_TIERED.map { (spec, _) -> spec.id }
+ 305	        assertEquals(ids.size, ids.toSet().size) { "Duplicate ids in ALL_TIERED" }
+ 306	    }
+ 307	
+ 308	    @Test
+ 309	    fun longswordDiamondHasCorrectDamageAndDurability() {
+ 310	        val (spec, tier) = Weapons.ALL_TIERED.first { (s, t) -> s.id == "longsword_diamond" && t == Tier.DIAMOND }
+ 311	        assertEquals(Weapons.LONGSWORD.attackDamage + 1, spec.attackDamage)
+ 312	        assertEquals(1561, spec.baseDurability)
+ 313	        assertNotNull(tier)
+ 314	    }
+ 315	}
+ 316	```
+ 317	
+ 318	- [ ] **Step 2: Run test to verify it fails**
+ 319	
+ 320	Run: `./gradlew :1.20.1:test --tests com.dndweapons.catalog.WeaponsAllTieredTest`
+ 321	Expected: FAIL with "Unresolved reference 'ALL_TIERED'".
+ 322	
+ 323	- [ ] **Step 3: Add ALL_TIERED to Weapons object**
+ 324	
+ 325	Inside the `object Weapons { ... }` block in `src/main/kotlin/com/dndweapons/catalog/Weapons.kt`, after the existing `val ALL: List<WeaponSpec> = listOf(...)` declaration, add:
+ 326	
+ 327	```kotlin
+ 328	    /**
+ 329	     * Cartesian product of the 27 non-vanilla-mapped melee + thrown base specs with the
+ 330	     * 3 tiers. Each entry is `(spec, tier)` where the spec has the tier baked into its
+ 331	     * id/displayName/attackDamage/baseDurability via [atTier]. IRON entries are
+ 332	     * functionally identical to the matching entries in [ALL] — registration code uses
+ 333	     * ALL_TIERED to register all 81 items (the IRON 27 supersede the ALL list when
+ 334	     * Phase 4 is shipped).
+ 335	     *
+ 336	     * Ranged registered weapons (bow/crossbow/firearm/sling/blowgun) are excluded:
+ 337	     * Phase 4 only tiers melee + thrown DnD weapons per the design spec.
+ 338	     */
+ 339	    val ALL_TIERED: List<Pair<WeaponSpec, Tier>> = ALL
+ 340	        .filter { it.vanillaRoleTag == null && it.ranged in setOf(RangeKind.NONE, RangeKind.THROWN) }
+ 341	        .flatMap { base -> Tier.values().map { tier -> base.atTier(tier) to tier } }
+ 342	```
+ 343	
+ 344	- [ ] **Step 4: Run test to verify it passes**
+ 345	
+ 346	Run: `./gradlew :1.20.1:test --tests com.dndweapons.catalog.WeaponsAllTieredTest`
+ 347	Expected: PASS (5 tests).
+ 348	
+ 349	- [ ] **Step 5: Sanity-check the count locally**
+ 350	
+ 351	Run: `./gradlew :1.20.1:test --tests com.dndweapons.catalog.WeaponsAllTieredTest --info | grep "allTieredHasExpectedSize" -A 2`
+ 352	The expected base count is 27 (21 melee NONE + 6 thrown), so ALL_TIERED should have 81 entries.
+ 353	
+ 354	- [ ] **Step 6: Commit**
+ 355	
+ 356	```bash
+ 357	git add src/main/kotlin/com/dndweapons/catalog/Weapons.kt src/test/kotlin/com/dndweapons/catalog/WeaponsAllTieredTest.kt
+ 358	git commit -m "phase 4: Weapons.ALL_TIERED (27 base x 3 tiers)"
+ 359	```
+ 360	
+ 361	---
+ 362	
+ 363	## Task 4: WeaponRegistrar interface accepts Tier
+ 364	
+ 365	**Files:**
+ 366	- Modify: `src/main/kotlin/com/dndweapons/registry/WeaponRegistrar.kt`
+ 367	- Modify: `src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt`
+ 368	
+ 369	- [ ] **Step 1: Read the existing WeaponRegistrar to confirm shape**
+ 370	
+ 371	Run: `cat src/main/kotlin/com/dndweapons/registry/WeaponRegistrar.kt`
+ 372	Expected: interface with `fun register(spec: WeaponSpec)` and a default `registerAll(specs: List<WeaponSpec>)`.
+ 373	
+ 374	- [ ] **Step 2: Modify the interface**
+ 375	
+ 376	Replace the contents of `src/main/kotlin/com/dndweapons/registry/WeaponRegistrar.kt`:
+ 377	
+ 378	```kotlin
+ 379	package com.dndweapons.registry
+ 380	
+ 381	import com.dndweapons.catalog.Tier
+ 382	import com.dndweapons.catalog.WeaponSpec
+ 383	
+ 384	interface WeaponRegistrar {
+ 385	    fun register(spec: WeaponSpec, tier: Tier)
+ 386	
+ 387	    fun registerAll(entries: List<Pair<WeaponSpec, Tier>>) {
+ 388	        for ((spec, tier) in entries) register(spec, tier)
+ 389	    }
+ 390	}
+ 391	```
+ 392	
+ 393	- [ ] **Step 3: Update WeaponRegistrarImpl**
+ 394	
+ 395	Replace the contents of `src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt`:
+ 396	
+ 397	```kotlin
+ 398	package com.dndweapons.registry
+ 399	
+ 400	import com.dndweapons.DndWeaponsMod
+ 401	import com.dndweapons.catalog.Tier
+ 402	import com.dndweapons.catalog.WeaponSpec
+ 403	import com.dndweapons.compat.AttributeCompat
+ 404	import com.dndweapons.item.DndWeaponItem
+ 405	import net.minecraft.core.Registry
+ 406	import net.minecraft.core.registries.BuiltInRegistries
+ 407	import net.minecraft.core.registries.Registries
+ 408	import net.minecraft.resources.ResourceKey
+ 409	//? if <1.21.11 {
+ 410	import net.minecraft.resources.ResourceLocation
+ 411	//?}
+ 412	//? if >=1.21.11 {
+ 413	/*import net.minecraft.resources.Identifier as ResourceLocation
+ 414	*///?}
+ 415	import net.minecraft.world.item.Item
+ 416	
+ 417	class WeaponRegistrarImpl : WeaponRegistrar {
+ 418	
+ 419	    override fun register(spec: WeaponSpec, tier: Tier) {
+ 420	        if (spec.isVanillaMapped) {
+ 421	            // Vanilla-mapped specs are only registered at IRON tier; the spec routes
+ 422	            // through SpecRegistry.bindRoleTag and no Item is created.
+ 423	            if (tier == Tier.IRON) SpecRegistry.bindRoleTag(spec)
+ 424	            return
+ 425	        }
+ 426	
+ 427	        //? if >=1.21 {
+ 428	        val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, spec.id)
+ 429	        //?} else {
+ 430	        /*val itemId = ResourceLocation(DndWeaponsMod.MOD_ID, spec.id)
+ 431	        *///?}
+ 432	        val itemKey = ResourceKey.create(Registries.ITEM, itemId)
+ 433	
+ 434	        //? if >=1.21.2 {
+ 435	        var props = Item.Properties().setId(itemKey)
+ 436	        //?} else {
+ 437	        /*var props = Item.Properties()
+ 438	        *///?}
+ 439	        props = AttributeCompat.applyTo(props, spec)
+ 440	        if (tier.fireImmune) props = props.fireResistant()
+ 441	
+ 442	        val item = DndWeaponItem(spec, props)
+ 443	        Registry.register(BuiltInRegistries.ITEM, itemKey, item)
+ 444	        SpecRegistry.bindRegistered(item, spec)
+ 445	        DndWeaponsMod.LOGGER.info("Registered weapon: {} (tier={})", itemId, tier)
+ 446	    }
+ 447	}
+ 448	```
+ 449	
+ 450	- [ ] **Step 4: Update SpecRegistryTest if it references the old signature**
+ 451	
+ 452	Run: `grep -n "registrar.register\|registerAll" src/test/kotlin/com/dndweapons/registry/SpecRegistryTest.kt`
+ 453	
+ 454	If any matches use the OLD signature (`register(spec)` without tier), update them to `register(spec, Tier.IRON)`. If no matches, skip this step.
+ 455	
+ 456	- [ ] **Step 5: Build the project to verify the signature change compiles**
+ 457	
+ 458	Run: `./gradlew :1.20.1:build`
+ 459	Expected: BUILD SUCCESSFUL. (Compile will fail at `DndWeaponsMod.kt` callsites; that's fixed in Task 5.)
+ 460	
+ 461	If `DndWeaponsMod.kt` fails to compile with `Type mismatch: inferred type is List<WeaponSpec> but List<Pair<WeaponSpec, Tier>> was expected`, that is the expected failure for Task 5 to fix. Skip the build verification here and proceed to Task 5.
+ 462	
+ 463	- [ ] **Step 6: Commit**
+ 464	
+ 465	```bash
+ 466	git add src/main/kotlin/com/dndweapons/registry/WeaponRegistrar.kt src/main/kotlin/com/dndweapons/registry/WeaponRegistrarImpl.kt
+ 467	git commit -m "phase 4: WeaponRegistrar accepts Tier param + fireResistant for netherite"
+ 468	```
+ 469	
+ 470	---
+ 471	
+ 472	## Task 5: Wire ALL_TIERED into mod init
+ 473	
+ 474	**Files:**
+ 475	- Modify: `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt`
+ 476	
+ 477	- [ ] **Step 1: Inspect the current registration call**
+ 478	
+ 479	Run: `grep -n "registerAll\|Weapons.ALL" src/main/kotlin/com/dndweapons/DndWeaponsMod.kt`
+ 480	Expected: line 51 calls `registrar.registerAll(Weapons.ALL)`, lines 69 and 84 iterate `Weapons.ALL` for the creative-tab entry list.
+ 481	
+ 482	- [ ] **Step 2: Replace the registration call**
+ 483	
+ 484	In `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt`, change line 51:
+ 485	
+ 486	```kotlin
+ 487	// OLD:
+ 488	registrar.registerAll(Weapons.ALL)
+ 489	
+ 490	// NEW:
+ 491	registrar.registerAll(Weapons.ALL_TIERED)
+ 492	```
+ 493	
+ 494	- [ ] **Step 3: Replace the creative-tab iteration to include all tiers**
+ 495	
+ 496	For each of the two creative-tab blocks (one inside `//? if <26 {` and one inside `//? if >=26 {`), replace `for (spec in Weapons.ALL)` with:
+ 497	
+ 498	```kotlin
+ 499	for ((spec, _) in Weapons.ALL_TIERED) {
+ 500	    if (spec.vanillaRoleTag != null) continue   // vanilla-mapped have no item to add
+ 501	```
+ 502	
+ 503	(Close the loop body the same way the existing code does — typically `entries.accept(ItemStack(BuiltInRegistries.ITEM.get(...)))` or similar. Leave the body unchanged; only swap the loop header.)
+ 504	
+ 505	- [ ] **Step 4: Update the final log line**
+ 506	
+ 507	Replace line 91 (or whichever line logs the count):
+ 508	
+ 509	```kotlin
+ 510	// OLD:
+ 511	LOGGER.info("DnD Weapons initialized with {} weapons.", Weapons.ALL.size)
+ 512	
+ 513	// NEW:
+ 514	LOGGER.info("DnD Weapons initialized with {} weapon specs ({} tiered items).", Weapons.ALL.size, Weapons.ALL_TIERED.count { (s, _) -> s.vanillaRoleTag == null })
+ 515	```
+ 516	
+ 517	- [ ] **Step 5: Build all 5 versions**
+ 518	
+ 519	Run: `./gradlew chiseledBuild`
+ 520	Expected: BUILD SUCCESSFUL across all 5 versions.
+ 521	
+ 522	- [ ] **Step 6: Run gametests to confirm Phase 3 still passes**
+ 523	
+ 524	Run: `./gradlew chiseledRunGametest`
+ 525	Expected: All 55/55 mod gametests pass (existing Phase 3 coverage). The new tiered items are registered but no gametest exercises them yet.
+ 526	
+ 527	If a Phase 3 gametest now fails, investigate which one (likely the iron sword sweep test) — it could be a regression from the registrar signature change, NOT from the tiered items themselves.
+ 528	
+ 529	- [ ] **Step 7: Commit**
+ 530	
+ 531	```bash
+ 532	git add src/main/kotlin/com/dndweapons/DndWeaponsMod.kt
+ 533	git commit -m "phase 4: register ALL_TIERED instead of ALL on mod init"
+ 534	```
+ 535	
+ 536	---
+ 537	
+ 538	## Task 6: SmithingComponentItems — fragments, bindings, cores
+ 539	
+ 540	**Files:**
+ 541	- Create: `src/main/kotlin/com/dndweapons/item/SmithingComponentItems.kt`
+ 542	
+ 543	These 6 items are pure crafting ingredients. They extend `Item` with default Properties. No combat behavior.
+ 544	
+ 545	- [ ] **Step 1: Create the component-items file**
+ 546	
+ 547	```kotlin
+ 548	// src/main/kotlin/com/dndweapons/item/SmithingComponentItems.kt
+ 549	package com.dndweapons.item
+ 550	
+ 551	import com.dndweapons.DndWeaponsMod
+ 552	import net.minecraft.core.Registry
+ 553	import net.minecraft.core.registries.BuiltInRegistries
+ 554	import net.minecraft.core.registries.Registries
+ 555	import net.minecraft.resources.ResourceKey
+ 556	//? if <1.21.11 {
+ 557	import net.minecraft.resources.ResourceLocation
+ 558	//?}
+ 559	//? if >=1.21.11 {
+ 560	/*import net.minecraft.resources.Identifier as ResourceLocation
+ 561	*///?}
+ 562	import net.minecraft.world.item.Item
+ 563	
+ 564	/**
+ 565	 * The 6 raw crafting-ingredient items for the Phase 4 smithing system:
+ 566	 *
+ 567	 *  - 2 fragments (diamond_template_fragment, netherite_template_fragment): produced
+ 568	 *    by their respective crafting recipes (4× output per craft), consumed by the
+ 569	 *    core-assembly crafting recipe (4× input).
+ 570	 *  - 2 bindings (weapon_smithing_binding, infernal_binding): each consumed once per
+ 571	 *    core-assembly crafting recipe.
+ 572	 *  - 2 cores (diamond_template_core, netherite_template_core): output of the
+ 573	 *    fragment+binding crafting recipe; consumed by the smithing-table template
+ 574	 *    assembly recipe.
+ 575	 *
+ 576	 * All 6 are plain Items with no combat or special behavior. The final templates are
+ 577	 * registered separately in [SmithingTemplateItems] because they need
+ 578	 * SmithingTemplateItem for the smithing-table UI.
+ 579	 */
+ 580	object SmithingComponentItems {
+ 581	
+ 582	    val DIAMOND_TEMPLATE_FRAGMENT: Item by lazy { register("diamond_template_fragment") }
+ 583	    val WEAPON_SMITHING_BINDING: Item by lazy { register("weapon_smithing_binding") }
+ 584	    val DIAMOND_TEMPLATE_CORE: Item by lazy { register("diamond_template_core") }
+ 585	    val NETHERITE_TEMPLATE_FRAGMENT: Item by lazy { register("netherite_template_fragment") }
+ 586	    val INFERNAL_BINDING: Item by lazy { register("infernal_binding") }
+ 587	    val NETHERITE_TEMPLATE_CORE: Item by lazy { register("netherite_template_core") }
+ 588	
+ 589	    /** All 6 items in registration order. Call this once during mod init. */
+ 590	    fun registerAll() {
+ 591	        // Touch each lazy delegate to force registration.
+ 592	        listOf(
+ 593	            DIAMOND_TEMPLATE_FRAGMENT,
+ 594	            WEAPON_SMITHING_BINDING,
+ 595	            DIAMOND_TEMPLATE_CORE,
+ 596	            NETHERITE_TEMPLATE_FRAGMENT,
+ 597	            INFERNAL_BINDING,
+ 598	            NETHERITE_TEMPLATE_CORE,
+ 599	        )
+ 600	        DndWeaponsMod.LOGGER.info("Registered 6 smithing-component items.")
+ 601	    }
+ 602	
+ 603	    private fun register(id: String): Item {
+ 604	        //? if >=1.21 {
+ 605	        val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, id)
+ 606	        //?} else {
+ 607	        /*val itemId = ResourceLocation(DndWeaponsMod.MOD_ID, id)
+ 608	        *///?}
+ 609	        val key = ResourceKey.create(Registries.ITEM, itemId)
+ 610	        //? if >=1.21.2 {
+ 611	        val props = Item.Properties().setId(key)
+ 612	        //?} else {
+ 613	        /*val props = Item.Properties()
+ 614	        *///?}
+ 615	        val item = Item(props)
+ 616	        return Registry.register(BuiltInRegistries.ITEM, key, item)
+ 617	    }
+ 618	}
+ 619	```
+ 620	
+ 621	- [ ] **Step 2: Build to verify the file compiles on all versions**
+ 622	
+ 623	Run: `./gradlew chiseledBuild`
+ 624	Expected: BUILD SUCCESSFUL. The items are defined but not yet wired into the mod-init call; they will not appear in-game yet.
+ 625	
+ 626	- [ ] **Step 3: Commit**
+ 627	
+ 628	```bash
+ 629	git add src/main/kotlin/com/dndweapons/item/SmithingComponentItems.kt
+ 630	git commit -m "phase 4: SmithingComponentItems (4 fragments/bindings + 2 cores)"
+ 631	```
+ 632	
+ 633	---
+ 634	
+ 635	## Task 7: SmithingTemplateItems — the 2 upgrade templates
+ 636	
+ 637	**Files:**
+ 638	- Create: `src/main/kotlin/com/dndweapons/item/SmithingTemplateItems.kt`
+ 639	
+ 640	The 2 templates extend vanilla `SmithingTemplateItem` so they appear in the smithing-table UI with proper slot-icon hints. The constructor parameters differ between MC 1.20.1 and 1.21+, so this file is the most stonecutter-heavy in Phase 4.
+ 641	
+ 642	- [ ] **Step 1: Inspect the SmithingTemplateItem constructors per version**
+ 643	
+ 644	Decompile vanilla `SmithingTemplateItem` for each MC version to see its constructor:
+ 645	
+ 646	Run: `find ~/.gradle/caches/fabric-loom -name "minecraft-merged-*1.20.1*.jar" | head -1 | xargs -I {} sh -c 'cd $(dirname {}); javap -p -cp $(basename {}) net.minecraft.world.item.SmithingTemplateItem' | head -20`
+ 647	
+ 648	The 1.20.1 ctor signature is approximately:
+ 649	```
+ 650	public SmithingTemplateItem(Component appliesTo, Component ingredients, Component upgradeDescription, Component baseSlotDescription, Component additionsSlotDescription, List<ResourceLocation> baseSlotEmptyIcons, List<ResourceLocation> additionsSlotEmptyIcons, Item.Properties props)
+ 651	```
+ 652	
+ 653	Confirm against 1.21.x and 26.1.2 by running the same `javap` against those merged jars. Document any signature differences in code comments.
+ 654	
+ 655	- [ ] **Step 2: Create the templates file**
+ 656	
+ 657	```kotlin
+ 658	// src/main/kotlin/com/dndweapons/item/SmithingTemplateItems.kt
+ 659	package com.dndweapons.item
+ 660	
+ 661	import com.dndweapons.DndWeaponsMod
+ 662	import net.minecraft.ChatFormatting
+ 663	import net.minecraft.core.Registry
+ 664	import net.minecraft.core.registries.BuiltInRegistries
+ 665	import net.minecraft.core.registries.Registries
+ 666	import net.minecraft.network.chat.Component
+ 667	import net.minecraft.resources.ResourceKey
+ 668	//? if <1.21.11 {
+ 669	import net.minecraft.resources.ResourceLocation
+ 670	//?}
+ 671	//? if >=1.21.11 {
+ 672	/*import net.minecraft.resources.Identifier as ResourceLocation
+ 673	*///?}
+ 674	import net.minecraft.world.item.Item
+ 675	import net.minecraft.world.item.SmithingTemplateItem
+ 676	
+ 677	/**
+ 678	 * The 2 smithing-upgrade templates for Phase 4. Each is a [SmithingTemplateItem]
+ 679	 * (vanilla class) so the smithing-table UI renders the slot ghosts and tooltip lines
+ 680	 * Mojang-style.
+ 681	 *
+ 682	 * Constructor signature is stable across all 5 MC versions: appliesTo, ingredients,
+ 683	 * upgradeDescription, baseSlotDescription, additionsSlotDescription, baseSlotEmptyIcons,
+ 684	 * additionsSlotEmptyIcons, Item.Properties.
+ 685	 */
+ 686	object SmithingTemplateItems {
+ 687	
+ 688	    val DIAMOND: SmithingTemplateItem by lazy {
+ 689	        register("diamond_weapon_upgrade_template",
+ 690	            appliesTo = "tooltip.dndweapons.smithing.diamond.applies_to",
+ 691	            ingredients = "tooltip.dndweapons.smithing.diamond.ingredients",
+ 692	            upgradeDescription = "tooltip.dndweapons.smithing.diamond.upgrade",
+ 693	            baseEmptyIconPaths = listOf("item/empty_slot_sword"),
+ 694	            additionsEmptyIconPaths = listOf("item/empty_slot_diamond"),
+ 695	        )
+ 696	    }
+ 697	
+ 698	    val NETHERITE: SmithingTemplateItem by lazy {
+ 699	        register("netherite_weapon_upgrade_template",
+ 700	            appliesTo = "tooltip.dndweapons.smithing.netherite.applies_to",
+ 701	            ingredients = "tooltip.dndweapons.smithing.netherite.ingredients",
+ 702	            upgradeDescription = "tooltip.dndweapons.smithing.netherite.upgrade",
+ 703	            baseEmptyIconPaths = listOf("item/empty_slot_sword"),
+ 704	            additionsEmptyIconPaths = listOf("item/empty_slot_netherite_ingot"),
+ 705	        )
+ 706	    }
+ 707	
+ 708	    fun registerAll() {
+ 709	        DIAMOND
+ 710	        NETHERITE
+ 711	        DndWeaponsMod.LOGGER.info("Registered 2 smithing-upgrade-template items.")
+ 712	    }
+ 713	
+ 714	    private fun register(
+ 715	        id: String,
+ 716	        appliesTo: String,
+ 717	        ingredients: String,
+ 718	        upgradeDescription: String,
+ 719	        baseEmptyIconPaths: List<String>,
+ 720	        additionsEmptyIconPaths: List<String>,
+ 721	    ): SmithingTemplateItem {
+ 722	        //? if >=1.21 {
+ 723	        val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, id)
+ 724	        //?} else {
+ 725	        /*val itemId = ResourceLocation(DndWeaponsMod.MOD_ID, id)
+ 726	        *///?}
+ 727	        val key = ResourceKey.create(Registries.ITEM, itemId)
+ 728	        //? if >=1.21.2 {
+ 729	        val props = Item.Properties().setId(key)
+ 730	        //?} else {
+ 731	        /*val props = Item.Properties()
+ 732	        *///?}
+ 733	
+ 734	        //? if >=1.21 {
+ 735	        val baseIcons = baseEmptyIconPaths.map { ResourceLocation.fromNamespaceAndPath("minecraft", it) }
+ 736	        val addIcons = additionsEmptyIconPaths.map { ResourceLocation.fromNamespaceAndPath("minecraft", it) }
+ 737	        //?} else {
+ 738	        /*val baseIcons = baseEmptyIconPaths.map { ResourceLocation("minecraft", it) }
+ 739	        val addIcons = additionsEmptyIconPaths.map { ResourceLocation("minecraft", it) }
+ 740	        *///?}
+ 741	
+ 742	        val item = SmithingTemplateItem(
+ 743	            Component.translatable(appliesTo).withStyle(ChatFormatting.BLUE),
+ 744	            Component.translatable(ingredients).withStyle(ChatFormatting.BLUE),
+ 745	            Component.translatable(upgradeDescription),
+ 746	            Component.translatable("$upgradeDescription.base"),
+ 747	            Component.translatable("$upgradeDescription.additions"),
+ 748	            baseIcons,
+ 749	            addIcons,
+ 750	            props,
+ 751	        )
+ 752	        return Registry.register(BuiltInRegistries.ITEM, key, item)
+ 753	    }
+ 754	}
+ 755	```
+ 756	
+ 757	- [ ] **Step 3: Build all 5 versions**
+ 758	
+ 759	Run: `./gradlew chiseledBuild`
+ 760	Expected: BUILD SUCCESSFUL. If any version fails with `SmithingTemplateItem: constructor signature mismatch`, the per-version ctor differs from the 1.20.1 baseline. Add a `//? if X { ... }` fork around the SmithingTemplateItem(...) call site with the corrected argument list for that version.
+ 761	
+ 762	- [ ] **Step 4: Commit**
+ 763	
+ 764	```bash
+ 765	git add src/main/kotlin/com/dndweapons/item/SmithingTemplateItems.kt
+ 766	git commit -m "phase 4: SmithingTemplateItems (diamond + netherite upgrade templates)"
+ 767	```
+ 768	
+ 769	---
+ 770	
+ 771	## Task 8: SmithingItemRegistrar — wire components + templates into mod init
+ 772	
+ 773	**Files:**
+ 774	- Create: `src/main/kotlin/com/dndweapons/registry/SmithingItemRegistrar.kt`
+ 775	- Modify: `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt`
+ 776	
+ 777	- [ ] **Step 1: Create the registrar**
+ 778	
+ 779	```kotlin
+ 780	// src/main/kotlin/com/dndweapons/registry/SmithingItemRegistrar.kt
+ 781	package com.dndweapons.registry
+ 782	
+ 783	import com.dndweapons.item.SmithingComponentItems
+ 784	import com.dndweapons.item.SmithingTemplateItems
+ 785	
+ 786	/** Phase 4 facade: register the 8 smithing-system items as a single call. */
+ 787	object SmithingItemRegistrar {
+ 788	    fun registerAll() {
+ 789	        SmithingComponentItems.registerAll()
+ 790	        SmithingTemplateItems.registerAll()
+ 791	    }
+ 792	}
+ 793	```
+ 794	
+ 795	- [ ] **Step 2: Call it from mod init**
+ 796	
+ 797	In `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt`, immediately after the `registrar.registerAll(Weapons.ALL_TIERED)` call (added in Task 5), add:
+ 798	
+ 799	```kotlin
+ 800	SmithingItemRegistrar.registerAll()
+ 801	```
+ 802	
+ 803	Also add the import:
+ 804	
+ 805	```kotlin
+ 806	import com.dndweapons.registry.SmithingItemRegistrar
+ 807	```
+ 808	
+ 809	- [ ] **Step 3: Build all 5 versions and confirm registration logs**
+ 810	
+ 811	Run: `./gradlew chiseledBuild`
+ 812	Expected: BUILD SUCCESSFUL.
+ 813	
+ 814	Run: `./gradlew :1.20.1:runGametest --console=plain 2>&1 | grep -E "(Registered.*smithing|Registered.*template)"`
+ 815	Expected: log lines `Registered 6 smithing-component items.` and `Registered 2 smithing-upgrade-template items.`
+ 816	
+ 817	- [ ] **Step 4: Commit**
+ 818	
+ 819	```bash
+ 820	git add src/main/kotlin/com/dndweapons/registry/SmithingItemRegistrar.kt src/main/kotlin/com/dndweapons/DndWeaponsMod.kt
+ 821	git commit -m "phase 4: wire SmithingItemRegistrar into mod init"
+ 822	```
+ 823	
+ 824	---
+ 825	
+ 826	## Task 9: Phase4Codegen — one-shot emitter for recipes, lang, models
+ 827	
+ 828	**Files:**
+ 829	- Create: `src/main/kotlin/com/dndweapons/codegen/Phase4Codegen.kt`
+ 830	
+ 831	This codegen is run ONCE by the implementing engineer (not on every build). It writes:
+ 832	- 54 smithing-transform recipes
+ 833	- 6 component crafting recipes (placeholder bodies — the real bodies are tasks 11–13)
+ 834	- 2 final smithing-assembly recipes (placeholder — task 14)
+ 835	- 62 item-model JSONs (`{ parent: item/generated, textures: { layer0: ... } }`)
+ 836	- 66 lang entries appended to `en_us.json`
+ 837	
+ 838	- [ ] **Step 1: Create the codegen entry point**
+ 839	
+ 840	```kotlin
+ 841	// src/main/kotlin/com/dndweapons/codegen/Phase4Codegen.kt
+ 842	package com.dndweapons.codegen
+ 843	
+ 844	import com.dndweapons.catalog.Tier
+ 845	import com.dndweapons.catalog.Weapons
+ 846	import java.io.File
+ 847	
+ 848	/**
+ 849	 * One-shot codegen for Phase 4. Run from an IDE or `./gradlew :1.20.1:runMain
+ 850	 * -PmainClass=com.dndweapons.codegen.Phase4CodegenKt`. Writes recipes, model
+ 851	 * JSONs, and lang entries directly into src/main/resources/. Re-running is
+ 852	 * idempotent except for the lang file which is rewritten from scratch.
+ 853	 *
+ 854	 * This is NOT a gradle data-generation task; it's a manual one-time run during
+ 855	 * Phase 4 implementation. The resulting files are committed to the repo and
+ 856	 * become the source of truth thereafter.
+ 857	 */
+ 858	fun main() {
+ 859	    val root = File("src/main/resources")
+ 860	    require(root.exists()) { "Run from project root (src/main/resources must exist)" }
+ 861	
+ 862	    emitSmithingTransformRecipes(root)
+ 863	    emitModelJsons(root)
+ 864	    emitLangEntries(root)
+ 865	    println("Phase 4 codegen complete. 54 transform recipes, 62 models, 66 lang entries.")
+ 866	    println("NOTE: component/core/template-assembly recipes are NOT generated here; ")
+ 867	    println("      hand-author them per tasks 11-14 of the implementation plan.")
+ 868	}
+ 869	
+ 870	private fun emitSmithingTransformRecipes(root: File) {
+ 871	    val recipeDir = File(root, "data/dndweapons/recipe").also { it.mkdirs() }
+ 872	    for ((spec, tier) in Weapons.ALL_TIERED) {
+ 873	        if (tier == Tier.IRON) continue   // base iron already exists from Phase 2b crafting
+ 874	        val baseId = if (tier == Tier.DIAMOND) spec.id.removeSuffix("_diamond")
+ 875	                     else spec.id.removeSuffix("_netherite") + "_diamond"
+ 876	        val (templateId, additionTag) = when (tier) {
+ 877	            Tier.DIAMOND -> "dndweapons:diamond_weapon_upgrade_template" to "c:gems/diamond"
+ 878	            Tier.NETHERITE -> "dndweapons:netherite_weapon_upgrade_template" to "c:ingots/netherite"
+ 879	            Tier.IRON -> error("unreachable")
+ 880	        }
+ 881	        val json = """{
+ 882	            |  "type": "minecraft:smithing_transform",
+ 883	            |  "template": { "id": "$templateId" },
+ 884	            |  "base":     { "id": "dndweapons:$baseId" },
+ 885	            |  "addition": { "tag": "$additionTag" },
+ 886	            |  "result":   { "id": "dndweapons:${spec.id}" }
+ 887	            |}""".trimMargin()
+ 888	        File(recipeDir, "${spec.id}.json").writeText(json + "\n")
+ 889	    }
+ 890	}
+ 891	
+ 892	private fun emitModelJsons(root: File) {
+ 893	    val modelDir = File(root, "assets/dndweapons/models/item").also { it.mkdirs() }
+ 894	    val itemIds = buildList {
+ 895	        for ((spec, _) in Weapons.ALL_TIERED) if (spec.vanillaRoleTag == null) add(spec.id)
+ 896	        addAll(listOf(
+ 897	            "diamond_template_fragment", "weapon_smithing_binding", "diamond_template_core",
+ 898	            "netherite_template_fragment", "infernal_binding", "netherite_template_core",
+ 899	            "diamond_weapon_upgrade_template", "netherite_weapon_upgrade_template",
+ 900	        ))
+ 901	    }
+ 902	    for (id in itemIds.distinct()) {
+ 903	        val json = """{
+ 904	            |  "parent": "minecraft:item/generated",
+ 905	            |  "textures": { "layer0": "dndweapons:item/$id" }
+ 906	            |}""".trimMargin()
+ 907	        File(modelDir, "$id.json").writeText(json + "\n")
+ 908	    }
+ 909	}
+ 910	
+ 911	private fun emitLangEntries(root: File) {
+ 912	    val langFile = File(root, "assets/dndweapons/lang/en_us.json")
+ 913	    require(langFile.exists()) { "en_us.json missing — Phase 2b should have created it" }
+ 914	    // Read existing JSON as an ordered map by re-tokenising. We don't pull in
+ 915	    // a JSON library to keep codegen runnable without runtime deps.
+ 916	    val existing = langFile.readText()
+ 917	        .lines()
+ 918	        .filter { it.contains("\":") && !it.trim().startsWith("//") }
+ 919	        .associate {
+ 920	            val k = it.substringAfter("\"").substringBefore("\"")
+ 921	            val v = it.substringAfter("\": \"").substringBefore("\"")
+ 922	            k to v
+ 923	        }
+ 924	        .toMutableMap()
+ 925	
+ 926	    for ((spec, tier) in Weapons.ALL_TIERED) {
+ 927	        if (tier == Tier.IRON || spec.vanillaRoleTag != null) continue
+ 928	        existing["item.dndweapons.${spec.id}"] = spec.displayName
+ 929	    }
+ 930	    existing["item.dndweapons.diamond_template_fragment"] = "Diamond Template Fragment"
+ 931	    existing["item.dndweapons.weapon_smithing_binding"]   = "Weapon Smithing Binding"
+ 932	    existing["item.dndweapons.diamond_template_core"]     = "Diamond Template Core"
+ 933	    existing["item.dndweapons.netherite_template_fragment"] = "Netherite Template Fragment"
+ 934	    existing["item.dndweapons.infernal_binding"]          = "Infernal Binding"
+ 935	    existing["item.dndweapons.netherite_template_core"]   = "Netherite Template Core"
+ 936	    existing["item.dndweapons.diamond_weapon_upgrade_template"]   = "Diamond Weapon Upgrade Template"
+ 937	    existing["item.dndweapons.netherite_weapon_upgrade_template"] = "Netherite Weapon Upgrade Template"
+ 938	    existing["tooltip.dndweapons.smithing.diamond.applies_to"]    = "DnD Weapons"
+ 939	    existing["tooltip.dndweapons.smithing.diamond.ingredients"]   = "Diamond"
+ 940	    existing["tooltip.dndweapons.smithing.diamond.upgrade"]       = "Diamond Weapon Upgrade"
+ 941	    existing["tooltip.dndweapons.smithing.diamond.upgrade.base"]  = "DnD Weapon"
+ 942	    existing["tooltip.dndweapons.smithing.diamond.upgrade.additions"] = "Diamond"
+ 943	    existing["tooltip.dndweapons.smithing.netherite.applies_to"]  = "DnD Diamond Weapons"
+ 944	    existing["tooltip.dndweapons.smithing.netherite.ingredients"] = "Netherite Ingot"
+ 945	    existing["tooltip.dndweapons.smithing.netherite.upgrade"]     = "Netherite Weapon Upgrade"
+ 946	    existing["tooltip.dndweapons.smithing.netherite.upgrade.base"]  = "Diamond DnD Weapon"
+ 947	    existing["tooltip.dndweapons.smithing.netherite.upgrade.additions"] = "Netherite Ingot"
+ 948	
+ 949	    val sorted = existing.toSortedMap()
+ 950	    val sb = StringBuilder("{\n")
+ 951	    for ((i, e) in sorted.entries.withIndex()) {
+ 952	        sb.append("  \"${e.key}\": \"${e.value}\"")
+ 953	        if (i < sorted.size - 1) sb.append(",")
+ 954	        sb.append("\n")
+ 955	    }
+ 956	    sb.append("}\n")
+ 957	    langFile.writeText(sb.toString())
+ 958	}
+ 959	```
+ 960	
+ 961	- [ ] **Step 2: Run the codegen**
+ 962	
+ 963	Run: `./gradlew :1.20.1:compileKotlin && java -cp "$(./gradlew :1.20.1:printClasspath -q 2>/dev/null || echo versions/1.20.1/build/classes/kotlin/main):$(find ~/.gradle/caches -name 'kotlin-stdlib-2.3.21.jar' | head -1)" com.dndweapons.codegen.Phase4CodegenKt`
+ 964	
+ 965	If the classpath dance is painful in your shell, alternative: open `Phase4Codegen.kt` in IntelliJ and click the green ▶ next to `fun main()`.
+ 966	
+ 967	Expected output:
+ 968	```
+ 969	Phase 4 codegen complete. 54 transform recipes, 62 models, 66 lang entries.
+ 970	NOTE: component/core/template-assembly recipes are NOT generated here; ...
+ 971	```
+ 972	
+ 973	After running, verify on disk:
+ 974	- `ls src/main/resources/data/dndweapons/recipe/ | grep -E "(diamond|netherite)" | wc -l` → 54
+ 975	- `ls src/main/resources/assets/dndweapons/models/item/ | wc -l` → at least 62 (will be more if Phase 2b already shipped iron model JSONs)
+ 976	- `cat src/main/resources/assets/dndweapons/lang/en_us.json | grep -c "diamond\|netherite"` → 50+ (rough sanity)
+ 977	
+ 978	- [ ] **Step 3: Build all 5 versions to confirm the data files parse**
+ 979	
+ 980	Run: `./gradlew chiseledBuild`
+ 981	Expected: BUILD SUCCESSFUL.
+ 982	
+ 983	- [ ] **Step 4: Commit codegen + generated files**
+ 984	
+ 985	```bash
+ 986	git add src/main/kotlin/com/dndweapons/codegen/Phase4Codegen.kt \
+ 987	        src/main/resources/data/dndweapons/recipe/*_diamond.json \
+ 988	        src/main/resources/data/dndweapons/recipe/*_netherite.json \
+ 989	        src/main/resources/assets/dndweapons/models/item/ \
+ 990	        src/main/resources/assets/dndweapons/lang/en_us.json
+ 991	git commit -m "phase 4: codegen + 54 smithing_transform recipes + 62 model JSONs + lang"
+ 992	```
+ 993	
+ 994	---
+ 995	
+ 996	## Task 10: Hand-author the 6 component crafting recipes
+ 997	
+ 998	The codegen does not emit these because their ingredient lists are too specific to template. Hand-author them.
+ 999	
+1000	**Files:** all under `src/main/resources/data/dndweapons/recipe/`
+1001	- Create: `diamond_template_fragment.json`
+1002	- Create: `weapon_smithing_binding.json`
+1003	- Create: `diamond_template_core.json`
+1004	- Create: `netherite_template_fragment.json`
+1005	- Create: `infernal_binding.json`
+1006	- Create: `netherite_template_core.json`
+1007	
+1008	- [ ] **Step 1: diamond_template_fragment recipe**
+1009	
+1010	```json
+1011	{
+1012	  "type": "minecraft:crafting_shaped",
+1013	  "pattern": ["PDP", "FDF", "PDP"],
+1014	  "key": {
+1015	    "P": { "item": "minecraft:paper" },
+1016	    "D": { "tag": "c:gems/diamond" },
+1017	    "F": { "item": "minecraft:flint" }
+1018	  },
+1019	  "result": { "id": "dndweapons:diamond_template_fragment", "count": 4 }
+1020	}
+1021	```
+1022	
+1023	Save to `src/main/resources/data/dndweapons/recipe/diamond_template_fragment.json`.
+1024	
+1025	- [ ] **Step 2: weapon_smithing_binding recipe**
+1026	
+1027	```json
+1028	{
+1029	  "type": "minecraft:crafting_shaped",
+1030	  "pattern": ["SLS", "LBL", "SLS"],
+1031	  "key": {
+1032	    "S": { "item": "minecraft:string" },
+1033	    "L": { "item": "minecraft:leather" },
+1034	    "B": { "item": "minecraft:blaze_rod" }
+1035	  },
+1036	  "result": { "id": "dndweapons:weapon_smithing_binding", "count": 1 }
+1037	}
+1038	```
+1039	
+1040	Save to `weapon_smithing_binding.json`.
+1041	
+1042	- [ ] **Step 3: diamond_template_core recipe (shapeless)**
+1043	
+1044	```json
+1045	{
+1046	  "type": "minecraft:crafting_shapeless",
+1047	  "ingredients": [
+1048	    { "item": "dndweapons:diamond_template_fragment" },
+1049	    { "item": "dndweapons:diamond_template_fragment" },
+1050	    { "item": "dndweapons:diamond_template_fragment" },
+1051	    { "item": "dndweapons:diamond_template_fragment" },
+1052	    { "item": "dndweapons:weapon_smithing_binding" }
+1053	  ],
+1054	  "result": { "id": "dndweapons:diamond_template_core", "count": 1 }
+1055	}
+1056	```
+1057	
+1058	Save to `diamond_template_core.json`.
+1059	
+1060	- [ ] **Step 4: netherite_template_fragment recipe**
+1061	
+1062	```json
+1063	{
+1064	  "type": "minecraft:crafting_shaped",
+1065	  "pattern": ["OSO", "GNG", "OSO"],
+1066	  "key": {
+1067	    "O": { "item": "minecraft:obsidian" },
+1068	    "S": { "tag": "c:gems/quartz" },
+1069	    "G": { "item": "minecraft:ghast_tear" },
+1070	    "N": { "item": "minecraft:netherite_scrap" }
+1071	  },
+1072	  "result": { "id": "dndweapons:netherite_template_fragment", "count": 4 }
+1073	}
+1074	```
+1075	
+1076	Save to `netherite_template_fragment.json`.
+1077	
+1078	- [ ] **Step 5: infernal_binding recipe**
+1079	
+1080	```json
+1081	{
+1082	  "type": "minecraft:crafting_shaped",
+1083	  "pattern": ["BNB", "SWS", "BNB"],
+1084	  "key": {
+1085	    "B": { "item": "minecraft:blaze_powder" },
+1086	    "N": { "item": "minecraft:nether_star" },
+1087	    "S": { "item": "minecraft:soul_sand" },
+1088	    "W": { "item": "minecraft:wither_rose" }
+1089	  },
+1090	  "result": { "id": "dndweapons:infernal_binding", "count": 1 }
+1091	}
+1092	```
+1093	
+1094	Save to `infernal_binding.json`.
+1095	
+1096	- [ ] **Step 6: netherite_template_core recipe**
+1097	
+1098	```json
+1099	{
+1100	  "type": "minecraft:crafting_shapeless",
+1101	  "ingredients": [
+1102	    { "item": "dndweapons:netherite_template_fragment" },
+1103	    { "item": "dndweapons:netherite_template_fragment" },
+1104	    { "item": "dndweapons:netherite_template_fragment" },
+1105	    { "item": "dndweapons:netherite_template_fragment" },
+1106	    { "item": "dndweapons:infernal_binding" }
+1107	  ],
+1108	  "result": { "id": "dndweapons:netherite_template_core", "count": 1 }
+1109	}
+1110	```
+1111	
+1112	Save to `netherite_template_core.json`.
+1113	
+1114	- [ ] **Step 7: Build to verify all 6 recipes parse**
+1115	
+1116	Run: `./gradlew chiseledBuild`
+1117	Expected: BUILD SUCCESSFUL.
+1118	
+1119	Run: `./gradlew :1.20.1:runGametest --console=plain 2>&1 | grep -iE "(recipe|crafting).*(error|fail|malformed)"`
+1120	Expected: no output (no recipe parse errors logged).
+1121	
+1122	- [ ] **Step 8: Commit**
+1123	
+1124	```bash
+1125	git add src/main/resources/data/dndweapons/recipe/diamond_template_fragment.json \
+1126	        src/main/resources/data/dndweapons/recipe/weapon_smithing_binding.json \
+1127	        src/main/resources/data/dndweapons/recipe/diamond_template_core.json \
+1128	        src/main/resources/data/dndweapons/recipe/netherite_template_fragment.json \
+1129	        src/main/resources/data/dndweapons/recipe/infernal_binding.json \
+1130	        src/main/resources/data/dndweapons/recipe/netherite_template_core.json
+1131	git commit -m "phase 4: 6 component + core crafting recipes (epic multi-step)"
+1132	```
+1133	
+1134	---
+1135	
+1136	## Task 11: Hand-author the 2 template-assembly smithing recipes
+1137	
+1138	**Files:**
+1139	- Create: `src/main/resources/data/dndweapons/recipe/diamond_weapon_upgrade_template_assemble.json`
+1140	- Create: `src/main/resources/data/dndweapons/recipe/netherite_weapon_upgrade_template_assemble.json`
+1141	
+1142	- [ ] **Step 1: Diamond template assembly**
+1143	
+1144	```json
+1145	{
+1146	  "type": "minecraft:smithing_transform",
+1147	  "template": { "id": "minecraft:netherite_upgrade_smithing_template" },
+1148	  "base":     { "id": "dndweapons:diamond_template_core" },
+1149	  "addition": { "tag": "c:gems/diamond" },
+1150	  "result":   { "id": "dndweapons:diamond_weapon_upgrade_template" }
+1151	}
+1152	```
+1153	
+1154	Save to `diamond_weapon_upgrade_template_assemble.json`.
+1155	
+1156	- [ ] **Step 2: Netherite template assembly**
+1157	
+1158	```json
+1159	{
+1160	  "type": "minecraft:smithing_transform",
+1161	  "template": { "id": "minecraft:netherite_upgrade_smithing_template" },
+1162	  "base":     { "id": "dndweapons:netherite_template_core" },
+1163	  "addition": { "tag": "c:ingots/netherite" },
+1164	  "result":   { "id": "dndweapons:netherite_weapon_upgrade_template" }
+1165	}
+1166	```
+1167	
+1168	Save to `netherite_weapon_upgrade_template_assemble.json`.
+1169	
+1170	- [ ] **Step 3: Build all 5 versions**
+1171	
+1172	Run: `./gradlew chiseledBuild`
+1173	Expected: BUILD SUCCESSFUL.
+1174	
+1175	- [ ] **Step 4: Commit**
+1176	
+1177	```bash
+1178	git add src/main/resources/data/dndweapons/recipe/diamond_weapon_upgrade_template_assemble.json \
+1179	        src/main/resources/data/dndweapons/recipe/netherite_weapon_upgrade_template_assemble.json
+1180	git commit -m "phase 4: 2 final smithing-table template-assembly recipes"
+1181	```
+1182	
+1183	---
+1184	
+1185	## Task 12: Generate textures via the minecraft-asset-generator agent
+1186	
+1187	**Files:** all under `src/main/resources/assets/dndweapons/textures/item/`
+1188	- Create: 54 weapon variant PNGs (`<base>_diamond.png` × 27 and `<base>_netherite.png` × 27)
+1189	- Create: 8 smithing-system PNGs (4 components + 2 cores + 2 templates)
+1190	
+1191	- [ ] **Step 1: List all 62 texture targets**
+1192	
+1193	Run: `./gradlew :1.20.1:test --tests com.dndweapons.catalog.WeaponsAllTieredTest 2>&1 || true`
+1194	
+1195	Build the target list by hand from `Weapons.ALL_TIERED`. The 54 weapon textures correspond to the 27 base ids each appearing with `_diamond` and `_netherite` suffixes:
+1196	
+1197	```
+1198	battleaxe_diamond.png, battleaxe_netherite.png,
+1199	club_diamond.png, club_netherite.png,
+1200	dagger_diamond.png, dagger_netherite.png,
+1201	... (continue for all 27 base ids)
+1202	```
+1203	
+1204	Plus the 8 smithing-system textures:
+1205	
+1206	```
+1207	diamond_template_fragment.png
+1208	weapon_smithing_binding.png
+1209	diamond_template_core.png
+1210	netherite_template_fragment.png
+1211	infernal_binding.png
+1212	netherite_template_core.png
+1213	diamond_weapon_upgrade_template.png
+1214	netherite_weapon_upgrade_template.png
+1215	```
+1216	
+1217	- [ ] **Step 2: Dispatch the minecraft-asset-generator agent for weapon-tier batches**
+1218	
+1219	Dispatch the agent at `D:/minecraft/.claude/agents/minecraft-asset-generator.md` with a prompt template like:
+1220	
+1221	```
+1222	Generate Minecraft item textures (16x16 PNG, transparent background, vanilla pixel-art style).
+1223	
+1224	I need a tiered variant of an existing iron-tier weapon texture. The shape, hilt, guard,
+1225	and silhouette MUST match the iron variant exactly — only the blade-material color
+1226	shifts. Attached: the iron-tier reference texture.
+1227	
+1228	Tier: diamond (or netherite)
+1229	Color palette:
+1230	  - diamond blade: cyan (#5DECF5) with light gray (#A9A9A9) shading
+1231	  - netherite blade: dark grey-brown (#443A3B) with faint purple (#5B2A5C) highlights
+1232	
+1233	Lighting: top-left light source, single-pixel shading on the blade edge.
+1234	Output: 16x16 PNG, no antialiasing.
+1235	
+1236	Reference iron texture: <attach src/main/resources/assets/dndweapons/textures/item/<base>.png>
+1237	```
+1238	
+1239	Run the agent in batches of 5 (10 textures per batch since each batch covers 5 weapons × 2 tiers). Save each output to `src/main/resources/assets/dndweapons/textures/item/<base>_<tier>.png`.
+1240	
+1241	- [ ] **Step 3: Dispatch the agent for the 8 smithing-system textures**
+1242	
+1243	Use per-asset prompts (the iron-reference attachment trick doesn't apply since these have no iron variant):
+1244	
+1245	```
+1246	- diamond_template_fragment.png: "shard of a glowing cyan diamond rune, broken edge,
+1247	                                  ornate smithing-template fragment, MC pixel art, 16x16"
+1248	- netherite_template_fragment.png: "shard of a dark netherite rune with faint purple
+1249	                                    glow, broken edge, ornate smithing-template fragment"
+1250	- weapon_smithing_binding.png:    "spool of waxed cord wrapped around a brass rivet,
+1251	                                   weapon-grip binding, top-down view"
+1252	- infernal_binding.png:           "spool of nether-charred cord around a blackstone rivet"
+1253	- diamond_template_core.png:      "circular medallion engraved with a complete diamond
+1254	                                   rune, cyan glow center, dark-bronze ring"
+1255	- netherite_template_core.png:    "circular medallion engraved with a complete netherite
+1256	                                   rune, dark purple glow, blackstone ring"
+1257	- diamond_weapon_upgrade_template.png:  "ornate cyan smithing template, vanilla template
+1258	                                         silhouette, diamond-rune center"
+1259	- netherite_weapon_upgrade_template.png:"ornate dark smithing template, vanilla template
+1260	                                         silhouette, netherite-rune center"
+1261	```
+1262	
+1263	- [ ] **Step 4: Verify all 62 textures landed**
+1264	
+1265	Run:
+1266	```bash
+1267	expected=62
+1268	actual=$(ls src/main/resources/assets/dndweapons/textures/item/ | grep -cE "(_diamond|_netherite|_template|_fragment|_binding|_core)\.png$")
+1269	echo "Expected: $expected, actual: $actual"
+1270	[ "$actual" -ge "$expected" ] && echo "OK" || echo "MISSING — list:" && \
+1271	  for f in $(jq -r '...' /dev/null 2>/dev/null); do : ; done
+1272	```
+1273	
+1274	Spot-check 3 textures by opening them in an image viewer and confirming they look like Minecraft items (16x16, transparent bg, recognizable shape).
+1275	
+1276	- [ ] **Step 5: Commit textures**
+1277	
+1278	```bash
+1279	git add src/main/resources/assets/dndweapons/textures/item/
+1280	git commit -m "phase 4: 54 tier-variant weapon textures + 8 smithing-system textures (Gemini)"
+1281	```
+1282	
+1283	---
+1284	
+1285	## Task 13: SmithingGametest — `smithingDiamondUpgradePreservesSpec`
+1286	
+1287	**Files:**
+1288	- Create: `src/main/kotlin/com/dndweapons/test/SmithingGametest.kt`
+1289	
+1290	- [ ] **Step 1: Inspect existing gametest for style**
+1291	
+1292	Run: `head -60 src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt`
+1293	
+1294	Note the version-gated `@GameTest(template = ...)` vs `@GameTest(structure = ...)` and the `FabricGameTest` interface (1.20.1) vs no-base-class (1.21.5+) pattern. Mirror this in SmithingGametest.
+1295	
+1296	- [ ] **Step 2: Create the gametest file**
+1297	
+1298	```kotlin
+1299	// src/main/kotlin/com/dndweapons/test/SmithingGametest.kt
+1300	package com.dndweapons.test
+1301	
+1302	import com.dndweapons.DndWeaponsMod
+1303	import com.dndweapons.catalog.Property
+1304	import com.dndweapons.catalog.Tier
+1305	import com.dndweapons.catalog.Weapons
+1306	import com.dndweapons.registry.SpecRegistry
+1307	import net.minecraft.core.registries.BuiltInRegistries
+1308	
+1309	//? if <1.21.11 {
+1310	import net.minecraft.resources.ResourceLocation
+1311	//?}
+1312	//? if >=1.21.11 {
+1313	/*import net.minecraft.resources.Identifier as ResourceLocation
+1314	*///?}
+1315	
+1316	//? if <1.21.5 {
+1317	import net.fabricmc.fabric.api.gametest.v1.FabricGameTest
+1318	import net.minecraft.gametest.framework.GameTest
+1319	import net.minecraft.gametest.framework.GameTestHelper
+1320	
+1321	class SmithingGametest : FabricGameTest {
+1322	
+1323	    @GameTest(template = "fabric-gametest-api-v1:empty")
+1324	    fun smithingDiamondUpgradePreservesSpec(ctx: GameTestHelper) = runDiamondPreservesSpec(ctx)
+1325	}
+1326	//?}
+1327	
+1328	//? if >=1.21.5 {
+1329	
+1330	/*import net.fabricmc.fabric.api.gametest.v1.GameTest
+1331	import net.minecraft.gametest.framework.GameTestHelper
+1332	
+1333	class SmithingGametest {
+1334	
+1335	    @GameTest(structure = "fabric-gametest-api-v1:empty")
+1336	    fun smithingDiamondUpgradePreservesSpec(ctx: GameTestHelper) = runDiamondPreservesSpec(ctx)
+1337	}
+1338	
+1339	*///?}
+1340	
+1341	private fun runDiamondPreservesSpec(ctx: GameTestHelper) {
+1342	    val baseSpec = Weapons.LONGSWORD
+1343	    //? if >=1.21 {
+1344	    val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword_diamond")
+1345	    //?} else {
+1346	    /*val itemId = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword_diamond")
+1347	    *///?}
+1348	    //? if >=1.21.2 {
+1349	    val item = BuiltInRegistries.ITEM.get(itemId).orElseThrow {
+1350	        AssertionError("longsword_diamond not registered")
+1351	    }.value()
+1352	    //?} else {
+1353	    /*val item = BuiltInRegistries.ITEM.get(itemId)
+1354	        ?: throw AssertionError("longsword_diamond not registered")
+1355	    *///?}
+1356	
+1357	    val spec = SpecRegistry.lookup(item)
+1358	        ?: throw AssertionError("longsword_diamond has no WeaponSpec")
+1359	
+1360	    if (spec.id != "longsword_diamond")
+1361	        throw AssertionError("Expected id 'longsword_diamond', got '${spec.id}'")
+1362	    if (spec.attackDamage != baseSpec.attackDamage + Tier.DIAMOND.damageBonus)
+1363	        throw AssertionError("Expected attackDamage ${baseSpec.attackDamage + 1}, got ${spec.attackDamage}")
+1364	    if (spec.baseDurability != Tier.DIAMOND.durability)
+1365	        throw AssertionError("Expected durability ${Tier.DIAMOND.durability}, got ${spec.baseDurability}")
+1366	    if (spec.properties != baseSpec.properties)
+1367	        throw AssertionError("Properties mismatch: ${spec.properties} vs ${baseSpec.properties}")
+1368	    if (Property.VERSATILE !in spec.properties)
+1369	        throw AssertionError("Diamond longsword should still be VERSATILE")
+1370	    ctx.succeed()
+1371	}
+1372	```
+1373	
+1374	- [ ] **Step 3: Register the new gametest class in fabric.mod.json**
+1375	
+1376	Open `src/main/resources/fabric.mod.json` and add `"com.dndweapons.test.SmithingGametest"` to the `fabric-gametest` entrypoint list (alongside the existing 3 entries).
+1377	
+1378	- [ ] **Step 4: Run gametests, focus on 1.20.1 first**
+1379	
+1380	Run: `./gradlew :1.20.1:runGametest --console=plain 2>&1 | grep -E "smithingdiamondupgradepreservesspec|GAME TESTS COMPLETE"`
+1381	Expected: a `smithingdiamondupgradepreservesspec` test entry with PASS, plus the existing 9 combat + 2 tooltip = 11 tests now 12 with the new one.
+1382	
+1383	- [ ] **Step 5: Run all 5 versions**
+1384	
+1385	Run: `./gradlew chiseledRunGametest`
+1386	Expected: all versions green (each adds 1 to its pre-Phase-4 total).
+1387	
+1388	- [ ] **Step 6: Commit**
+1389	
+1390	```bash
+1391	git add src/main/kotlin/com/dndweapons/test/SmithingGametest.kt src/main/resources/fabric.mod.json
+1392	git commit -m "phase 4: gametest smithingDiamondUpgradePreservesSpec"
+1393	```
+1394	
+1395	---
+1396	
+1397	## Task 14: SmithingGametest — `netheriteFireImmunityFires`
+1398	
+1399	**Files:**
+1400	- Modify: `src/main/kotlin/com/dndweapons/test/SmithingGametest.kt`
+1401	
+1402	- [ ] **Step 1: Add the new @GameTest method to both class branches**
+1403	
+1404	In `SmithingGametest.kt`, inside the `<1.21.5` class body add:
+1405	
+1406	```kotlin
+1407	    @GameTest(template = "fabric-gametest-api-v1:empty")
+1408	    fun netheriteFireImmunityFires(ctx: GameTestHelper) = runNetheriteFireImmunity(ctx)
+1409	```
+1410	
+1411	And inside the `>=1.21.5` commented-out class body, add (within the `/*...*/`):
+1412	
+1413	```
+1414	    @GameTest(structure = "fabric-gametest-api-v1:empty")
+1415	    fun netheriteFireImmunityFires(ctx: GameTestHelper) = runNetheriteFireImmunity(ctx)
+1416	```
+1417	
+1418	- [ ] **Step 2: Add the helper at the bottom of the file**
+1419	
+1420	```kotlin
+1421	private fun runNetheriteFireImmunity(ctx: GameTestHelper) {
+1422	    // Spawn a netherite-tier item entity in mid-air over a lava block. Wait 60 ticks.
+1423	    // Assert the entity is still alive. Then repeat with iron-tier and assert it
+1424	    // burns (sanity check that the fire-immune flag is what's keeping netherite alive).
+1425	    val world = ctx.level
+1426	
+1427	    // Place a lava block at structure-relative (2, 1, 2).
+1428	    val lavaPos = net.minecraft.core.BlockPos(2, 1, 2)
+1429	    ctx.setBlock(lavaPos, net.minecraft.world.level.block.Blocks.LAVA.defaultBlockState())
+1430	
+1431	    val abs = ctx.absolutePos(lavaPos)
+1432	    val nx = abs.x + 0.5; val ny = abs.y + 0.5; val nz = abs.z + 0.5
+1433	
+1434	    //? if >=1.21 {
+1435	    val netheriteId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword_netherite")
+1436	    val ironId      = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword")
+1437	    //?} else {
+1438	    /*val netheriteId = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword_netherite")
+1439	    val ironId      = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword")
+1440	    *///?}
+1441	    //? if >=1.21.2 {
+1442	    val netheriteItem = BuiltInRegistries.ITEM.get(netheriteId).orElseThrow().value()
+1443	    val ironItem      = BuiltInRegistries.ITEM.get(ironId).orElseThrow().value()
+1444	    //?} else {
+1445	    /*val netheriteItem = BuiltInRegistries.ITEM.get(netheriteId) ?: throw AssertionError("longsword_netherite missing")
+1446	    val ironItem      = BuiltInRegistries.ITEM.get(ironId)      ?: throw AssertionError("longsword missing")
+1447	    *///?}
+1448	
+1449	    val netheriteEntity = net.minecraft.world.entity.item.ItemEntity(
+1450	        world, nx, ny, nz, net.minecraft.world.item.ItemStack(netheriteItem),
+1451	    )
+1452	    world.addFreshEntity(netheriteEntity)
+1453	
+1454	    ctx.runAfterDelay(60L) {
+1455	        if (netheriteEntity.isRemoved)
+1456	            throw AssertionError("Netherite longsword burned up in lava — fireResistant flag not applied")
+1457	
+1458	        val ironEntity = net.minecraft.world.entity.item.ItemEntity(
+1459	            world, nx, ny, nz, net.minecraft.world.item.ItemStack(ironItem),
+1460	        )
+1461	        world.addFreshEntity(ironEntity)
+1462	
+1463	        ctx.runAfterDelay(30L) {
+1464	            if (!ironEntity.isRemoved)
+1465	                throw AssertionError("Iron longsword did NOT burn in lava — sanity check failed; the fire-immune test is meaningless")
+1466	            ctx.succeed()
+1467	        }
+1468	    }
+1469	}
+1470	```
+1471	
+1472	- [ ] **Step 3: Run the test on 1.20.1**
+1473	
+1474	Run: `./gradlew :1.20.1:runGametest --console=plain 2>&1 | grep -E "netheritefireimmunityfires"`
+1475	Expected: PASS.
+1476	
+1477	- [ ] **Step 4: Run all 5 versions**
+1478	
+1479	Run: `./gradlew chiseledRunGametest`
+1480	Expected: 12-tests (was 11, now +1 fire immunity) per version, all pass.
+1481	
+1482	- [ ] **Step 5: Commit**
+1483	
+1484	```bash
+1485	git add src/main/kotlin/com/dndweapons/test/SmithingGametest.kt
+1486	git commit -m "phase 4: gametest netheriteFireImmunityFires"
+1487	```
+1488	
+1489	---
+1490	
+1491	## Task 15: SmithingGametest — `tieredItemTriggersDnDMixin`
+1492	
+1493	**Files:**
+1494	- Modify: `src/main/kotlin/com/dndweapons/test/SmithingGametest.kt`
+1495	
+1496	This test proves that a diamond-tier item passes through both the vanilla attribute pipeline (tier bonus) and the Phase 3 DnD mixin (VERSATILE bonus).
+1497	
+1498	- [ ] **Step 1: Add the @GameTest method to both class branches**
+1499	
+1500	In `SmithingGametest.kt`, inside the `<1.21.5` class body:
+1501	
+1502	```kotlin
+1503	    @GameTest(template = "fabric-gametest-api-v1:empty")
+1504	    fun tieredItemTriggersDnDMixin(ctx: GameTestHelper) = runTieredMixinCase(ctx)
+1505	```
+1506	
+1507	And inside the `>=1.21.5` commented-out class:
+1508	
+1509	```
+1510	    @GameTest(structure = "fabric-gametest-api-v1:empty")
+1511	    fun tieredItemTriggersDnDMixin(ctx: GameTestHelper) = runTieredMixinCase(ctx)
+1512	```
+1513	
+1514	- [ ] **Step 2: Add the helper at the bottom of the file**
+1515	
+1516	```kotlin
+1517	private fun runTieredMixinCase(ctx: GameTestHelper) {
+1518	    // Mock player + diamond longsword (VERSATILE) + empty offhand. Expected damage:
+1519	    //   base (longsword 5) + diamond tier (+1) + VERSATILE empty bonus (+1) = 7.
+1520	    //? if >=1.21.1 {
+1521	    val player = ctx.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL)
+1522	    //?} else {
+1523	    /*val player = ctx.makeMockPlayer()
+1524	    *///?}
+1525	
+1526	    //? if >=1.21 {
+1527	    val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword_diamond")
+1528	    //?} else {
+1529	    /*val itemId = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword_diamond")
+1530	    *///?}
+1531	    //? if >=1.21.2 {
+1532	    val item = BuiltInRegistries.ITEM.get(itemId).orElseThrow().value()
+1533	    //?} else {
+1534	    /*val item = BuiltInRegistries.ITEM.get(itemId)!!
+1535	    *///?}
+1536	
+1537	    val weapon = net.minecraft.world.item.ItemStack(item)
+1538	    player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, weapon)
+1539	    player.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, net.minecraft.world.item.ItemStack.EMPTY)
+1540	    player.isSprinting = false
+1541	
+1542	    val pigPos = net.minecraft.core.BlockPos(2, 1, 2)
+1543	    //? if <1.21.11 {
+1544	    val pig = ctx.spawn(net.minecraft.world.entity.EntityType.PIG, pigPos)
+1545	        as net.minecraft.world.entity.animal.Pig
+1546	    //?} else {
+1547	    /*val pig = ctx.spawn(net.minecraft.world.entity.EntityType.PIG, pigPos)
+1548	        as net.minecraft.world.entity.animal.pig.Pig
+1549	    *///?}
+1550	
+1551	    val before = pig.health
+1552	    primeAttackStrength(player)   // helper from CombatHooksGametest.kt
+1553	    player.attack(pig)
+1554	    val after = pig.health
+1555	    val dealt = before - after
+1556	
+1557	    val expected = (Weapons.LONGSWORD.attackDamage + Tier.DIAMOND.damageBonus + 1).toFloat()  // +1 versatile
+1558	    val tol = 0.5f
+1559	    if (Math.abs(dealt - expected) > tol) {
+1560	        throw AssertionError(
+1561	            "Tiered diamond longsword + VERSATILE empty: dealt=$dealt expected~$expected " +
+1562	                "(base=${Weapons.LONGSWORD.attackDamage}, tier=+${Tier.DIAMOND.damageBonus}, versatile=+1)"
+1563	        )
+1564	    }
+1565	    ctx.succeed()
+1566	}
+1567	```
+1568	
+1569	- [ ] **Step 3: Note on shared helpers**
+1570	
+1571	`primeAttackStrength` is defined as a private top-level function in `CombatHooksGametest.kt`. Kotlin's `private top-level` is file-private, so SmithingGametest cannot call it. Either:
+1572	- (a) Promote `primeAttackStrength` and `applyMainHandModifiers` to `internal` visibility (or move them to a shared `TestHelpers.kt`); OR
+1573	- (b) Copy the helper into SmithingGametest.kt.
+1574	
+1575	Choose (a). Move both helpers to a new file `src/main/kotlin/com/dndweapons/test/TestHelpers.kt`:
+1576	
+1577	```kotlin
+1578	package com.dndweapons.test
+1579	
+1580	import net.minecraft.world.entity.LivingEntity
+1581	import net.minecraft.world.item.ItemStack
+1582	
+1583	internal fun primeAttackStrength(entity: LivingEntity) {
+1584	    entity.attackStrengthTicker = 100
+1585	    applyMainHandModifiers(entity)
+1586	}
+1587	
+1588	internal fun applyMainHandModifiers(entity: LivingEntity) {
+1589	    val stack = entity.mainHandItem
+1590	    if (stack.isEmpty) return
+1591	    try {
+1592	        applyMainHandModifiersImpl(entity, stack)
+1593	    } catch (t: Throwable) {
+1594	        println("[applyMainHandModifiers] threw on ${entity.javaClass.name} with ${stack.item}: ${t.javaClass.name}: ${t.message}")
+1595	        t.printStackTrace()
+1596	        throw t
+1597	    }
+1598	}
+1599	
+1600	private fun applyMainHandModifiersImpl(entity: LivingEntity, stack: ItemStack) {
+1601	    //? if >=1.20.5 {
+1602	    val mods = stack.get(net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS) ?: return
+1603	    val map = com.google.common.collect.HashMultimap.create<net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute>, net.minecraft.world.entity.ai.attributes.AttributeModifier>()
+1604	    for (entry in mods.modifiers()) {
+1605	        if (entry.slot() == net.minecraft.world.entity.EquipmentSlotGroup.MAINHAND ||
+1606	            entry.slot() == net.minecraft.world.entity.EquipmentSlotGroup.HAND ||
+1607	            entry.slot() == net.minecraft.world.entity.EquipmentSlotGroup.ANY) {
+1608	            map.put(entry.attribute(), entry.modifier())
+1609	        }
+1610	    }
+1611	    entity.attributes.addTransientAttributeModifiers(map)
+1612	    //?} else {
+1613	    /*val item = stack.item
+1614	    val mm = item.getDefaultAttributeModifiers(net.minecraft.world.entity.EquipmentSlot.MAINHAND)
+1615	    entity.attributes.addTransientAttributeModifiers(mm)
+1616	    *///?}
+1617	}
+1618	```
+1619	
+1620	Then DELETE the `private fun primeAttackStrength` and `private fun applyMainHandModifiers` / `applyMainHandModifiersImpl` declarations from `CombatHooksGametest.kt` (their definitions; the call sites stay).
+1621	
+1622	- [ ] **Step 4: Run gametests on 1.20.1**
+1623	
+1624	Run: `./gradlew :1.20.1:runGametest --console=plain 2>&1 | grep -E "tiereditemtriggers|GAME TESTS COMPLETE"`
+1625	Expected: PASS for `tiereditemtriggersdndmixin`. The full count should be 13 tests on 1.20.1 (was 11 pre-Phase-4, +2 smithing tests).
+1626	
+1627	- [ ] **Step 5: Run all 5 versions**
+1628	
+1629	Run: `./gradlew chiseledRunGametest`
+1630	Expected: all green.
+1631	
+1632	- [ ] **Step 6: Commit**
+1633	
+1634	```bash
+1635	git add src/main/kotlin/com/dndweapons/test/SmithingGametest.kt src/main/kotlin/com/dndweapons/test/TestHelpers.kt src/main/kotlin/com/dndweapons/test/CombatHooksGametest.kt
+1636	git commit -m "phase 4: gametest tieredItemTriggersDnDMixin + extract TestHelpers"
+1637	```
+1638	
+1639	---
+1640	
+1641	## Task 16: SmithingTemplateLootInjector — stronghold and bastion loot
+1642	
+1643	**Files:**
+1644	- Create: `src/main/kotlin/com/dndweapons/loot/SmithingTemplateLootInjector.kt`
+1645	- Modify: `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt` (call `SmithingTemplateLootInjector.register()` on mod init)
+1646	
+1647	- [ ] **Step 1: Inspect any existing loot-injection patterns in the repo**
+1648	
+1649	Run: `grep -rn "LootTableEvents" src/main/kotlin/ 2>&1 | head -5`
+1650	
+1651	Likely no prior Phase-2b loot-injection code exists (Phase 2b only ships recipes/textures/lang). If so, this task introduces the first loot-injection class.
+1652	
+1653	- [ ] **Step 2: Create the loot injector**
+1654	
+1655	```kotlin
+1656	// src/main/kotlin/com/dndweapons/loot/SmithingTemplateLootInjector.kt
+1657	package com.dndweapons.loot
+1658	
+1659	import com.dndweapons.DndWeaponsMod
+1660	import com.dndweapons.item.SmithingTemplateItems
+1661	import net.fabricmc.fabric.api.loot.v2.LootTableEvents
+1662	import net.minecraft.world.level.storage.loot.entries.LootItem
+1663	import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction
+1664	import net.minecraft.world.level.storage.loot.providers.number.ConstantValue
+1665	
+1666	//? if <1.21.11 {
+1667	import net.minecraft.resources.ResourceLocation
+1668	//?}
+1669	//? if >=1.21.11 {
+1670	/*import net.minecraft.resources.Identifier as ResourceLocation
+1671	*///?}
+1672	
+1673	/**
+1674	 * Injects the diamond and netherite smithing-upgrade templates into vanilla loot
+1675	 * tables so players can discover them outside of the crafting path.
+1676	 *
+1677	 *  - Stronghold library (low chance, weight 5) -> diamond template
+1678	 *  - Bastion treasure (lower chance, weight 3) -> netherite template
+1679	 *
+1680	 * Uses the Fabric Loot API v2 LootTableEvents.MODIFY hook, available since 1.20.x
+1681	 * on all our target versions. Resource locations differ per MC version for table
+1682	 * identifiers; the table strings below are stable in all 5 targets.
+1683	 */
+1684	object SmithingTemplateLootInjector {
+1685	
+1686	    private const val STRONGHOLD_LIBRARY = "minecraft:chests/stronghold_library"
+1687	    private const val BASTION_TREASURE = "minecraft:chests/bastion_treasure"
+1688	
+1689	    fun register() {
+1690	        LootTableEvents.MODIFY.register { key, builder, source, _ ->
+1691	            //? if >=1.21.1 {
+1692	            val tableId = key.location().toString()
+1693	            //?} else {
+1694	            /*val tableId = key.toString()
+1695	            *///?}
+1696	
+1697	            when (tableId) {
+1698	                STRONGHOLD_LIBRARY -> builder.pool(
+1699	                    net.minecraft.world.level.storage.loot.LootPool.lootPool()
+1700	                        .setRolls(ConstantValue.exactly(1.0f))
+1701	                        .add(LootItem.lootTableItem(SmithingTemplateItems.DIAMOND)
+1702	                            .apply(SetItemCountFunction.setCount(ConstantValue.exactly(1.0f)))
+1703	                            .setWeight(5))
+1704	                        .add(net.minecraft.world.level.storage.loot.entries.EmptyLootItem.emptyItem().setWeight(95))
+1705	                        .build()
+1706	                )
+1707	                BASTION_TREASURE -> builder.pool(
+1708	                    net.minecraft.world.level.storage.loot.LootPool.lootPool()
+1709	                        .setRolls(ConstantValue.exactly(1.0f))
+1710	                        .add(LootItem.lootTableItem(SmithingTemplateItems.NETHERITE)
+1711	                            .apply(SetItemCountFunction.setCount(ConstantValue.exactly(1.0f)))
+1712	                            .setWeight(3))
+1713	                        .add(net.minecraft.world.level.storage.loot.entries.EmptyLootItem.emptyItem().setWeight(97))
+1714	                        .build()
+1715	                )
+1716	            }
+1717	        }
+1718	        DndWeaponsMod.LOGGER.info("Registered smithing-template loot injectors (stronghold + bastion).")
+1719	    }
+1720	}
+1721	```
+1722	
+1723	- [ ] **Step 3: Wire it into mod init**
+1724	
+1725	In `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt`, after `SmithingItemRegistrar.registerAll()`, add:
+1726	
+1727	```kotlin
+1728	SmithingTemplateLootInjector.register()
+1729	```
+1730	
+1731	And the import:
+1732	
+1733	```kotlin
+1734	import com.dndweapons.loot.SmithingTemplateLootInjector
+1735	```
+1736	
+1737	- [ ] **Step 4: Build all 5 versions**
+1738	
+1739	Run: `./gradlew chiseledBuild`
+1740	Expected: BUILD SUCCESSFUL. If `LootTableEvents.MODIFY.register { ... }` fails to type-check on a specific version (the lambda signature changed between v2 and v3), fork the lambda body via `//? if <1.21.1 { ... } //?}` and `//? if >=1.21.1 { /*...*/ //?}`.
+1741	
+1742	- [ ] **Step 5: Run gametests**
+1743	
+1744	Run: `./gradlew chiseledRunGametest`
+1745	Expected: all 13 tests pass per version (loot injection runs at server startup; no test directly probes it but a crash in the injector lambda would fail mod init).
+1746	
+1747	- [ ] **Step 6: Commit**
+1748	
+1749	```bash
+1750	git add src/main/kotlin/com/dndweapons/loot/SmithingTemplateLootInjector.kt src/main/kotlin/com/dndweapons/DndWeaponsMod.kt
+1751	git commit -m "phase 4: loot inject smithing templates into stronghold + bastion"
+1752	```
+1753	
+1754	---
+1755	
+1756	## Task 17: SmithingTemplateTrades — wandering-trader trades
+1757	
+1758	**Files:**
+1759	- Create: `src/main/kotlin/com/dndweapons/trade/SmithingTemplateTrades.kt`
+1760	- Modify: `src/main/kotlin/com/dndweapons/DndWeaponsMod.kt`
+1761	
+1762	- [ ] **Step 1: Create the trades class**
+1763	
+1764	```kotlin
+1765	// src/main/kotlin/com/dndweapons/trade/SmithingTemplateTrades.kt
+1766	package com.dndweapons.trade
+1767	
+1768	import com.dndweapons.DndWeaponsMod
+1769	import com.dndweapons.item.SmithingTemplateItems
+1770	import net.fabricmc.fabric.api.`object`.builder.v1.trade.TradeOfferHelper
+1771	import net.minecraft.world.item.ItemStack
+1772	import net.minecraft.world.item.Items
+1773	import net.minecraft.world.item.trading.MerchantOffer
+1774	
+1775	/**
+1776	 * Adds rare wandering-trader trades for the 2 smithing-upgrade templates. Each trade
+1777	 * is uses-capped at 1 per trader spawn so it doesn't dominate the trader's listings.
+1778	 *
+1779	 *  - 32 emeralds + 1 emerald block -> 1 diamond_weapon_upgrade_template
+1780	 *  - 48 emeralds + 1 diamond block -> 1 netherite_weapon_upgrade_template
+1781	 *
+1782	 * Uses Fabric's TradeOfferHelper.registerWanderingTraderOffers at level 2 (rare).
+1783	 */
+1784	object SmithingTemplateTrades {
+1785	
+1786	    fun register() {
+1787	        TradeOfferHelper.registerWanderingTraderOffers(2) { factories ->
+1788	            factories.add { _, _ ->
+1789	                MerchantOffer(
+1790	                    net.minecraft.world.item.trading.ItemCost(Items.EMERALD, 32),
+1791	                    java.util.Optional.of(net.minecraft.world.item.trading.ItemCost(Items.EMERALD_BLOCK, 1)),
+1792	                    ItemStack(SmithingTemplateItems.DIAMOND, 1),
+1793	                    /* uses        = */ 0,
+1794	                    /* maxUses     = */ 1,
+1795	                    /* xp          = */ 30,
+1796	                    /* priceMult   = */ 0.05f,
+1797	                )
+1798	            }
+1799	            factories.add { _, _ ->
+1800	                MerchantOffer(
+1801	                    net.minecraft.world.item.trading.ItemCost(Items.EMERALD, 48),
+1802	                    java.util.Optional.of(net.minecraft.world.item.trading.ItemCost(Items.DIAMOND_BLOCK, 1)),
+1803	                    ItemStack(SmithingTemplateItems.NETHERITE, 1),
+1804	                    0, 1, 40, 0.05f,
+1805	                )
+1806	            }
+1807	        }
+1808	        DndWeaponsMod.LOGGER.info("Registered wandering-trader trades for 2 smithing templates.")
+1809	    }
+1810	}
+1811	```
+1812	
+1813	The `ItemCost` and `MerchantOffer(ItemCost, Optional<ItemCost>, ItemStack, ...)` constructor shape is stable on 1.21.1+. For 1.20.1 the API differs (uses `ItemStack` directly for cost). Add a stonecutter fork:
+1814	
+1815	```kotlin
+1816	//? if >=1.21.1 {
+1817	TradeOfferHelper.registerWanderingTraderOffers(2) { factories ->
+1818	    /* (use the ItemCost-based offers above) */
+1819	}
+1820	//?} else {
+1821	/*TradeOfferHelper.registerWanderingTraderOffers(2) { factories ->
+1822	    factories.add(net.minecraft.world.entity.npc.VillagerTrades.TradeListing { _, _ ->
+1823	        MerchantOffer(
+1824	            ItemStack(Items.EMERALD, 32),
+1825	            ItemStack(Items.EMERALD_BLOCK, 1),
+1826	            ItemStack(SmithingTemplateItems.DIAMOND, 1),
+1827	            0, 1, 30, 0.05f
+1828	        )
+1829	    })
+1830	    factories.add(net.minecraft.world.entity.npc.VillagerTrades.TradeListing { _, _ ->
+1831	        MerchantOffer(
+1832	            ItemStack(Items.EMERALD, 48),
+1833	            ItemStack(Items.DIAMOND_BLOCK, 1),
+1834	            ItemStack(SmithingTemplateItems.NETHERITE, 1),
+1835	            0, 1, 40, 0.05f
+1836	        )
+1837	    })
+1838	}
+1839	*///?}
+1840	```
+1841	
+1842	Verify the exact 1.20.1 trade-listing factory signature with `javap -p versions/1.20.1/.../VillagerTrades$TradeListing` if the build fails — Fabric's helper API has shifted slightly across versions.
+1843	
+1844	- [ ] **Step 2: Wire into mod init**
+1845	
+1846	In `DndWeaponsMod.kt`, after `SmithingTemplateLootInjector.register()`:
+1847	
+1848	```kotlin
+1849	SmithingTemplateTrades.register()
+1850	```
+1851	
+1852	```kotlin
+1853	import com.dndweapons.trade.SmithingTemplateTrades
+1854	```
+1855	
+1856	- [ ] **Step 3: Build all 5 versions**
+1857	
+1858	Run: `./gradlew chiseledBuild`
+1859	Expected: BUILD SUCCESSFUL. Most likely failure point is the per-version trade API; fix by forking.
+1860	
+1861	- [ ] **Step 4: Run gametests**
+1862	
+1863	Run: `./gradlew chiseledRunGametest`
+1864	Expected: all 13 tests still pass per version.
+1865	
+1866	- [ ] **Step 5: Commit**
+1867	
+1868	```bash
+1869	git add src/main/kotlin/com/dndweapons/trade/SmithingTemplateTrades.kt src/main/kotlin/com/dndweapons/DndWeaponsMod.kt
+1870	git commit -m "phase 4: wandering-trader trades for 2 smithing templates"
+1871	```
+1872	
+1873	---
+1874	
+1875	## Task 18: Full matrix verification + Phase 4 verification doc
+1876	
+1877	**Files:**
+1878	- Create: `docs/superpowers/plans/phase-4-verification-final.md`
+1879	
+1880	- [ ] **Step 1: Run the full matrix**
+1881	
+1882	```bash
+1883	./gradlew chiseledBuild chiseledTest chiseledRunGametest
+1884	```
+1885	
+1886	Expected:
+1887	- `chiseledBuild` GREEN on all 5 versions
+1888	- `chiseledTest` GREEN on all 5 versions (the new TierTest, WeaponSpecAtTierTest, WeaponsAllTieredTest run on each)
+1889	- `chiseledRunGametest` GREEN on all 5 versions: 13 mod tests per version (was 11 in Phase 3, +3 smithing tests), plus the 1-2 vanilla `minecraft:always_pass` on 1.21.11+ for 14-15 per version.
+1890	
+1891	- [ ] **Step 2: Tally per version**
+1892	
+1893	```bash
+1894	for v in 1.20.1 1.21.1 1.21.4 1.21.11 26.1.2; do
+1895	  total=$(cat "versions/$v/build/gametest-report.xml" 2>/dev/null | grep -o "<testcase" | wc -l)
+1896	  fails=$(cat "versions/$v/build/gametest-report.xml" 2>/dev/null | grep -o "<failure" | wc -l)
+1897	  echo "$v: $((total - fails))/$total pass"
+1898	done
+1899	```
+1900	
+1901	Expected: every line shows `13/13` or `14/14` per version with 0 failures.
+1902	
+1903	- [ ] **Step 3: Write the verification doc**
+1904	
+1905	Save to `docs/superpowers/plans/phase-4-verification-final.md` with this template (fill in actual numbers):
+1906	
+1907	```markdown
+1908	# Phase 4 Verification — Final
+1909	
+1910	**Date:** YYYY-MM-DD
+1911	**Branch / commit:** main / <sha>
+1912	**Verified locally via:** ./gradlew chiseledBuild chiseledTest chiseledRunGametest
+1913	
+1914	## Top-line result
+1915	| Check | Versions | Status |
+1916	|---|---|---|
+1917	| chiseledBuild | all 5 | GREEN |
+1918	| chiseledTest  | all 5 | GREEN |
+1919	| chiseledRunGametest | all 5 | GREEN (13 mod tests + 1-2 vanilla = N/N per version) |
+1920	
+1921	## Per-version gametest tally
+1922	- 1.20.1: 13/13
+1923	- 1.21.1: 13/13
+1924	- 1.21.4: 13/13
+1925	- 1.21.11: 14/14 (includes minecraft:always_pass)
+1926	- 26.1.2: 14/14 (includes minecraft:always_pass)
+1927	
+1928	## New artifacts
+1929	- 62 registered items (54 tiered weapons + 6 components + 2 templates)
+1930	- 62 recipes (54 smithing-transform + 6 component-crafting + 2 final-smithing-assembly)
+1931	- 66 lang entries
+1932	- 62 textures (Gemini-generated)
+1933	- 62 model JSONs (codegen-emitted)
+1934	- 3 new gametests (smithingDiamondUpgradePreservesSpec, netheriteFireImmunityFires, tieredItemTriggersDnDMixin)
+1935	
+1936	## Tag command
+1937	git tag phase-4-smithing-ladder
+1938	git push origin phase-4-smithing-ladder
+1939	```
+1940	
+1941	- [ ] **Step 4: Commit the verification doc**
+1942	
+1943	```bash
+1944	git add docs/superpowers/plans/phase-4-verification-final.md
+1945	git commit -m "phase 4: final verification doc (all green, 5-version matrix)"
+1946	```
+1947	
+1948	- [ ] **Step 5: Create the tag**
+1949	
+1950	```bash
+1951	git tag phase-4-smithing-ladder
+1952	```
+1953	
+1954	(Push deferred until the user explicitly authorizes — same flow as Phase 3.)
+1955	
+1956	---
+1957	
+1958	## Self-Review (already done by plan author)
+1959	
+1960	**Spec coverage:**
+1961	- §1 Scope → Tasks 1–17 cover all enumerated deliverables. ✓
+1962	- §2 Decisions → All 14 decisions traceable to tasks (Tier in T1, atTier in T2, ALL_TIERED in T3, registrar in T4, mod-init in T5, fireResistant in T4, suffix convention in T1/T2, smithing items in T6/T7, recipes in T9–T11, loot in T16, trader in T17, art via agent in T12, Phase 3 carryover validated in T13/T15). ✓
+1963	- §3–§4 Tier spec + catalog wiring → T1–T3. ✓
+1964	- §5 Smithing system → T6 (components/cores), T7 (templates), T9–T11 (recipes). ✓
+1965	- §6 Template acquisition → T9–T11 (craft), T16 (loot), T17 (trader). ✓
+1966	- §7 Asset strategy → T9 (model JSONs), T12 (textures). ✓
+1967	- §8 Lang strings → T9 (emitted by codegen). ✓
+1968	- §9 Phase 3 compatibility → T13/T15 verify via gametest. ✓
+1969	- §10 Testing → T13/T14/T15 ship the 3 gametests. ✓
+1970	- §11 File-by-file change list → matches the File Map at the top of this plan. ✓
+1971	- §12 Open questions → mitigations baked into the relevant tasks (smithing-transform-1-per-slot → T6+T10 introduce cores; SmithingTemplateItem ctor skew → T7 step 1 dumps signature first; loot v2/v3 → T16 step 4 forks; trader API skew → T17 step 1 forks; Gemini style → T12 attaches iron reference; tiered + DnD bonus stacking regression → T15).
+1972	
+1973	**Placeholder scan:** No TBD/TODO/"implement later" in task bodies (the only TBD is the implementation-plan back-link in the spec front-matter, which is intentional).
+1974	
+1975	**Type consistency:**
+1976	- `Tier.IRON/DIAMOND/NETHERITE` properties used consistently in T1, T2, T3, T4, T13, T15.
+1977	- `WeaponSpec.atTier(t: Tier)` signature consistent.
+1978	- `WeaponRegistrar.register(spec, tier)` signature consistent across T4 and T5.
+1979	- `SmithingTemplateItems.DIAMOND/NETHERITE` referenced consistently in T7, T8, T16, T17.
+1980	- `SmithingComponentItems.*` constants referenced consistently in T6, T8, T10.
+1981	- `primeAttackStrength(LivingEntity)` consistent in T15 (extraction from CombatHooksGametest).
+1982	
+1983	---
+1984	
+1985	## Execution handoff
+1986	
+1987	Plan complete and saved to `docs/superpowers/plans/2026-05-17-dnd-weapons-phase-4-smithing-ladder.md`. Two execution options:
+1988	
+1989	1. **Subagent-Driven (recommended)** — I dispatch a fresh subagent per task, review between tasks, fast iteration.
+1990	2. **Inline Execution** — Execute tasks in this session using `superpowers:executing-plans`, batch execution with checkpoints.
+1991	
+1992	Which approach?
