@@ -1,6 +1,7 @@
 package com.dndweapons
 
 import com.dndweapons.catalog.Weapons
+import com.dndweapons.loot.SmithingTemplateLootInjector
 import com.dndweapons.registry.SmithingItemRegistrar
 import com.dndweapons.registry.SpecRegistry
 import com.dndweapons.registry.WeaponRegistrarImpl
@@ -53,6 +54,8 @@ object DndWeaponsMod : ModInitializer {
 
         SmithingItemRegistrar.registerAll()
         LOGGER.info("6 smithing-component items + 2 smithing-template items registered")
+
+        SmithingTemplateLootInjector.register()
 
         SpecRegistry.init()
         // WeaponTooltipInjector.register() is intentionally NOT called here -

@@ -1,0 +1,21 @@
+{
+  "wave_id": 6,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-6-agent-1": "CLEAN",
+    "wave-6-agent-2": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-6-agent-2-bug-1",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "LootTableEvents.MODIFY lambda uses 4-param signature without version gate; Fabric 0.92.6 (MC 1.20.1) only provides a 3-param overload",
+      "file": "src/main/kotlin/com/dndweapons/loot/SmithingTemplateLootInjector.kt",
+      "line": 35,
+      "evidence": "LootTableEvents.MODIFY.register { key, builder, source, _ ->",
+      "expected": "In fabric-api 0.92.6+1.20.1 the MODIFY event's functional interface accepts 3 parameters (ResourceLocation, FabricLootTableBuilder, LootTableSource). The 4-param form was added in newer Fabric API. Without a stonecutter gate, the 4-param lambda will fail to compile on the 1.20.1 fork.",
+      "suggested_fix": "Stonecutter-gate the lambda: 3-param form for <1.21, 4-param form for >=1.21."
+    }
+  ]
+}

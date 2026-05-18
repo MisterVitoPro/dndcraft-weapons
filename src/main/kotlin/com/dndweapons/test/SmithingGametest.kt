@@ -24,6 +24,9 @@ class SmithingGametest : FabricGameTest {
 
     @GameTest(template = "fabric-gametest-api-v1:empty")
     fun smithingDiamondUpgradePreservesSpec(ctx: GameTestHelper) = runDiamondPreservesSpec(ctx)
+
+    @GameTest(template = "fabric-gametest-api-v1:empty")
+    fun netheriteFireImmunityFires(ctx: GameTestHelper) = runNetheriteFireImmunity(ctx)
 }
 //?}
 
@@ -36,6 +39,9 @@ class SmithingGametest {
 
     @GameTest(structure = "fabric-gametest-api-v1:empty")
     fun smithingDiamondUpgradePreservesSpec(ctx: GameTestHelper) = runDiamondPreservesSpec(ctx)
+
+    @GameTest(structure = "fabric-gametest-api-v1:empty")
+    fun netheriteFireImmunityFires(ctx: GameTestHelper) = runNetheriteFireImmunity(ctx)
 }
 
 *///?}
@@ -70,4 +76,54 @@ private fun runDiamondPreservesSpec(ctx: GameTestHelper) {
     if (Property.VERSATILE !in spec.properties)
         throw AssertionError("Diamond longsword should still be VERSATILE")
     ctx.succeed()
+}
+
+private fun runNetheriteFireImmunity(ctx: GameTestHelper) {
+    // Spawn a netherite-tier item entity in mid-air over a lava block. Wait 60 ticks.
+    // Assert the entity is still alive. Then repeat with iron-tier and assert it
+    // burns (sanity check that the fire-immune flag is what's keeping netherite alive).
+    val world = ctx.level
+
+    // Place a lava block at structure-relative (2, 1, 2).
+    val lavaPos = net.minecraft.core.BlockPos(2, 1, 2)
+    ctx.setBlock(lavaPos, net.minecraft.world.level.block.Blocks.LAVA.defaultBlockState())
+
+    val abs = ctx.absolutePos(lavaPos)
+    val nx = abs.x + 0.5; val ny = abs.y + 0.5; val nz = abs.z + 0.5
+
+    //? if >=1.21 {
+    val netheriteId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword_netherite")
+    val ironId      = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword")
+    //?} else {
+    /*val netheriteId = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword_netherite")
+    val ironId      = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword")
+    *///?}
+    //? if >=1.21.2 {
+    val netheriteItem = BuiltInRegistries.ITEM.get(netheriteId).orElseThrow().value()
+    val ironItem      = BuiltInRegistries.ITEM.get(ironId).orElseThrow().value()
+    //?} else {
+    /*val netheriteItem = BuiltInRegistries.ITEM.get(netheriteId) ?: throw AssertionError("longsword_netherite missing")
+    val ironItem      = BuiltInRegistries.ITEM.get(ironId)      ?: throw AssertionError("longsword missing")
+    *///?}
+
+    val netheriteEntity = net.minecraft.world.entity.item.ItemEntity(
+        world, nx, ny, nz, net.minecraft.world.item.ItemStack(netheriteItem),
+    )
+    world.addFreshEntity(netheriteEntity)
+
+    ctx.runAfterDelay(60L) {
+        if (netheriteEntity.isRemoved)
+            throw AssertionError("Netherite longsword burned up in lava — fireResistant flag not applied")
+
+        val ironEntity = net.minecraft.world.entity.item.ItemEntity(
+            world, nx, ny, nz, net.minecraft.world.item.ItemStack(ironItem),
+        )
+        world.addFreshEntity(ironEntity)
+
+        ctx.runAfterDelay(30L) {
+            if (!ironEntity.isRemoved)
+                throw AssertionError("Iron longsword did NOT burn in lava — sanity check failed; the fire-immune test is meaningless")
+            ctx.succeed()
+        }
+    }
 }
