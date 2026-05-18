@@ -3,6 +3,7 @@ package com.dndweapons.registry
 import com.dndweapons.DndWeaponsMod
 import com.dndweapons.catalog.Tier
 import com.dndweapons.catalog.WeaponSpec
+import com.dndweapons.catalog.Weapons
 import com.dndweapons.compat.AttributeCompat
 import com.dndweapons.item.DndWeaponItem
 import net.minecraft.core.Registry
@@ -18,6 +19,30 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.Item
 
 class WeaponRegistrarImpl : WeaponRegistrar {
+
+    /**
+     * Override the default [WeaponRegistrar.registerAll] so that vanilla-mapped specs
+     * (Shortsword, Shortbow, Light Crossbow, Trident) are also routed through
+     * [SpecRegistry.bindRoleTag]. `Weapons.ALL_TIERED` filters them OUT (only the
+     * 27 non-vanilla-mapped melee + thrown specs are tiered), so if we relied solely
+     * on the caller-supplied list those four specs would never reach [register] and
+     * `SpecRegistry` would not learn about the IRON_SWORD -> SHORTSWORD mapping that
+     * the finesse hook and tooltip injection both depend on.
+     *
+     * This method is idempotent: vanilla-mapped specs are registered exactly once
+     * (at IRON tier) regardless of how many tiers the input list contains.
+     */
+    override fun registerAll(entries: List<Pair<WeaponSpec, Tier>>) {
+        // First bind every vanilla-mapped spec from the canonical catalog. We use
+        // Weapons.ALL (not the input list) because ALL_TIERED is filtered to exclude
+        // vanilla-mapped specs; binding from ALL guarantees coverage regardless of
+        // what the caller passes.
+        for (spec in Weapons.ALL) {
+            if (spec.isVanillaMapped) register(spec, Tier.IRON)
+        }
+        // Then register the tiered (non-vanilla-mapped) specs normally.
+        for ((spec, tier) in entries) register(spec, tier)
+    }
 
     override fun register(spec: WeaponSpec, tier: Tier) {
         if (spec.isVanillaMapped) {

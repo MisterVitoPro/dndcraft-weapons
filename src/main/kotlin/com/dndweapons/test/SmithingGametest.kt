@@ -25,7 +25,11 @@ class SmithingGametest : FabricGameTest {
     @GameTest(template = "fabric-gametest-api-v1:empty")
     fun smithingDiamondUpgradePreservesSpec(ctx: GameTestHelper) = runDiamondPreservesSpec(ctx)
 
-    @GameTest(template = "fabric-gametest-api-v1:empty")
+    // timeoutTicks raised from default to accommodate the two sequential
+    // runAfterDelay phases (60 ticks for the netherite immunity check + 120 ticks for
+    // the iron-burn sanity check on 26.1.2's slower lavaIgnite()->onFire damage path).
+    // A budget of 240 ticks leaves headroom over the ~180-tick worst case.
+    @GameTest(template = "fabric-gametest-api-v1:empty", timeoutTicks = 240)
     fun netheriteFireImmunityFires(ctx: GameTestHelper) = runNetheriteFireImmunity(ctx)
 
     @GameTest(template = "fabric-gametest-api-v1:empty")
@@ -43,7 +47,11 @@ class SmithingGametest {
     @GameTest(structure = "fabric-gametest-api-v1:empty")
     fun smithingDiamondUpgradePreservesSpec(ctx: GameTestHelper) = runDiamondPreservesSpec(ctx)
 
-    @GameTest(structure = "fabric-gametest-api-v1:empty")
+    // timeoutTicks raised from default to accommodate the two sequential
+    // runAfterDelay phases (60 ticks for the netherite immunity check + 120 ticks for
+    // the iron-burn sanity check on 26.1.2's slower lavaIgnite()->onFire damage path).
+    // A budget of 240 ticks leaves headroom over the ~180-tick worst case.
+    @GameTest(structure = "fabric-gametest-api-v1:empty", maxTicks = 240)
     fun netheriteFireImmunityFires(ctx: GameTestHelper) = runNetheriteFireImmunity(ctx)
 
     @GameTest(structure = "fabric-gametest-api-v1:empty")
@@ -196,7 +204,15 @@ private fun runNetheriteFireImmunity(ctx: GameTestHelper) {
     ctx.setBlock(lavaPos, net.minecraft.world.level.block.Blocks.LAVA.defaultBlockState())
 
     val abs = ctx.absolutePos(lavaPos)
-    val nx = abs.x + 0.5; val ny = abs.y + 0.5; val nz = abs.z + 0.5
+    // Spawn the item one block ABOVE the lava (not at its center) so gravity pulls it
+    // down through the lava-block boundary. On 26.1.2 the InsideBlockEffectApplier is a
+    // step-based collector that gathers block effects (LAVA_IGNITE) only while the
+    // entity moves through them; an entity spawned at rest inside a block may not be
+    // sampled. Starting above the lava block guarantees the entity crosses the block
+    // boundary on a tick (with non-zero deltaY from gravity), which reliably fires the
+    // ignition effect on 26.1.2 while still being correct on the pre-26 lava paths
+    // (those check isInLava() during tick regardless of how the entity got there).
+    val nx = abs.x + 0.5; val ny = abs.y + 1.5; val nz = abs.z + 0.5
 
     //? if >=1.21 {
     val netheriteId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword_netherite")
@@ -227,7 +243,16 @@ private fun runNetheriteFireImmunity(ctx: GameTestHelper) {
         )
         world.addFreshEntity(ironEntity)
 
-        ctx.runAfterDelay(30L) {
+        // The iron-burn sanity check waits long enough for the slowest target version
+        // to discard the entity. Pre-26 versions tick lavaHurt() directly from
+        // ItemEntity.tick (4 damage per tick -> entity discarded in ~2 ticks). 26.1.2
+        // refactored lava interaction so the entity is first ignited via lavaIgnite()
+        // and then takes 1.0 onFire damage every 20 fire-ticks from Entity.baseTick;
+        // with ItemEntity.health == 5 (default) that requires roughly 5 damage
+        // applications = ~100 fire-ticks. 120 ticks gives comfortable headroom on
+        // 26.1.2 while costing only a few extra ticks on the older versions where the
+        // item is already long gone.
+        ctx.runAfterDelay(120L) {
             if (!ironEntity.isRemoved)
                 throw AssertionError("Iron longsword did NOT burn in lava — sanity check failed; the fire-immune test is meaningless")
             ctx.succeed()

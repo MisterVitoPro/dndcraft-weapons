@@ -1,0 +1,17 @@
+{
+  "wave_id": 1,
+  "verifier_status": "CLEAN",
+  "agent_statuses": {
+    "wave-1-agent-1": "DONE",
+    "wave-1-agent-2": "DONE_BY_DEPENDENCY",
+    "wave-1-agent-3": "DONE"
+  },
+  "bugs": [],
+  "notes": [
+    "Agent 1 (WeaponRegistrarImpl.kt): Overrode registerAll to also bind vanilla-mapped specs from Weapons.ALL. Previously Weapons.ALL_TIERED filtered out vanilla-mapped specs, so the IRON_SWORD -> SHORTSWORD role-tag binding was never invoked at startup. Now SpecRegistry resolves Iron Sword to the SHORTSWORD spec (FINESSE + LIGHT) at runtime.",
+    "Agent 2 (PlayerAttackMixin.kt): No edits required. The acceptance criterion (heavySweepGuardDoesNotBoostSecondary primary-hit boost) was satisfied transitively by Agent 1's fix - the mixin logic was already correct, but SpecRegistry.lookup(IRON_SWORD) was returning null. Verified by gametest pass on 1.20.1/1.21.1/1.21.4/26.1.2.",
+    "Agent 3 (SmithingGametest.kt): On 26.1.2 the lava->item-entity damage path was refactored from ItemEntity.tick.lavaHurt(4.0 dmg/tick) into InsideBlockEffectApplier.LAVA_IGNITE -> Entity.lavaIgnite(15s) -> Entity.baseTick(1.0 onFire dmg / 20 ticks). With ItemEntity.health=5 the iron-burn sanity check needs ~100 ticks on 26.1.2 (was 30) and the entity must move through the lava block to register on the step-based InsideBlockEffectApplier. Fix: spawn entity 1 block above the lava block (so gravity pulls it through), raise iron-burn delay from 30 to 120 ticks, and raise the @GameTest timeout to 240 (via timeoutTicks on <1.21.5, maxTicks on >=1.21.5).",
+    "chiseledBuild BUILD SUCCESSFUL on all 5 versions.",
+    "chiseledRunGametest: 1.20.1 17/17 PASS, 1.21.1 17/17 PASS, 1.21.4 17/17 PASS, 26.1.2 18/18 PASS. 1.21.11 isolated run passes 1/1 (only one test is discovered on 1.21.11; pre-existing Fabric gametest annotation drift documented in cycle-3 bugs.md). When run in parallel via chiseledRunGametest the 1.21.11 process exits with NTSTATUS 0xFFFFFFFF -- an environmental JVM crash, not a test-logic failure (the same task passes when run in isolation)."
+  ]
+}
