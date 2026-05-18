@@ -48,7 +48,7 @@ object DndWeaponsMod : ModInitializer {
         LOGGER.info("DnD Weapons initializing...")
 
         val registrar = WeaponRegistrarImpl()
-        registrar.registerAll(Weapons.ALL)
+        registrar.registerAll(Weapons.ALL_TIERED)
 
         SpecRegistry.init()
         // WeaponTooltipInjector.register() is intentionally NOT called here -
@@ -66,8 +66,8 @@ object DndWeaponsMod : ModInitializer {
         )
 
         ItemGroupEvents.modifyEntriesEvent(CREATIVE_TAB).register { entries ->
-            for (spec in Weapons.ALL) {
-                if (spec.isVanillaMapped) continue
+            for ((spec, _) in Weapons.ALL_TIERED) {
+                if (spec.vanillaRoleTag != null) continue
                 addToEntriesLegacy(entries, spec)
             }
         }
@@ -81,14 +81,14 @@ object DndWeaponsMod : ModInitializer {
         )
 
         CreativeModeTabEvents.modifyOutputEvent(CREATIVE_TAB).register { output ->
-            for (spec in Weapons.ALL) {
-                if (spec.isVanillaMapped) continue
+            for ((spec, _) in Weapons.ALL_TIERED) {
+                if (spec.vanillaRoleTag != null) continue
                 addToEntries26(output, spec)
             }
         }
         *///?}
 
-        LOGGER.info("DnD Weapons initialized with {} weapons.", Weapons.ALL.size)
+        LOGGER.info("DnD Weapons initialized with {} weapon specs ({} tiered items).", Weapons.ALL.size, Weapons.ALL_TIERED.count { (s, _) -> s.vanillaRoleTag == null })
     }
 
     private fun iconStack(): ItemStack {

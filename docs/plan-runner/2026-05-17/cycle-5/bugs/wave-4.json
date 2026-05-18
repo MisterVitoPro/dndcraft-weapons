@@ -1,0 +1,32 @@
+{
+  "wave_id": 4,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-4-agent-1": "CLEAN",
+    "wave-4-agent-2": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-4-agent-2-bug-1",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Generated smithing_transform recipes use {item:...} for template/base but hand-authored wave-1 recipes use {id:...} - format inconsistency across recipe set",
+      "file": "src/main/resources/data/dndweapons/recipe/longsword_diamond.json",
+      "line": 3,
+      "evidence": "\"template\": { \"item\": \"dndweapons:diamond_weapon_upgrade_template\" },\n  \"base\":     { \"item\": \"dndweapons:longsword\" },",
+      "expected": "Format consistency across all smithing_transform recipes in this mod. Note: MC 1.20.1 historically used {item:...}, MC 1.20.5+ switched to {id:...}. Since the mod targets 5 MC versions (1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2) and recipe JSONs are NOT stonecutter-forked, this may indicate that per-version recipe handling is needed.",
+      "suggested_fix": "Either (a) align all 56 smithing_transform recipes (54 generated + 2 hand-authored) to a single format, OR (b) document which MC versions accept which format and ensure compatibility shims exist."
+    },
+    {
+      "bug_id": "wave-4-agent-2-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Generated smithing_transform addition uses \"#c:...\" string while hand-authored wave-1 uses {\"tag\":\"c:...\"} object - format inconsistency",
+      "file": "src/main/resources/data/dndweapons/recipe/longsword_diamond.json",
+      "line": 5,
+      "evidence": "\"addition\": \"#c:gems/diamond\"",
+      "expected": "The hand-authored wave-1 recipe uses {\"tag\": \"c:gems/diamond\"} (object form). However the cycle-5 feedback explicitly said other recipes in the codebase use the \"#c:...\" string-prefix style. This is a real conflict between the wave-1 fix recommendation and wave-4 consistency requirement.",
+      "suggested_fix": "Pick one canonical format and migrate ALL recipes (existing codebase + wave-1 + wave-4) to it. Recommend the \"#c:...\" string form since it matches the bulk of pre-existing recipes (per wave-1 verifier observation)."
+    }
+  ]
+}
