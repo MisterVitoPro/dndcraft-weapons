@@ -29,6 +29,11 @@ class AcquisitionGametest : FabricGameTest {
     fun weaponsmithLevelOneTradesIncludeModWeapon(ctx: GameTestHelper) {
         runWeaponsmithLevelOneCheck(ctx)
     }
+
+    @GameTest(template = "fabric-gametest-api-v1:empty")
+    fun vindicatorBattleaxeDropsAtExpectedRate(ctx: GameTestHelper) {
+        runVindicatorBattleaxeCheck(ctx)
+    }
 }
 //?} else {
 /*class AcquisitionGametest {
@@ -41,6 +46,11 @@ class AcquisitionGametest : FabricGameTest {
     @GameTest(structure = "fabric-gametest-api-v1:empty")
     fun weaponsmithLevelOneTradesIncludeModWeapon(ctx: GameTestHelper) {
         runWeaponsmithLevelOneCheck(ctx)
+    }
+
+    @GameTest(structure = "fabric-gametest-api-v1:empty")
+    fun vindicatorBattleaxeDropsAtExpectedRate(ctx: GameTestHelper) {
+        runVindicatorBattleaxeCheck(ctx)
     }
 }
 *///?}
@@ -112,5 +122,31 @@ private fun runWeaponsmithLevelOneCheck(ctx: GameTestHelper) {
         )
     }
     //?}
+    ctx.succeed()
+}
+
+private fun runVindicatorBattleaxeCheck(ctx: GameTestHelper) {
+    var battleaxeDrops = 0
+    val spawnPos = net.minecraft.core.BlockPos(2, 2, 2)
+    repeat(100) {
+        val v = ctx.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.VINDICATOR, spawnPos)
+        v.health = 0.1f
+        v.hurt(ctx.level.damageSources().generic(), 999f)
+        val center = ctx.absolutePos(spawnPos).center
+        val box = net.minecraft.world.phys.AABB(
+            center.x - 4, center.y - 4, center.z - 4,
+            center.x + 4, center.y + 4, center.z + 4,
+        )
+        val nearby = ctx.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity::class.java, box)
+        for (e in nearby) {
+            if (e.item.descriptionId == "item.dndweapons.battleaxe") battleaxeDrops++
+            e.discard()
+        }
+    }
+    if (battleaxeDrops !in 1..30) {
+        throw AssertionError(
+            "Vindicator battleaxe drops out of expected range (got $battleaxeDrops/100; expected ~8, accepted 1-30)."
+        )
+    }
     ctx.succeed()
 }
