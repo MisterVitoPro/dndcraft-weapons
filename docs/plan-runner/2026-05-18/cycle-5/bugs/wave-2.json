@@ -1,0 +1,12 @@
+{
+  "wave_id": 2,
+  "verifier_status": "CLEAN",
+  "agent_statuses": {
+    "wave-2-agent-1": "DONE"
+  },
+  "bugs": [],
+  "concerns": [
+    "Plan's WikiTemplates.kt referenced Property.SPECIAL; actual enum variant is Property.SPECIAL_LANCE. Adjusted mapping accordingly.",
+    "Plan's WikiTemplates.kt did not handle RangeKind.SLING or RangeKind.BLOWGUN; added mappings: SLING -> \"Sling\", BLOWGUN -> \"Blowgun\"."
+  ]
+}
