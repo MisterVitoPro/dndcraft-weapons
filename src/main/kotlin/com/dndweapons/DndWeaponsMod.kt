@@ -1,11 +1,17 @@
 package com.dndweapons
 
+import com.dndweapons.acquisition.AcquisitionCatalog
 import com.dndweapons.catalog.Weapons
 import com.dndweapons.loot.SmithingTemplateLootInjector
+import com.dndweapons.loot.WeaponLootRegistrar
+import com.dndweapons.loot.WitherTrophyHandler
 import com.dndweapons.registry.SmithingItemRegistrar
 import com.dndweapons.trade.SmithingTemplateTrades
 import com.dndweapons.registry.SpecRegistry
 import com.dndweapons.registry.WeaponRegistrarImpl
+//? if <26.1.2 {
+import com.dndweapons.trade.WeaponTradeRegistrar
+//?}
 import net.fabricmc.api.ModInitializer
 //? if <26 {
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
@@ -58,6 +64,15 @@ object DndWeaponsMod : ModInitializer {
 
         SmithingTemplateLootInjector.register()
         SmithingTemplateTrades.register()
+
+        // Phase 5: acquisition
+        AcquisitionCatalog.validate()
+        WeaponLootRegistrar.register()
+        WitherTrophyHandler.register()
+        //? if <26.1.2 {
+        WeaponTradeRegistrar.register()
+        //?}
+        LOGGER.info("Phase 5 acquisition surface registered.")
 
         SpecRegistry.init()
         // WeaponTooltipInjector.register() is intentionally NOT called here -
