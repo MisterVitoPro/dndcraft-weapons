@@ -2,9 +2,36 @@
   "cycle": 3,
   "input_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-18/cycle-2/fix-plan.md",
   "started_at": "2026-05-18T14:01:22-07:00",
-  "completed_at": null,
+  "completed_at": "2026-05-18T14:25:42-07:00",
   "context7_available": true,
-  "waves": [],
-  "total_bugs": 0,
-  "next_cycle_plan": null
+  "waves": [
+    {
+      "wave_id": 1,
+      "duration_seconds": 1180,
+      "agents": [
+        {"agent_id": "wave-1-agent-1", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-2", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-3", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "CLEAN",
+      "wave_bug_count": 0,
+      "commit_sha": "73d5dfc",
+      "skipped_reason": null
+    },
+    {
+      "wave_id": 2,
+      "duration_seconds": 208,
+      "agents": [
+        {"agent_id": "wave-2-agent-1", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 2,
+      "commit_sha": "bd6d4fd",
+      "skipped_reason": null
+    }
+  ],
+  "total_bugs": 2,
+  "next_cycle_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-18/cycle-3/fix-plan.md",
+  "phase_5_scope_status": "GREEN",
+  "remaining_bugs_scope": "Phase 4 pre-existing regressions, OUT OF Phase 5 plan scope"
 }
