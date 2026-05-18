@@ -27,6 +27,9 @@ class SmithingGametest : FabricGameTest {
 
     @GameTest(template = "fabric-gametest-api-v1:empty")
     fun netheriteFireImmunityFires(ctx: GameTestHelper) = runNetheriteFireImmunity(ctx)
+
+    @GameTest(template = "fabric-gametest-api-v1:empty")
+    fun tieredItemTriggersDnDMixin(ctx: GameTestHelper) = runTieredMixinCase(ctx)
 }
 //?}
 
@@ -42,6 +45,9 @@ class SmithingGametest {
 
     @GameTest(structure = "fabric-gametest-api-v1:empty")
     fun netheriteFireImmunityFires(ctx: GameTestHelper) = runNetheriteFireImmunity(ctx)
+
+    @GameTest(structure = "fabric-gametest-api-v1:empty")
+    fun tieredItemTriggersDnDMixin(ctx: GameTestHelper) = runTieredMixinCase(ctx)
 }
 
 *///?}
@@ -75,6 +81,57 @@ private fun runDiamondPreservesSpec(ctx: GameTestHelper) {
         throw AssertionError("Properties mismatch: ${spec.properties} vs ${baseSpec.properties}")
     if (Property.VERSATILE !in spec.properties)
         throw AssertionError("Diamond longsword should still be VERSATILE")
+    ctx.succeed()
+}
+
+private fun runTieredMixinCase(ctx: GameTestHelper) {
+    // Mock player + diamond longsword (VERSATILE) + empty offhand. Expected damage:
+    //   base (longsword 5) + diamond tier (+1) + VERSATILE empty bonus (+1) = 7.
+    //? if >=1.21.1 {
+    val player = ctx.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL)
+    //?} else {
+    /*val player = ctx.makeMockPlayer()
+    *///?}
+
+    //? if >=1.21 {
+    val itemId = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, "longsword_diamond")
+    //?} else {
+    /*val itemId = ResourceLocation(DndWeaponsMod.MOD_ID, "longsword_diamond")
+    *///?}
+    //? if >=1.21.2 {
+    val item = BuiltInRegistries.ITEM.get(itemId).orElseThrow().value()
+    //?} else {
+    /*val item = BuiltInRegistries.ITEM.get(itemId)!!
+    *///?}
+
+    val weapon = net.minecraft.world.item.ItemStack(item)
+    player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, weapon)
+    player.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, net.minecraft.world.item.ItemStack.EMPTY)
+    player.isSprinting = false
+
+    val pigPos = net.minecraft.core.BlockPos(2, 1, 2)
+    //? if <1.21.11 {
+    val pig = ctx.spawn(net.minecraft.world.entity.EntityType.PIG, pigPos)
+        as net.minecraft.world.entity.animal.Pig
+    //?} else {
+    /*val pig = ctx.spawn(net.minecraft.world.entity.EntityType.PIG, pigPos)
+        as net.minecraft.world.entity.animal.pig.Pig
+    *///?}
+
+    val before = pig.health
+    primeAttackStrength(player)
+    player.attack(pig)
+    val after = pig.health
+    val dealt = before - after
+
+    val expected = (Weapons.LONGSWORD.attackDamage + Tier.DIAMOND.damageBonus + 1).toFloat()  // +1 versatile
+    val tol = 0.5f
+    if (Math.abs(dealt - expected) > tol) {
+        throw AssertionError(
+            "Tiered diamond longsword + VERSATILE empty: dealt=$dealt expected~$expected " +
+                "(base=${Weapons.LONGSWORD.attackDamage}, tier=+${Tier.DIAMOND.damageBonus}, versatile=+1)"
+        )
+    }
     ctx.succeed()
 }
 

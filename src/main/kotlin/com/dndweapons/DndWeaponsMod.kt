@@ -3,6 +3,7 @@ package com.dndweapons
 import com.dndweapons.catalog.Weapons
 import com.dndweapons.loot.SmithingTemplateLootInjector
 import com.dndweapons.registry.SmithingItemRegistrar
+import com.dndweapons.trade.SmithingTemplateTrades
 import com.dndweapons.registry.SpecRegistry
 import com.dndweapons.registry.WeaponRegistrarImpl
 import net.fabricmc.api.ModInitializer
@@ -56,6 +57,7 @@ object DndWeaponsMod : ModInitializer {
         LOGGER.info("6 smithing-component items + 2 smithing-template items registered")
 
         SmithingTemplateLootInjector.register()
+        SmithingTemplateTrades.register()
 
         SpecRegistry.init()
         // WeaponTooltipInjector.register() is intentionally NOT called here -
