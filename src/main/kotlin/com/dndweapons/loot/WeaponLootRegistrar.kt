@@ -41,10 +41,13 @@ import net.minecraft.world.level.storage.loot.providers.number.ConstantValue
 object WeaponLootRegistrar {
 
     private const val MOD_VERSION_STRING: String =
-        //? if >=1.21.11 { /*"1.21.11"*///?}
-        //? if (>=1.21.4) & (<1.21.11) { /*"1.21.4"*///?}
-        //? if (>=1.21.1) & (<1.21.4) { /*"1.21.1"*///?}
-        //? if <1.21.1 {
+        //? if >=1.21.11 {
+        /*"1.21.11"*/
+        //?} else if >=1.21.4 {
+        /*"1.21.4"*/
+        //?} else if >=1.21.1 {
+        /*"1.21.1"*/
+        //?} else {
         "1.20.1"
         //?}
 

@@ -1,0 +1,46 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-18/cycle-1/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Fix WeaponLootRegistrar.kt MOD_VERSION_STRING Stonecutter 0.6 syntax",
+          "task_excerpt_lines": "8-44",
+          "owned_files": ["src/main/kotlin/com/dndweapons/loot/WeaponLootRegistrar.kt"],
+          "acceptance_criteria": [
+            "The MOD_VERSION_STRING constant at line 44 uses valid Stonecutter 0.6 else-ladder syntax with each directive on its own line.",
+            "./gradlew chiseledBuild exits with BUILD SUCCESSFUL on all 5 MC versions: 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2.",
+            "No other logic in WeaponLootRegistrar.kt is changed -- only the MOD_VERSION_STRING stonecutter block is touched.",
+            "Commit with message: phase 5 fix: correct Stonecutter 0.6 else-ladder for MOD_VERSION_STRING"
+          ],
+          "recommended_model": "haiku"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Re-run verification matrix and update phase-5-verification-final.md",
+          "task_excerpt_lines": "48-80",
+          "owned_files": ["docs/superpowers/plans/phase-5-verification-final.md"],
+          "acceptance_criteria": [
+            "Run ./gradlew chiseledBuild on all 5 MC versions and confirm BUILD SUCCESSFUL for each.",
+            "Run ./gradlew chiseledTest on all 5 MC versions and confirm all JUnit tests pass, including the 7 new AcquisitionCatalogTest tests.",
+            "Run ./gradlew chiseledRunGametest on all 5 MC versions and confirm 16/16 gametests pass per version.",
+            "Update the verification matrix in phase-5-verification-final.md with actual results (GREEN or FAIL per cell).",
+            "If all 5 versions are GREEN across all 3 columns: set Status to GREEN, apply git tag phase-5-acquisition, and push.",
+            "If any version is RED: set Status to HOLD, leave tag unapplied, document the failure in the Known Issues section.",
+            "Commit with message: phase 5: final verification doc"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}

@@ -1,0 +1,29 @@
+{
+  "wave_id": 1,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {"wave-1-agent-1": "DONE_WITH_CONCERNS"},
+  "bugs": [
+    {
+      "bug_id": "wave-1-agent-1-bug-1",
+      "severity": "P0",
+      "category": "missing_requirement",
+      "title": "chiseledBuild still fails: 16 pre-existing Kotlin compile errors in files outside Wave 1 scope",
+      "file": "multiple",
+      "line": null,
+      "evidence": "After fixing MOD_VERSION_STRING Stonecutter syntax, chiseledBuild advances past Stonecutter parsing on all 5 MC versions but :{version}:compileKotlin FAILED on every version. Unresolved references include: ServerLivingEntityEvents, VillagerTrades, VillagerProfession, descriptionId, lootData, getRandomItems, spawnAtLocation, ResourceLocation, GameTest, parse, nextInt, type, add, get, getOffer, not. Affected files: src/main/kotlin/com/dndweapons/loot/WitherTrophyHandler.kt, src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt, src/main/kotlin/com/dndweapons/trade/WeaponTradeRegistrar.kt.",
+      "expected": "chiseledBuild BUILD SUCCESSFUL on all 5 MC versions: 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2",
+      "suggested_fix": "These compile errors are pre-existing Phase 5 breakage that cycle 1's verification could not detect (Stonecutter blocked compilation). They are outside the scope of this fix-plan's Task 1. A cycle 3 fix-plan should add tasks to repair each broken file with the correct per-version Stonecutter-guarded imports/API usage."
+    },
+    {
+      "bug_id": "wave-1-agent-1-bug-2",
+      "severity": "P1",
+      "category": "incorrect_implementation",
+      "title": "Fix-plan prescribed compound Stonecutter condition syntax that is not supported by this project's Stonecutter 0.6 configuration",
+      "file": "docs/plan-runner/2026-05-18/cycle-1/fix-plan.md",
+      "line": 35,
+      "evidence": "The fix-plan's example `//?} else if (>=1.21.4) & (<1.21.11) {` produced Stonecutter errors: `Unknown token: & (<1.21.11) {` and `CONDITION closes unmatched scope of null`. No existing source file in src/ uses the `&` combinator; all version guards use single-clause conditions.",
+      "expected": "Use single-clause else-if branches that exploit the ordering of the ladder (e.g., `else if >=1.21.4` implicitly means `>=1.21.4 AND <1.21.11` because the prior branch caught >=1.21.11).",
+      "suggested_fix": "Already applied in this wave: MOD_VERSION_STRING now uses `if >=1.21.11 / else if >=1.21.4 / else if >=1.21.1 / else` ladder."
+    }
+  ]
+}
