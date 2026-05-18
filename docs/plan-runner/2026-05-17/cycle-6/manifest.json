@@ -4,7 +4,24 @@
   "started_at": "2026-05-17T22:55:44-07:00",
   "completed_at": null,
   "context7_available": true,
-  "waves": [],
+  "waves": [
+    {
+      "wave_id": 1,
+      "duration_seconds": 2138,
+      "agents": [
+        {"agent_id": "wave-1-agent-1", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-2", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-3", "dev_status": "DONE_WITH_CONCERNS"},
+        {"agent_id": "wave-1-agent-4", "dev_status": "DONE_WITH_CONCERNS"},
+        {"agent_id": "wave-1-agent-5", "dev_status": "DONE"},
+        {"agent_id": "wave-1-agent-6", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 3,
+      "commit_sha": "aa96617c49e9af468c0f3149708951a433b87511",
+      "skipped_reason": null
+    }
+  ],
   "total_bugs": 0,
   "next_cycle_plan": null
 }

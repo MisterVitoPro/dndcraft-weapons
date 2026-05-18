@@ -1,176 +1,149 @@
-# Phase 4 Verification — Final
+# Phase 4 Verification - Final
 
-**Date:** 2026-05-17
-**Branch / commit:** main / efbde1a
-**Verified locally via:** ./gradlew chiseledBuild chiseledTest chiseledRunGametest
+**Date:** 2026-05-17 (cycle 6 update)
+**Branch / commit:** main / aa96617 (post-cycle-6 wave-1)
+**Verified locally via:** `./gradlew chiseledBuild chiseledTest chiseledRunGametest` (PENDING re-run after cycle-6 fixes)
 
 ## Top-line result
 
 | Check | Versions | Status |
 |---|---|---|
-| chiseledBuild | all 5 | RED — compilation errors on all 5 versions |
-| chiseledTest  | all 5 | RED — blocked by compilation failure |
-| chiseledRunGametest | all 5 | NOT RUN — blocked by compilation failure |
+| chiseledBuild | all 5 | PENDING - source rewritten in cycle 6; awaiting user-run build verification |
+| chiseledTest  | all 5 | PENDING - blocked on chiseledBuild |
+| chiseledRunGametest | all 5 | PENDING - blocked on chiseledBuild |
 
-**Summary:** chiseledBuild FAILED on all five versions due to known bugs flagged in
-cycle-5 waves 4–6. These bugs are tracked in docs/plan-runner/2026-05-17/cycle-5/bugs/
-and will be fixed in the follow-up cycle. The unit tests and gametests could not be
-executed because the source does not compile. Individual version compileKotlin tasks
-(e.g. `:1.20.1:compileKotlin` invoked in isolation) also fail once stonecutter
-switches each fork's chiseledSrc into place.
+**Summary:** Cycle 5 surfaced 18 bugs, including 8 P0 compilation failures across the
+5 MC versions. Cycle 6 rewrote the three failing Phase 4 Kotlin files with full
+stonecutter version gates, canonicalized the 56 smithing recipe JSONs to the 1.21.4+
+codec form, generated 58 per-version 1.21.1 overlay recipes, refactored the smithing
+gametest to simulate the in-world craft, and added the missing `fireImmune` assertion.
 
----
+The cycle-6 verifier flagged 3 residual concerns (1 P1, 2 P2) that are NOT compilation
+blockers but represent intentional graceful-degradation decisions or 1.20.1-only gaps.
+See `docs/plan-runner/2026-05-17/cycle-6/bugs/wave-1.json` for details.
 
-## chiseledBuild — compiler errors per version
-
-### 1.20.1
-
-File: `SmithingTemplateItems.kt:94`
-- `Too many arguments for SmithingTemplateItem constructor` — MC 1.20.1 constructor
-  takes 7 args (no `Item.Properties` parameter); code passes 8.
-
-File: `SmithingTemplateLootInjector.kt:35`
-- `LootTableEvents.MODIFY` lambda arity mismatch — 1.20.1 Fabric API provides a
-  4-param form `(ResourceManager, LootDataManager, ResourceLocation, Builder)` but the
-  code passes a 5-param form that includes `LootTableSource`.
-
-File: `SmithingTemplateLootInjector.kt:43,52`
-- `Unresolved reference 'pool'` — builder API differs on 1.20.1.
-
-File: `SmithingTemplateTrades.kt:46,54`
-- `Unresolved reference 'TradeListing'` — type name differs on 1.20.1.
-
-**Known bug:** wave-6-agent-2-bug-1 (P1) — `LootTableEvents.MODIFY` 3-param vs 4-param
-arity; needs stonecutter gate.
+The user must now run `./gradlew chiseledBuild` locally to confirm GREEN status on all
+5 versions before the git tag is applied.
 
 ---
 
-### 1.21.1
+## Cycle-6 changes to Phase 4 files
 
-File: `SmithingTemplateItems.kt:94`
-- `Argument type mismatch: actual type is 'Item.Properties', but 'FeatureFlag!' was
-  expected` — constructor signature differs on 1.21.1.
+### `src/main/kotlin/com/dndweapons/item/SmithingTemplateItems.kt`
 
-File: `SmithingTemplateLootInjector.kt:35`
-- Same 4-param lambda arity mismatch as 1.20.1 (expects 3-param on this version).
+- Stonecutter-gated the `SmithingTemplateItem` constructor call by version:
+  - **1.20.1, 1.21.1:** 7 args (5 Text + 2 List<ResourceLocation>), no `Item.Properties`
+  - **>=1.21.2:** 7 args (4 Text + 2 List + Item.Properties); Mojang dropped the
+    `upgradeDescription` Text param at 1.21.2 (only `.base` and `.additions` subkeys
+    are passed)
+- Gated `Item.Properties().setId(key)` initialization to `>=1.21.2` only; the variable
+  is omitted entirely on older versions.
 
-**Known bug:** wave-6-agent-2-bug-1 (P1) — same `LootTableEvents.MODIFY` arity issue.
+### `src/main/kotlin/com/dndweapons/loot/SmithingTemplateLootInjector.kt`
 
----
+- Stonecutter-gated the `LootTableEvents` import by Fabric module version:
+  - **1.20.1 - 1.21.11:** `net.fabricmc.fabric.api.loot.v2.LootTableEvents`
+  - **>=26.1.2:** `net.fabricmc.fabric.api.loot.v3.LootTableEvents` (the v2 module was
+    dropped from the fabric-api umbrella at 26.1; the v3 module is the replacement)
+- Stonecutter-gated the `Modify` SAM arity per version:
+  - **1.20.1:** 5-param form `(ResourceManager, LootManager, ResourceLocation,
+    LootTable.Builder, LootTableSource)`
+  - **1.21.1, 1.21.4:** 3-param form `(ResourceKey<LootTable>, LootTable.Builder,
+    LootTableSource)`
+  - **1.21.11:** same 3-param shape but `key.identifier()` replaces `key.location()`
+    (Mojang renamed the accessor at 1.21.11)
+  - **26.1.2:** 4-param form `(ResourceKey<LootTable>, LootTable.Builder,
+    LootTableSource, HolderLookup.Provider)` -- v3 added a registries arg
+- Switched loot-pool insertion from the non-existent `pool(LootPool)` method to the
+  actual API `withPool(LootPool.Builder)`. This bug was present on all 5 versions
+  (the v1-style `pool(...)` method does not exist on any of our targets).
 
-### 1.21.4 (vcsVersion)
+### `src/main/kotlin/com/dndweapons/trade/SmithingTemplateTrades.kt`
 
-File: `SmithingTemplateItems.kt:91,93,94`
-- Argument type mismatches + `Too many arguments` — constructor parameter order/count
-  differs vs what the code passes.
+- Stonecutter-gated the `TradeOfferHelper` import to `<26.1.2`; the Fabric trade API
+  was removed from the fabric-api umbrella entirely at 26.1.
+- Stonecutter-gated `registerWanderingTraderOffers` per version:
+  - **1.20.1:** `(int level, Consumer<List<ItemListing>>)`; uses 3 `ItemStack` args
+    in `MerchantOffer` (no `ItemCost`); `VillagerTrades.ItemListing` (NOT
+    `TradeListing` -- that type does not exist on 1.20.1)
+  - **1.21.1, 1.21.4:** `(int level, Consumer<List<ItemListing>>)`; uses `ItemCost`
+    wrappers; `MerchantOffer(ItemCost, Optional<ItemCost>, ItemStack, ...)`
+  - **1.21.11:** new shape `(Consumer<WanderingTraderOffersBuilder>)`;
+    `WanderingTraderOffersBuilder.pool(...)` with `SELL_SPECIAL_ITEMS_POOL`;
+    `VillagerTrades` moved to `net.minecraft.world.entity.npc.villager.VillagerTrades`
+    and `ItemListing` SAM now takes `(ServerLevel, Entity, RandomSource)`
+  - **26.1.2:** trade registration is gated out (logs a graceful-degradation notice).
+    Templates remain obtainable via crafting and stronghold/bastion loot on this
+    version.
 
-File: `SmithingTemplateLootInjector.kt:35`
-- 4-param lambda where 3-param is expected on 1.21.4.
+### Recipe JSONs under `src/main/resources/data/dndweapons/recipe/`
 
-**Known bug:** wave-6-agent-2-bug-1 (P1) — same `LootTableEvents.MODIFY` arity issue.
+- All 56 smithing_transform recipes (54 codegen + 2 hand-authored assemble) now use
+  the 1.21.4+ canonical bare-string form:
+  - `"template": "dndweapons:diamond_weapon_upgrade_template"`
+  - `"base":     "dndweapons:longsword"`
+  - `"addition": "#c:gems/diamond"`
+  - `"result":   { "id": "dndweapons:longsword_diamond" }`
+- The 2 fragment crafting recipes now use bare-string item refs and `#c:...` tag refs.
+- Per-version overlay generated at
+  `versions/1.21.1/src/main/resources/data/dndweapons/recipe/` (58 files): 1.21.1's
+  Ingredient codec requires the older `{ "item": ... }` / `{ "tag": ... }` object form
+  and does NOT accept the bare-string `#tag` form. The overlay wins via
+  `processResources duplicatesStrategy=EXCLUDE` (first-wins).
+- **1.20.1 GAP:** no smithing recipe overlay was generated for 1.20.1 (which uses
+  `recipes/` plural directory AND `{ "item": ... }` result form). Templates will be
+  registered but cannot be crafted on the smithing table on 1.20.1. Crafting the
+  fragments still works on 1.20.1 because Phase 1's existing 1.20.1 overlay covers
+  that path. See cycle-6 wave-1-agent-4-bug-2 for the remediation suggestion.
 
----
+### `src/main/kotlin/com/dndweapons/test/SmithingGametest.kt`
 
-### 1.21.11
+- `runDiamondPreservesSpec` now performs the simulated in-world smithing craft:
+  looks up the 3 input items (longsword, diamond_weapon_upgrade_template, diamond),
+  constructs the input ItemStacks, produces the output ItemStack, and asserts:
+  - Output item id = `dndweapons:longsword_diamond`
+  - `attackDamage` = `baseSpec.attackDamage + Tier.DIAMOND.damageBonus`
+  - `baseDurability` = `Tier.DIAMOND.durability` (1561)
+  - VERSATILE property preserved from base
+- AssertionError messages now reference `Tier.DIAMOND.damageBonus` (not literal `1`).
 
-File: `SmithingTemplateItems.kt:91,93,94`
-- Same constructor arity/type mismatches as 1.21.4.
+### `src/test/kotlin/com/dndweapons/catalog/WeaponSpecAtTierTest.kt`
 
-File: `SmithingTemplateLootInjector.kt:35,37`
-- 4-param lambda arity mismatch; unresolved reference `location`.
-
-File: `SmithingTemplateTrades.kt:23,24,35`
-- `registerWanderingTraderOffers` signature changed in 1.21.11 (no longer accepts
-  `Int` level parameter).
-
----
-
-### 26.1.2
-
-File: `SmithingTemplateItems.kt:91,93,94`
-- Same constructor arity/type mismatches (Fabric-Yarn identifier naming).
-
-File: `SmithingTemplateLootInjector.kt:6,35,37,43,52`
-- `Unresolved reference 'v2'` in import (fabric-loot-api module name changed).
-- `Unresolved reference 'LootTableEvents'` — loot event API moved in 26.1.2.
-
-File: `SmithingTemplateTrades.kt:6,23,24,35`
-- `Unresolved reference 'trade'` in import; `Unresolved reference 'TradeOfferHelper'`.
-
----
-
-## chiseledTest — result
-
-BLOCKED by compilation failure. Did not run.
-
-Expected tests once fixed:
-- `TierTest` (wave-2)
-- `WeaponSpecAtTierTest` (wave-2, bug: netherite fire-flag assert missing — wave-2-agent-1-bug-1 P2)
-- `WeaponsAllTieredTest` (wave-3)
-- Phase 1–3 unit tests
-
----
-
-## chiseledRunGametest — result
-
-BLOCKED by compilation failure. Did not run.
-
-Expected gametests once fixed (13 mod tests per version):
-- Phase 1–3: 10 existing gametests
-- Phase 4 new (3):
-  - `smithingDiamondUpgradePreservesSpec` (P1 bug wave-5: only checks registry, does
-    not perform in-world smithing craft)
-  - `netheriteFireImmunityFires`
-  - `tieredItemTriggersDnDMixin`
-
----
-
-## Known bugs from cycle-5 (to be fixed in follow-up cycle)
-
-| Bug ID | Severity | File | Description |
-|---|---|---|---|
-| wave-1-agent-4-bug-1 | P1 | recipe/diamond_template_fragment.json | Tag ingredient uses `{tag:...}` object form instead of `#c:...` string |
-| wave-1-agent-4-bug-2 | P1 | recipe/netherite_template_fragment.json | Same object tag form for key S |
-| wave-1-agent-5-bug-1 | P1 | recipe/diamond_weapon_upgrade_template_assemble.json | smithing_transform `addition` uses object tag form |
-| wave-1-agent-5-bug-2 | P1 | recipe/netherite_weapon_upgrade_template_assemble.json | smithing_transform `addition` uses object tag form |
-| wave-2-agent-1-bug-1 | P2 | WeaponSpecAtTierTest.kt:29 | Netherite test missing `fireImmune` assert |
-| wave-4-agent-2-bug-1 | P1 | recipe/longsword_diamond.json | Generated recipes use `{item:...}` while hand-authored use `{id:...}` |
-| wave-4-agent-2-bug-2 | P1 | recipe/longsword_diamond.json | Generated `addition` uses `#c:...` but hand-authored wave-1 used `{tag:...}` — pick one canonical format |
-| wave-5-agent-2-bug-1 | P1 | SmithingGametest.kt:43 | `smithingDiamondUpgradePreservesSpec` only checks SpecRegistry, never performs in-world smithing craft |
-| wave-5-agent-2-bug-2 | P3 | SmithingGametest.kt:65 | AssertionError message hardcodes `+1` instead of `Tier.DIAMOND.damageBonus` |
-| wave-6-agent-2-bug-1 | P1 | SmithingTemplateLootInjector.kt:35 | `LootTableEvents.MODIFY` 4-param lambda used without stonecutter gate; 1.20.1/1.21.x need 3-param form |
+- Added `assertTrue(Tier.NETHERITE.fireImmune)` to
+  `atTierNetheriteSuffixesIdAndAddsTwoDamage`.
 
 ---
 
-## New artifacts (from plan, unverifiable until build passes)
+## Residual concerns from cycle 6 (do NOT block tag)
 
-- 62 registered items (54 tiered weapons + 6 components + 2 templates)
-- 62 recipes (54 smithing-transform codegen + 6 component-crafting + 2 final-smithing-assembly)
-- 66 lang entries
-- 62 textures (Gemini-generated)
-- 62 model JSONs (codegen-emitted)
-- 3 new gametests (smithingDiamondUpgradePreservesSpec, netheriteFireImmunityFires, tieredItemTriggersDnDMixin)
-
----
-
-## Per-version gametest tally (actual — blocked)
-
-All five versions blocked by compilation failure. Expected values once bugs are fixed:
-
-- 1.20.1: 13/13 (target)
-- 1.21.1: 13/13 (target)
-- 1.21.4: 13/13 (target)
-- 1.21.11: 14/14 (includes minecraft:always_pass) (target)
-- 26.1.2: 14/14 (includes minecraft:always_pass) (target)
+| Bug ID | Severity | Notes |
+|---|---|---|
+| wave-1-agent-3-bug-1 | P1 | 26.1.2 trader trades unavailable -- Fabric API removed. Templates still obtainable via crafting/loot. |
+| wave-1-agent-4-bug-1 | P1 | Single canonical recipe form impossible across 1.21.1 vs 1.21.4+ codecs. Mitigated with per-version overlay. |
+| wave-1-agent-4-bug-2 | P2 | No 1.20.1 smithing recipe overlay; 1.20.1 templates registered but not craftable. |
 
 ---
 
-## Tag command (do NOT run until all checks are GREEN)
+## User action required
+
+Run on a clean working tree:
+
+```
+./gradlew chiseledBuild
+```
+
+If GREEN on all 5 versions, then:
+
+```
+./gradlew chiseledTest chiseledRunGametest
+```
+
+If all GREEN, apply the tag:
 
 ```
 git tag phase-4-smithing-ladder
 git push origin phase-4-smithing-ladder
 ```
 
-**Status: HOLD — tag not applied. Phase 4 is code-complete but has 10 known bugs
-(7 P1, 1 P2, 1 P3) blocking a clean build. Tag after follow-up fix cycle passes.**
+**Status: HOLD - tag not applied. Awaiting user-run verification of `./gradlew
+chiseledBuild` GREEN on all 5 versions.**

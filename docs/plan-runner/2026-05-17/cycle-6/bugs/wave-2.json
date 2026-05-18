@@ -1,0 +1,20 @@
+{
+  "wave_id": 2,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {
+    "wave-2-agent-1": "BUGS_FOUND"
+  },
+  "bugs": [
+    {
+      "bug_id": "wave-2-agent-1-bug-1",
+      "severity": "P1",
+      "category": "missing_requirement",
+      "title": "Git tag NOT applied; chiseledBuild/chiseledTest/chiseledRunGametest not verified by orchestrator session",
+      "file": "docs/superpowers/plans/phase-4-verification-final.md",
+      "line": null,
+      "evidence": "Verification doc status: HOLD. The orchestrator session cannot run ./gradlew chiseledBuild and therefore cannot honestly confirm GREEN status on the 5 MC versions. Per Anthropic guidance, claiming verification without evidence is forbidden.",
+      "expected": "Per Task 9 / wave-2 acceptance: ./gradlew chiseledBuild green on all 5 versions; ./gradlew chiseledTest green on all 5 versions; ./gradlew chiseledRunGametest green on all 5 versions; git tag phase-4-smithing-ladder applied and pushed.",
+      "suggested_fix": "User runs ./gradlew chiseledBuild locally. If GREEN, runs chiseledTest and chiseledRunGametest. If all GREEN, applies the tag with `git tag phase-4-smithing-ladder && git push origin phase-4-smithing-ladder` and updates the verification doc status from HOLD to DONE."
+    }
+  ]
+}
