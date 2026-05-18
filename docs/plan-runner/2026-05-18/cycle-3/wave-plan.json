@@ -1,0 +1,78 @@
+{
+  "source_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-18/cycle-2/fix-plan.md",
+  "context7_available": true,
+  "waves": [
+    {
+      "wave_id": 1,
+      "agents": [
+        {
+          "agent_id": "wave-1-agent-1",
+          "task_title": "Fix WitherTrophyHandler per-version Fabric event API",
+          "task_excerpt_lines": "15-43",
+          "owned_files": ["src/main/kotlin/com/dndweapons/loot/WitherTrophyHandler.kt"],
+          "acceptance_criteria": [
+            "./gradlew chiseledBuild advances past :{version}:compileKotlin for this file on all 5 MC versions (1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2)",
+            "Stonecutter-guarded imports resolve ServerLivingEntityEvents on every version (Fabric API module path differs across MC versions)",
+            "Lambda body references to entity.type, entity.spawnAtLocation(...), entity.random.nextInt(...) type-check on every version (spawnAtLocation was renamed in newer versions)",
+            "No behavior change -- API-binding fix only",
+            "Commit with message 'phase 5 fix: WitherTrophyHandler per-version Fabric event API'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-2",
+          "task_title": "Fix AcquisitionGametest per-version vanilla API",
+          "task_excerpt_lines": "46-75",
+          "owned_files": ["src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt"],
+          "acceptance_criteria": [
+            "./gradlew chiseledBuild advances past :{version}:compileKotlin for this file on all 5 MC versions",
+            "./gradlew chiseledRunGametest discovers and runs the @GameTest methods in this class on all 5 versions",
+            "Stonecutter-guarded accessors resolve MinecraftServer.lootData vs reloadableRegistries lookup",
+            "Stonecutter-guarded accessors resolve LootTable.getRandomItems vs LootTable.getRandomLootItems",
+            "Stonecutter-guarded accessors resolve Item.descriptionId direct field vs Item.getDescriptionId() accessor",
+            "Stonecutter-guarded accessors resolve ResourceLocation.parse vs ResourceLocation.tryParse vs new ResourceLocation(String) ctor",
+            "Commit with message 'phase 5 fix: AcquisitionGametest per-version vanilla API'"
+          ],
+          "recommended_model": "sonnet"
+        },
+        {
+          "agent_id": "wave-1-agent-3",
+          "task_title": "Fix WeaponTradeRegistrar per-version villager trade API",
+          "task_excerpt_lines": "78-105",
+          "owned_files": ["src/main/kotlin/com/dndweapons/trade/WeaponTradeRegistrar.kt"],
+          "acceptance_criteria": [
+            "./gradlew chiseledBuild advances past :{version}:compileKotlin for this file on all 5 MC versions",
+            "Trade registration at line 67-69 compiles against the version's actual VillagerTrades.TRADES type signature",
+            "Resolves VillagerTrades.TRADES.get(profession).add(level, factories) or the appropriate per-version equivalent (raw map vs registry-holder map vs Int2ObjectMap<Int2ObjectMap<List<ItemListing>>>)",
+            "Resolves the profession -> VillagerProfession! argument-type mismatch (currently inferred as Any)",
+            "Prefer TradeOfferHelper.registerVillagerOffers where available, fall back to per-version stonecutter forks on 1.20.1",
+            "Commit with message 'phase 5 fix: WeaponTradeRegistrar per-version villager trade API'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "agents": [
+        {
+          "agent_id": "wave-2-agent-1",
+          "task_title": "Re-run verification matrix and update phase-5-verification-final.md",
+          "task_excerpt_lines": "108-124",
+          "owned_files": ["docs/superpowers/plans/phase-5-verification-final.md"],
+          "acceptance_criteria": [
+            "Run ./gradlew chiseledBuild on all 5 MC versions and confirm BUILD SUCCESSFUL for each",
+            "Run ./gradlew chiseledTest on all 5 MC versions and confirm all JUnit tests pass, including the 7 AcquisitionCatalogTest tests",
+            "Run ./gradlew chiseledRunGametest on all 5 MC versions and confirm 16/16 gametests pass per version",
+            "Update the verification matrix in phase-5-verification-final.md with actual results (GREEN or FAIL per cell)",
+            "If all 5 versions are GREEN across all 3 columns: set Status to GREEN (do NOT apply git tag or push -- orchestrator policy)",
+            "If any version is RED: set Status to HOLD, leave tag unapplied, document the failure in the Known Issues section",
+            "Commit with message 'phase 5: final verification doc (cycle 3)'"
+          ],
+          "recommended_model": "sonnet"
+        }
+      ]
+    }
+  ],
+  "uncovered_plan_sections": []
+}

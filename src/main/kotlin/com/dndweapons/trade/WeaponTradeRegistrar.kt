@@ -16,18 +16,24 @@ import net.minecraft.world.item.trading.ItemCost
 //?}
 import net.minecraft.world.item.trading.MerchantOffer
 //? if <1.21.11 {
+import net.minecraft.world.entity.npc.VillagerProfession
 import net.minecraft.world.entity.npc.VillagerTrades
 //?}
 //? if >=1.21.11 {
 //? if <26.1.2 {
-/*import net.minecraft.world.entity.npc.villager.VillagerTrades
+/*import net.minecraft.world.entity.npc.villager.VillagerProfession
+import net.minecraft.world.entity.npc.villager.VillagerTrades
 *///?}
 //?}
-//? if >=1.21.1 {
-import net.minecraft.core.registries.BuiltInRegistries
+//? if <1.21.11 {
+import net.minecraft.resources.ResourceLocation
 //?}
-//? if <1.21.5 {
-import net.minecraft.world.entity.npc.VillagerProfession
+//? if >=1.21.11 {
+//? if <26.1.2 {
+/*import net.minecraft.resources.Identifier as ResourceLocation
+import net.minecraft.resources.ResourceKey
+import net.minecraft.core.registries.Registries
+*///?}
 //?}
 
 /**
@@ -38,14 +44,18 @@ import net.minecraft.world.entity.npc.VillagerProfession
  * Trade signature drift across versions:
  *  - 1.20.1                 : registerVillagerOffers(VillagerProfession, level, factories)
  *                             MerchantOffer takes ItemStack costs (no ItemCost wrapper).
+ *                             ItemListing SAM is (Entity, RandomSource) -> MerchantOffer.
  *  - 1.21.1, 1.21.4         : registerVillagerOffers(VillagerProfession, level, factories)
  *                             MerchantOffer takes ItemCost.
- *  - 1.21.11                : registerVillagerOffers(RegistryKey<VillagerProfession>, level, factories)
- *                             ItemListing SAM gains a ServerLevel param (3-arg lambda).
+ *                             ItemListing SAM is (Entity, RandomSource) -> MerchantOffer.
+ *  - 1.21.11                : registerVillagerOffers(ResourceKey<VillagerProfession>, level, factories)
+ *                             VillagerProfession lives in npc.villager package.
+ *                             ItemListing SAM gains ServerLevel param (3-arg).
  *  - 26.1.2                 : Fabric API removed; this file's register() is stonecutter-stubbed.
  *
  * The version-specific build is in [buildOffer]; the per-profession dispatch
- * is in [register].
+ * is forked per version (1.20.1-1.21.4 vs 1.21.11) so the profession argument
+ * has a concrete type at the registerVillagerOffers call site.
  */
 object WeaponTradeRegistrar {
 
@@ -61,7 +71,14 @@ object WeaponTradeRegistrar {
         //? if <26.1.2 {
         var registered = 0
         for ((professionId, levels) in AcquisitionCatalog.VILLAGER_TRADES) {
-            val profession = resolveProfession(professionId) ?: continue
+            //? if <1.21.11 {
+            val profession: VillagerProfession = resolveProfessionOld(professionId) ?: continue
+            //?}
+            //? if >=1.21.11 {
+            //? if <26.1.2 {
+            /*val profession: ResourceKey<VillagerProfession> = resolveProfessionNew(professionId)
+            *///?}
+            //?}
             for ((level, trades) in levels) {
                 //? if <1.21.5 {
                 TradeOfferHelper.registerVillagerOffers(profession, level) { factories ->
@@ -85,24 +102,32 @@ object WeaponTradeRegistrar {
         //?}
     }
 
-    //? if <26.1.2 {
-    private fun resolveProfession(id: String): Any? {
-        //? if <1.21.5 {
+    //? if <1.21.11 {
+    private fun resolveProfessionOld(id: String): VillagerProfession? {
         return when (id) {
             "minecraft:weaponsmith" -> VillagerProfession.WEAPONSMITH
             "minecraft:fletcher"    -> VillagerProfession.FLETCHER
             else -> null
         }
-        //?} else {
-        /*val location = net.minecraft.resources.ResourceLocation.parse(id)
-        val key = net.minecraft.resources.ResourceKey.create(
-            net.minecraft.core.registries.Registries.VILLAGER_PROFESSION,
-            location,
-        )
-        return key
-        *///?}
     }
+    //?}
 
+    //? if >=1.21.11 {
+    //? if <26.1.2 {
+    /*private fun resolveProfessionNew(id: String): ResourceKey<VillagerProfession> {
+        return when (id) {
+            "minecraft:weaponsmith" -> VillagerProfession.WEAPONSMITH
+            "minecraft:fletcher"    -> VillagerProfession.FLETCHER
+            else -> {
+                val location = ResourceLocation.parse(id)
+                ResourceKey.create(Registries.VILLAGER_PROFESSION, location)
+            }
+        }
+    }
+    *///?}
+    //?}
+
+    //? if <26.1.2 {
     private fun buildOffer(trade: VillagerTradeEntry): MerchantOffer? {
         val result = WeaponLookup.byId(trade.weapon, Tier.IRON) ?: return null
         val resultStack = ItemStack(result, trade.outputCount)
