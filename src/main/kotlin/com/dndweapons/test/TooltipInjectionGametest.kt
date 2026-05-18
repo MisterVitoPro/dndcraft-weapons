@@ -87,12 +87,22 @@ private fun runVanillaTooltipCase(ctx: GameTestHelper) {
  */
 private fun assertTooltipContainsDamageType(spec: WeaponSpec, expected: DamageType, label: String) {
     val lines = WeaponTooltipBuilder.build(spec)
-    val allKeys = lines.joinToString("|") { it.translationKey }
     val expectedFragment = expected.name.lowercase()
-    if (lines.none { it.translationKey.contains(expectedFragment) }) {
+    // Damage type is passed as an arg to the stat_block line (it's a translation
+    // key resolved client-side by Component.translatable), not as a separate
+    // line's translationKey. So check both the key and any string args.
+    val hit = lines.any { line ->
+        line.translationKey.contains(expectedFragment) ||
+            line.args.any { it is String && it.contains(expectedFragment) }
+    }
+    if (!hit) {
+        val keys = lines.joinToString("|") { it.translationKey }
+        val argsDump = lines.joinToString("|") { line ->
+            line.args.filterIsInstance<String>().joinToString(",")
+        }
         throw AssertionError(
             "$label tooltip missing damage type '$expectedFragment'. " +
-            "Translation keys: $allKeys"
+            "Translation keys: $keys. String args: $argsDump"
         )
     }
 }

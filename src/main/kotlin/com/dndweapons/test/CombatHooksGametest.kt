@@ -107,6 +107,16 @@ private fun primeAttackStrength(entity: LivingEntity) {
 private fun applyMainHandModifiers(entity: LivingEntity) {
     val stack = entity.mainHandItem
     if (stack.isEmpty) return
+    try {
+        applyMainHandModifiersImpl(entity, stack)
+    } catch (t: Throwable) {
+        println("[applyMainHandModifiers] threw on ${entity.javaClass.name} with ${stack.item}: ${t.javaClass.name}: ${t.message}")
+        t.printStackTrace()
+        throw t
+    }
+}
+
+private fun applyMainHandModifiersImpl(entity: LivingEntity, stack: ItemStack) {
     //? if >=1.20.5 {
     val mods = stack.get(net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS) ?: return
     val map = com.google.common.collect.HashMultimap.create<net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute>, net.minecraft.world.entity.ai.attributes.AttributeModifier>()
@@ -356,12 +366,27 @@ private fun runHeavySweepGuardCase(ctx: GameTestHelper) {
     //?} else {
     /*val player = ctx.makeMockPlayer()
     *///?}
-    // FINESSE weapon (rapier) + sprinting => DnD mixin applies a 1.20× multiplier to the
-    // primary. The strike-once guard must prevent the same multiplier from being applied
-    // to the swept secondary, so secondary damage stays at the vanilla sweep baseline.
-    player.setItemInHand(InteractionHand.MAIN_HAND, dndItem("rapier"))
-    player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY)
-    player.isSprinting = true
+    // LIGHT mainhand (iron sword -> SHORTSWORD spec via role tag, FINESSE+LIGHT) plus
+    // LIGHT offhand (dagger, LIGHT+THROWN) => DnD mixin adds +1 to the primary damage.
+    // The strike-once guard must prevent the same bonus from being applied to the swept
+    // secondary, so secondary damage stays at the vanilla sweep baseline (~1.0).
+    //
+    // Why iron sword + dagger (not longsword or rapier):
+    //  - Vanilla Player.attack only fires the sweep loop when the mainhand item is a
+    //    SwordItem subclass. DnD weapons extend Item (not SwordItem) so longsword
+    //    /greataxe never trigger sweep. Iron sword IS a SwordItem.
+    //  - Vanilla also disables sweep entirely while sprinting, so we cannot use the
+    //    FINESSE+sprint multiplier path here.
+    //  - LIGHT+light offhand gives a deterministic +1 bonus visible on the primary,
+    //    making the strike-once guard observable: primary = base + 1, swept secondary
+    //    = vanilla sweep contribution (~1.0).
+    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.IRON_SWORD))
+    player.setItemInHand(InteractionHand.OFF_HAND, dndItem("dagger"))
+    player.isSprinting = false
+    // Vanilla sweep also requires onGround=true (otherwise it treats the swing as a
+    // mid-air crit and skips the sweep loop). makeMockPlayer spawns players in the
+    // air at the structure origin, so set this explicitly.
+    player.setOnGround(true)
 
     // Primary pig: placed directly where the player will attack.
     val primaryPos = BlockPos(2, 1, 2)
@@ -376,6 +401,15 @@ private fun runHeavySweepGuardCase(ctx: GameTestHelper) {
     val secondary = ctx.spawn(EntityType.PIG, BlockPos(2, 1, 1)) as Pig
     secondary.setPos(primary.x, primary.y, primary.z - 0.5)
 
+    // Mock player is created at world (0.5, 1.0, 0.5) regardless of the test structure
+    // origin, while ctx.spawn uses absolute positions relative to the structure. For
+    // single-hit tests the distance doesn't matter (player.attack(target) invokes hurt
+    // directly), but vanilla sweep searches for entities within the PLAYER's bounding
+    // box inflated by 1 block. Teleport the player adjacent to the primary so the
+    // sweep area can actually find the secondary.
+    player.setPos(primary.x, primary.y, primary.z + 1.0)
+    player.setOnGround(true)
+
     val primaryBefore = primary.health
     val secondaryBefore = secondary.health
 
@@ -389,20 +423,20 @@ private fun runHeavySweepGuardCase(ctx: GameTestHelper) {
     val base = player.mainHandItem.attributes.damage()
     val tol = 0.5f
 
-    // Primary must receive the FINESSE sprint-boosted damage (base * 1.20). If the mixin
-    // failed to fire, primaryDealt would equal base (~rapier base) and this would fail.
-    val expectedPrimary = base * 1.20f
+    // Primary must receive the LIGHT+light-offhand bonus (base + 1). If the mixin failed
+    // to fire on the primary, dealt would equal base (no +1) and this would fail.
+    val expectedPrimary = base + 1f
     if (Math.abs(primaryDealt - expectedPrimary) > tol) {
         throw AssertionError(
             "Sweep guard (primary): dealt=$primaryDealt expected~$expectedPrimary (base=$base). " +
-                "The FINESSE sprint mixin may not be firing on the primary hit."
+                "The LIGHT dual-wield mixin may not be firing on the primary hit."
         )
     }
 
-    // Secondary must have been swept (damage > 0) AND must NOT have received the 1.20×
-    // FINESSE multiplier. If the strike-once guard is broken, secondary would be boosted
+    // Secondary must have been swept (damage > 0) AND must NOT have received the +1
+    // LIGHT-dual bonus. If the strike-once guard is broken, secondary would be boosted
     // to ~primaryDealt; correct behavior yields the vanilla sweep contribution
-    // (<= ~1.0 on a weapon with no Sweeping Edge enchant), strictly less than primary.
+    // (~1.0 on a weapon with no Sweeping Edge enchant), strictly less than primary.
     if (secondaryDealt <= 0f) {
         throw AssertionError(
             "Sweep guard (secondary): secondary pig took no damage — sweep did not fire. " +
