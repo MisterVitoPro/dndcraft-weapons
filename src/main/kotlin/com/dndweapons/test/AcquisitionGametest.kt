@@ -24,6 +24,11 @@ class AcquisitionGametest : FabricGameTest {
     fun strongholdCorridorContainsModWeapon(ctx: GameTestHelper) {
         runStrongholdCorridorCheck(ctx)
     }
+
+    @GameTest(template = "fabric-gametest-api-v1:empty")
+    fun weaponsmithLevelOneTradesIncludeModWeapon(ctx: GameTestHelper) {
+        runWeaponsmithLevelOneCheck(ctx)
+    }
 }
 //?} else {
 /*class AcquisitionGametest {
@@ -31,6 +36,11 @@ class AcquisitionGametest : FabricGameTest {
     @GameTest(structure = "fabric-gametest-api-v1:empty")
     fun strongholdCorridorContainsModWeapon(ctx: GameTestHelper) {
         runStrongholdCorridorCheck(ctx)
+    }
+
+    @GameTest(structure = "fabric-gametest-api-v1:empty")
+    fun weaponsmithLevelOneTradesIncludeModWeapon(ctx: GameTestHelper) {
+        runWeaponsmithLevelOneCheck(ctx)
     }
 }
 *///?}
@@ -64,5 +74,43 @@ private fun runStrongholdCorridorCheck(ctx: GameTestHelper) {
             "Stronghold corridor produced no dndweapons items in 200 rolls (12% chance, expected ~24)."
         )
     }
+    ctx.succeed()
+}
+
+private fun runWeaponsmithLevelOneCheck(ctx: GameTestHelper) {
+    //? if >=26.1.2 {
+    /*// 26.1.2 ships trades as a data pack. Verify the JSON is loaded.
+    val rm = ctx.level.server.resourceManager
+    val found = rm.listResources("villager_trades") { it.path.endsWith("weaponsmith_level1.json") }
+        .keys.any { it.namespace == "dndweapons" }
+    if (!found) {
+        throw AssertionError("dndweapons weaponsmith_level1.json not loaded by ResourceManager on 26.1.2")
+    }
+    *///?} else {
+    // 1.20.1-1.21.11 path: query VillagerTrades.TRADES for the profession + level 1.
+    val profession = net.minecraft.world.entity.npc.VillagerProfession.WEAPONSMITH
+    val trades = net.minecraft.world.entity.npc.VillagerTrades.TRADES[profession]
+        ?.get(1) ?: emptyArray()
+    val rng = net.minecraft.util.RandomSource.create(0L)
+    // Use the villager that gametest helpers spawn at the test origin, then
+    // probe each ItemListing for a mod weapon result.
+    val villager = ctx.spawnWithNoFreeWill(
+        net.minecraft.world.entity.EntityType.VILLAGER,
+        net.minecraft.core.BlockPos(2, 2, 2),
+    )
+    val hasModWeapon = trades.any { listing ->
+        //? if <1.21.5 {
+        val offer = listing.getOffer(villager, rng)
+        //?} else {
+        /*val offer = listing.getOffer(ctx.level, villager, rng)
+        *///?}
+        offer?.result?.descriptionId?.startsWith("item.dndweapons.") == true
+    }
+    if (!hasModWeapon) {
+        throw AssertionError(
+            "Weaponsmith level 1 has no dndweapons trades (Phase 5 WeaponTradeRegistrar failed)."
+        )
+    }
+    //?}
     ctx.succeed()
 }
