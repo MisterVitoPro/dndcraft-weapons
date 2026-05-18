@@ -2,7 +2,7 @@
   "cycle": 2,
   "input_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-18/cycle-1/fix-plan.md",
   "started_at": "2026-05-18T13:49:30-07:00",
-  "completed_at": null,
+  "completed_at": "2026-05-18T13:57:00-07:00",
   "context7_available": true,
   "waves": [
     {
@@ -13,8 +13,17 @@
       "wave_bug_count": 2,
       "commit_sha": "580ebc931c98c886a52745d7aeaf0289bf63f78f",
       "skipped_reason": null
+    },
+    {
+      "wave_id": 2,
+      "duration_seconds": 108,
+      "agents": [{"agent_id": "wave-2-agent-1", "dev_status": "DONE_WITH_CONCERNS"}],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 4,
+      "commit_sha": "debcf00e1d344773b2db14327efbb34f2fa9c2fa",
+      "skipped_reason": null
     }
   ],
-  "total_bugs": 0,
-  "next_cycle_plan": null
+  "total_bugs": 6,
+  "next_cycle_plan": "D:/minecraft/mods/dnd-weapons/docs/plan-runner/2026-05-18/cycle-2/fix-plan.md"
 }
