@@ -1,0 +1,51 @@
+{
+  "wave_id": 2,
+  "verifier_status": "BUGS_FOUND",
+  "agent_statuses": {"wave-2-agent-1": "DONE_WITH_CONCERNS"},
+  "bugs": [
+    {
+      "bug_id": "wave-2-agent-1-bug-1",
+      "severity": "P0",
+      "category": "missing_requirement",
+      "title": "Phase 5 verification matrix remains all-FAIL: 16 unresolved references in 3 files block compileKotlin on every MC version",
+      "file": "src/main/kotlin/com/dndweapons/loot/WitherTrophyHandler.kt",
+      "line": 6,
+      "evidence": "After Stonecutter parse fix, compileKotlin fails on 1.20.1, 1.21.1, 1.21.4, 1.21.11, 26.1.2 with: Unresolved reference 'ServerLivingEntityEvents' (Fabric API import missing/wrong), plus lambda type-inference cascade failures on entity.type, entity.spawnAtLocation, entity.random.nextInt.",
+      "expected": "WitherTrophyHandler.kt compiles on all 5 MC versions with correct per-version stonecutter-guarded imports for Fabric ServerLivingEntityEvents and matching SAM signatures.",
+      "suggested_fix": "Add stonecutter-guarded import block for ServerLivingEntityEvents (Fabric API module path may differ per version) and verify the SAM signature matches the version's API."
+    },
+    {
+      "bug_id": "wave-2-agent-1-bug-2",
+      "severity": "P0",
+      "category": "missing_requirement",
+      "title": "AcquisitionGametest.kt fails compileKotlin: GameTest, lootData, getRandomItems, descriptionId, parse, not unresolved",
+      "file": "src/main/kotlin/com/dndweapons/test/AcquisitionGametest.kt",
+      "line": 60,
+      "evidence": "Unresolved references across all 5 versions: GameTest annotation, MinecraftServer.lootData accessor (1.21.4+), LootTable.getRandomItems (renamed across versions), Item.descriptionId (accessor changed), ResourceLocation.parse (added in newer versions).",
+      "expected": "AcquisitionGametest.kt compiles on all 5 MC versions with correct per-version accessors.",
+      "suggested_fix": "Stonecutter-guard each affected accessor: lootData vs getServer().reloadableRegistries(), getRandomItems vs getRandomLootItems, descriptionId vs getDescriptionId(), ResourceLocation.parse vs ResourceLocation.tryParse vs new ResourceLocation(String)."
+    },
+    {
+      "bug_id": "wave-2-agent-1-bug-3",
+      "severity": "P0",
+      "category": "missing_requirement",
+      "title": "WeaponTradeRegistrar.kt fails compileKotlin: villager trade API drift unresolved on all 5 versions",
+      "file": "src/main/kotlin/com/dndweapons/trade/WeaponTradeRegistrar.kt",
+      "line": 67,
+      "evidence": "Lines around 67-69: VillagerTrades.TRADES.get(profession).add(level, factories) -- 'add' unresolved, 'profession' argument type mismatch (Any vs VillagerProfession!), factories parameter cannot be inferred. The vanilla VillagerTrades.TRADES type signature drifts across versions (raw map, registry-holder map, Int2ObjectMap of List<ItemListing>, etc.).",
+      "expected": "WeaponTradeRegistrar.kt compiles on all 5 MC versions with correct per-version stonecutter-guarded access to VillagerTrades.TRADES and the add/append shape.",
+      "suggested_fix": "Either (a) per-version stonecutter forks of the registration block, or (b) use TradeOfferHelper / Fabric API trade-registration where available to abstract over the vanilla map drift."
+    },
+    {
+      "bug_id": "wave-2-agent-1-bug-4",
+      "severity": "P1",
+      "category": "stale_documentation",
+      "title": "phase-5-verification-final.md previously attributed all failures to Stonecutter parse error; the actual scope is broader",
+      "file": "docs/superpowers/plans/phase-5-verification-final.md",
+      "line": null,
+      "evidence": "Cycle 1's verification doc documented one root cause (Stonecutter parse) and three Known Issues. Cycle 2 reveals at least three additional pre-existing compile blockers across three separate files. The Phase 5 verification status remains HOLD with a broader Known Issues set; the doc has been rewritten in this wave to reflect that.",
+      "expected": "Verification doc accurately reflects all blockers, not just the cycle 1 surface error.",
+      "suggested_fix": "Already applied in this wave -- the verification doc now lists 5 Known Issues including the three compile-failure blockers and notes that no prior-phase regressions are confirmed."
+    }
+  ]
+}
