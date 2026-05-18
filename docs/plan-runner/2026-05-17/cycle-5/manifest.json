@@ -20,6 +20,18 @@
       "wave_bug_count": 4,
       "commit_sha": "6b376a4e788cb9fade75f06675d8b0b8d066e9ad",
       "skipped_reason": null
+    },
+    {
+      "wave_id": 2,
+      "duration_seconds": 160,
+      "agents": [
+        {"agent_id": "wave-2-agent-1", "dev_status": "DONE"},
+        {"agent_id": "wave-2-agent-2", "dev_status": "DONE"}
+      ],
+      "wave_verifier_status": "BUGS_FOUND",
+      "wave_bug_count": 1,
+      "commit_sha": "cd958e5f122fe488908e0ae2c3c41711450da92c",
+      "skipped_reason": null
     }
   ],
   "total_bugs": 0,

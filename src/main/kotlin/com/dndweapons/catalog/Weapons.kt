@@ -425,6 +425,21 @@ object Weapons {
         // Martial Ranged (6)
         BLOWGUN, HAND_CROSSBOW, HEAVY_CROSSBOW, LONGBOW, MUSKET, PISTOL,
     )
+
+    /**
+     * Cartesian product of the 27 non-vanilla-mapped melee + thrown base specs with the
+     * 3 tiers. Each entry is `(spec, tier)` where the spec has the tier baked into its
+     * id/displayName/attackDamage/baseDurability via [atTier]. IRON entries are
+     * functionally identical to the matching entries in [ALL] — registration code uses
+     * ALL_TIERED to register all 81 items (the IRON 27 supersede the ALL list when
+     * Phase 4 is shipped).
+     *
+     * Ranged registered weapons (bow/crossbow/firearm/sling/blowgun) are excluded:
+     * Phase 4 only tiers melee + thrown DnD weapons per the design spec.
+     */
+    val ALL_TIERED: List<Pair<WeaponSpec, Tier>> = ALL
+        .filter { it.vanillaRoleTag == null && it.ranged in setOf(RangeKind.NONE, RangeKind.THROWN) }
+        .flatMap { base -> Tier.values().map { tier -> base.atTier(tier) to tier } }
 }
 
 /**
