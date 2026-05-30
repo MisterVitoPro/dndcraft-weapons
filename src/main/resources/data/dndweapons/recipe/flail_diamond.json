@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": "dndweapons:diamond_weapon_upgrade_template",
-  "base":     "dndweapons:flail",
-  "addition": "#c:gems/diamond",
+  "template": { "item": "dndweapons:diamond_weapon_upgrade_template" },
+  "base":     { "item": "dndweapons:flail" },
+  "addition": { "tag": "c:gems/diamond" },
   "result":   { "id": "dndweapons:flail_diamond" }
 }

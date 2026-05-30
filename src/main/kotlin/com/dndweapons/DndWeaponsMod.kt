@@ -59,6 +59,18 @@ object DndWeaponsMod : ModInitializer {
         val registrar = WeaponRegistrarImpl()
         registrar.registerAll(Weapons.ALL_TIERED)
 
+        // P1-008 (QA Swarm 2026-05-18): SpecRegistry.init() MUST happen immediately
+        // after registerAll - before any Phase 5 registrar runs - so the TAGS_LOADED
+        // invalidation subscriber exists by the time loot/trade tables are built.
+        // Phase 3 spec §5 mandates this order; this position closes the (currently
+        // theoretical) window where a /reload between registrar.register() and
+        // SpecRegistry.init() would skip role-cache invalidation.
+        SpecRegistry.init()
+        // WeaponTooltipInjector.register() is intentionally NOT called here -
+        // it references net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback
+        // which is unavailable in EnvType.SERVER. Registration lives in
+        // com.dndweapons.client.DndWeaponsClientMod (entrypoints.client).
+
         SmithingItemRegistrar.registerAll()
         LOGGER.info("6 smithing-component items + 2 smithing-template items registered")
 
@@ -73,12 +85,6 @@ object DndWeaponsMod : ModInitializer {
         WeaponTradeRegistrar.register()
         //?}
         LOGGER.info("Phase 5 acquisition surface registered.")
-
-        SpecRegistry.init()
-        // WeaponTooltipInjector.register() is intentionally NOT called here -
-        // it references net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback
-        // which is unavailable in EnvType.SERVER. Registration lives in
-        // com.dndweapons.client.DndWeaponsClientMod (entrypoints.client).
 
         //? if <26 {
         Registry.register(

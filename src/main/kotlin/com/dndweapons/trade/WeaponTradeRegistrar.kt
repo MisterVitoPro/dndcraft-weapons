@@ -129,7 +129,14 @@ object WeaponTradeRegistrar {
 
     //? if <26.1.2 {
     private fun buildOffer(trade: VillagerTradeEntry): MerchantOffer? {
-        val result = WeaponLookup.byId(trade.weapon, Tier.IRON) ?: return null
+        val result = WeaponLookup.byId(trade.weapon, Tier.IRON) ?: run {
+            // P2-014: surface unregistered trade weapons in dev logs instead of
+            // silently dropping the offer (Fabric's ItemListing skips null returns).
+            DndWeaponsMod.LOGGER.warn(
+                "VillagerTrade skipped unregistered weapon '{}' (iron tier)", trade.weapon
+            )
+            return null
+        }
         val resultStack = ItemStack(result, trade.outputCount)
         //? if >=1.21.1 {
         return MerchantOffer(

@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": "dndweapons:diamond_weapon_upgrade_template",
-  "base":     "dndweapons:light_hammer",
-  "addition": "#c:gems/diamond",
+  "template": { "item": "dndweapons:diamond_weapon_upgrade_template" },
+  "base":     { "item": "dndweapons:light_hammer" },
+  "addition": { "tag": "c:gems/diamond" },
   "result":   { "id": "dndweapons:light_hammer_diamond" }
 }

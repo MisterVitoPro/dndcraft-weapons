@@ -63,9 +63,14 @@ abstract class PlayerAttackMixin {
         dndweapons_primaryTarget.set(target)
     }
 
+    // QA Swarm P1-005 / P3-008: TAIL (not RETURN) so the ThreadLocal also clears
+    // on exception exits. RETURN fires only on normal returns; if Player.attack
+    // throws after dndweapons_captureTarget set the ThreadLocal, the Entity ref
+    // would leak until the next attack on the same thread (worker thread reuse).
+    // TAIL fires on every method exit including exception paths.
     @Inject(
         method = ["attack(Lnet/minecraft/world/entity/Entity;)V"],
-        at = [At("RETURN")],
+        at = [At("TAIL")],
     )
     private fun dndweapons_clearTarget(target: Entity, ci: CallbackInfo) {
         dndweapons_primaryTarget.remove()

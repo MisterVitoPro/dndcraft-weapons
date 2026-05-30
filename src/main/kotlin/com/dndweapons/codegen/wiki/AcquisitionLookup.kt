@@ -49,8 +49,21 @@ class AcquisitionLookup private constructor(
                 // iron drop; netherite-with-null-weapon (Warden) is a random pick and
                 // is documented on every netherite weapon page via NetheriteRandomDrop.
                 if (ironWeapon != null && drop.netheritePct > 0) {
+                    // Attach to the iron id; renderer expands to <id>_netherite for display.
                     out.getOrPut(ironWeapon) { mutableListOf() }
                         .add(AcquisitionFact.MobDrop(mobLabel, drop.netheritePct, Tier.NETHERITE))
+                }
+                // P3-006: when a mob has no specific iron weapon but does drop a random
+                // netherite weapon (the Warden case), attach a NetheriteRandomDrop fact
+                // to EVERY netherite-tier weapon id so every netherite wiki page shows
+                // the source. Without this, no netherite page mentions the Warden.
+                if (ironWeapon == null && drop.netheritePct > 0) {
+                    val fact = AcquisitionFact.NetheriteRandomDrop(mobLabel, drop.netheritePct)
+                    for (spec in com.dndweapons.catalog.Weapons.ALL_TIERED) {
+                        val (s, tier) = spec
+                        if (tier != Tier.NETHERITE) continue
+                        out.getOrPut(s.id) { mutableListOf() }.add(fact)
+                    }
                 }
             }
 
@@ -113,5 +126,15 @@ sealed interface AcquisitionFact {
         val profession: String,
         val level: Int,
         val emeralds: Int,
+    ) : AcquisitionFact
+
+    /**
+     * P3-006: a "random netherite weapon" drop (Warden) - the source mob picks
+     * one of the 27 netherite-tier weapons uniformly at random. Attached to
+     * every netherite weapon page so the source mob is documented everywhere.
+     */
+    data class NetheriteRandomDrop(
+        val mobLabel: String,
+        val chancePct: Int,
     ) : AcquisitionFact
 }

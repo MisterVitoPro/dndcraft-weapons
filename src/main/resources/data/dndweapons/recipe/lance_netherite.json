@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": "dndweapons:netherite_weapon_upgrade_template",
-  "base":     "dndweapons:lance_diamond",
-  "addition": "#c:ingots/netherite",
+  "template": { "item": "dndweapons:netherite_weapon_upgrade_template" },
+  "base":     { "item": "dndweapons:lance_diamond" },
+  "addition": { "tag": "c:ingots/netherite" },
   "result":   { "id": "dndweapons:lance_netherite" }
 }

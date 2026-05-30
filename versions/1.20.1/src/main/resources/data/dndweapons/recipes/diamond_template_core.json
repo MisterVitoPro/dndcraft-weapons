@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "dndweapons:diamond_template_fragment" },
+    { "item": "dndweapons:diamond_template_fragment" },
+    { "item": "dndweapons:diamond_template_fragment" },
+    { "item": "dndweapons:diamond_template_fragment" },
+    { "item": "dndweapons:weapon_smithing_binding" }
+  ],
+  "result": { "item": "dndweapons:diamond_template_core", "count": 1 }
+}

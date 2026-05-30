@@ -60,6 +60,7 @@ Plus all the supporting infrastructure: `Tier` enum and `WeaponSpec.atTier()` he
 | 12 | Model JSONs | Auto-emitted at build (or once, committed to repo) from a single `item/generated` template | Every tiered item has the same model shape; checking in 54 near-identical JSONs is fine but a small data-gen pass is cleaner. |
 | 13 | Phase 3 compatibility | Each tiered item is its own `WeaponSpec` registered via `SpecRegistry.bindRegistered`. Mixin behavior is identical. | Each tier shares the parent's `properties`, so the FINESSE/HEAVY/LIGHT/VERSATILE/SPECIAL_LANCE bonuses apply unchanged to higher tiers. |
 | 14 | Common-tag references | `c:gems/diamond`, `c:ingots/netherite` for smithing additions | Master spec §"Material references". Lets other mods' diamond/netherite ingredients work as upgrade material. |
+| 15 | **Master spec override (QA Swarm 2026-05-18, P1-001, P1-002)** | Phase 4 governs tier stats: Diamond=`base + 1` damage, Netherite=`base + 2` damage, HEAVY knockback is flat `1.0` at every tier (no tier-keyed Netherite knockback bonus) | Master spec §7 originally specified +2/+3 damage and a Netherite Heavy `+1` knockback column. Row 3 above (vanilla pattern) explicitly overrides the damage progression to match MC swords/axes; the netherite knockback bonus was never implemented because tiers should be pure power-level upgrades (row 4: "Attack speed, reach, properties unchanged across tiers" - knockback is a property-derived attribute and stays unchanged too). The master spec §7 table has been updated to match this implementation; this row is the authoritative decision record. |
 
 ---
 
@@ -79,14 +80,19 @@ enum class Tier(val suffix: String, val displayPrefix: String, val damageBonus: 
 
 | Base weapon | Iron | Diamond | Netherite |
 |---|---|---|---|
-| `longsword` (base 5) | 5 | 6 | 7 |
+| `longsword` (base 6) | 6 | 7 | 8 |
 | `greataxe` (base 8) | 8 | 9 | 10 |
 | `dagger` (base 4) | 4 | 5 | 6 |
 | `lance` (base 7) | 7 | 8 | 9 |
 | `rapier` (base 6) | 6 | 7 | 8 |
 
+> **P3-002 correction (QA Swarm 2026-05-18):** the `longsword` base damage is
+> 6 (not 5); the example table previously listed `5 | 6 | 7` which conflicted
+> with `Weapons.LONGSWORD.attackDamage = 6` (rounded from the dice formula
+> `round(4.5 + 1.5) = 6`). Implementation is unchanged; doc-only fix.
+
 The DnD combat properties stack on top:
-- `Netherite Longsword` versatile-empty: `7 + 1 = 8` damage (same +1 versatile bonus, applied after tier).
+- `Netherite Longsword` versatile-empty: `8 + 1 = 9` damage (same +1 versatile bonus, applied after tier).
 - `Netherite Rapier` finesse-sprint: `8 × 1.20 = 9.6` damage.
 
 ### Fire immunity (netherite tier)
@@ -364,7 +370,7 @@ Three new gametests in `src/main/kotlin/com/dndweapons/test/SmithingGametest.kt`
 
 Strategy:
 1. `SpecRegistry.lookup(Items.getById("dndweapons:longsword_diamond"))` returns a non-null spec.
-2. Returned spec's `attackDamage` is `longsword_iron.attackDamage + 1` = `5 + 1 = 6`.
+2. Returned spec's `attackDamage` is `longsword_iron.attackDamage + 1` = `6 + 1 = 7`.
 3. Returned spec's `properties` equals `longsword_iron.properties` (set-equality).
 4. Returned spec's `id` is `"longsword_diamond"`.
 
@@ -385,7 +391,7 @@ Strategy:
 1. Mock player with `longsword_diamond` mainhand, empty offhand (VERSATILE path from Phase 3).
 2. `primeAttackStrength(player)` + `applyMainHandModifiers(player)`.
 3. `player.attack(pig)`.
-4. Assert `dealt` ≈ `(longsword base 5 + diamond +1) + versatileBonus 1` = `7`, within `±0.5` tolerance.
+4. Assert `dealt` ≈ `(longsword base 6 + diamond +1) + versatileBonus 1` = `8`, within `±0.5` tolerance.
 
 This proves the tier bonus passes through the vanilla attribute pipeline AND the DnD mixin fires correctly on the tiered item.
 
