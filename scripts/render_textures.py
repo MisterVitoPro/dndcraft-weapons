@@ -74,6 +74,7 @@ TRANSPARENT = (0, 0, 0, 0)
 HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 TRANSPARENT_CHAR = "."
 MAX_EXTENDS_DEPTH = 16
+GRADIENT_AXES = ("x", "y", "diag", "adiag")
 
 
 class RenderError(Exception):
@@ -94,11 +95,50 @@ def hex_to_rgba(value: Optional[str]) -> tuple[int, int, int, int]:
     return (r, g, b, a)
 
 
-def resolve_palette(name: str, palettes_dir: Path, _seen: Optional[list[str]] = None) -> dict[str, Optional[str]]:
-    """Load a palette by name, resolving `extends` inheritance into a flat char->hex map.
+def validate_gradient(palette_name: str, char: str, obj: dict) -> None:
+    """Strict-validate a gradient palette value {from, to, axis}. Raises RenderError."""
+    keys = set(obj.keys())
+    if keys != {"from", "to", "axis"}:
+        raise RenderError(
+            f"palette '{palette_name}': char '{char}' gradient must have exactly keys "
+            f"from/to/axis, got {sorted(keys)}"
+        )
+    for endpoint in ("from", "to"):
+        val = obj[endpoint]
+        if not isinstance(val, str) or not HEX_RE.match(val):
+            raise RenderError(
+                f"palette '{palette_name}': char '{char}' gradient '{endpoint}' "
+                f"has invalid hex '{val}'"
+            )
+    if obj["axis"] not in GRADIENT_AXES:
+        raise RenderError(
+            f"palette '{palette_name}': char '{char}' gradient axis '{obj['axis']}' "
+            f"must be one of {'/'.join(GRADIENT_AXES)}"
+        )
 
-    Raises RenderError on a missing file, an `extends` cycle, excessive depth, or a
-    malformed hex value.
+
+def axis_coord(x: int, y: int, axis: str) -> int:
+    """Scalar position of a pixel along a linear gradient axis."""
+    if axis == "x":
+        return x
+    if axis == "y":
+        return y
+    if axis == "diag":      # top-left -> bottom-right
+        return x + y
+    return x - y            # adiag: bottom-left -> top-right
+
+
+def lerp_rgba(c0: tuple[int, int, int, int], c1: tuple[int, int, int, int], t: float) -> tuple[int, int, int, int]:
+    """Per-channel linear interpolation between two RGBA colors at fraction t in [0, 1]."""
+    return tuple(round(c0[i] + t * (c1[i] - c0[i])) for i in range(4))  # type: ignore[return-value]
+
+
+def resolve_palette(name: str, palettes_dir: Path, _seen: Optional[list[str]] = None) -> dict[str, object]:
+    """Load a palette by name, resolving `extends` inheritance into a flat char->value map.
+
+    A value is a hex string, ``None`` (transparent), or a gradient object
+    ``{from, to, axis}``. Raises RenderError on a missing file, an `extends` cycle,
+    excessive depth, a malformed hex value, or an invalid gradient object.
     """
     _seen = _seen or []
     if name in _seen:
@@ -115,7 +155,7 @@ def resolve_palette(name: str, palettes_dir: Path, _seen: Optional[list[str]] = 
     except json.JSONDecodeError as exc:
         raise RenderError(f"palette '{name}': invalid JSON: {exc}") from exc
 
-    colors: dict[str, Optional[str]] = {}
+    colors: dict[str, object] = {}
     base = data.get("extends")
     if base:
         colors.update(resolve_palette(base, palettes_dir, _seen + [name]))
@@ -123,10 +163,12 @@ def resolve_palette(name: str, palettes_dir: Path, _seen: Optional[list[str]] = 
     own = data.get("colors", {})
     if not isinstance(own, dict):
         raise RenderError(f"palette '{name}': 'colors' must be an object")
-    for char, hexval in own.items():
-        if hexval is not None and not HEX_RE.match(str(hexval)):
-            raise RenderError(f"palette '{name}': char '{char}' has invalid hex '{hexval}'")
-        colors[char] = hexval
+    for char, value in own.items():
+        if isinstance(value, dict):
+            validate_gradient(name, char, value)
+        elif value is not None and not HEX_RE.match(str(value)):
+            raise RenderError(f"palette '{name}': char '{char}' has invalid hex '{value}'")
+        colors[char] = value
     return colors
 
 
@@ -161,13 +203,20 @@ def load_shape(path: Path) -> dict:
 
 
 def render_shape(shape: dict, palettes_dir: Path) -> dict[str, "Image.Image"]:
-    """Build one RGBA image per output. Validates char coverage against each palette."""
+    """Build one RGBA image per output. Validates char coverage against each palette.
+
+    Flat chars (hex / null) paint a single color. A char whose palette value is a
+    gradient object is collected and painted in a second pass: its color is interpolated
+    along the gradient axis across the extent of that char's own cells (so the ramp fills
+    the form wherever the char is placed). A single-line extent resolves to `from`.
+    """
     rows: list[str] = shape["rows"]
     images: dict[str, Image.Image] = {}
     for output_name, palette_name in shape["outputs"].items():
         palette = resolve_palette(palette_name, palettes_dir)
         img = Image.new("RGBA", (SIZE, SIZE), TRANSPARENT)
         px = img.load()
+        gradient_pixels: dict[str, list[tuple[int, int]]] = {}
         for y, row in enumerate(rows):
             for x, char in enumerate(row):
                 if char == TRANSPARENT_CHAR:
@@ -176,7 +225,22 @@ def render_shape(shape: dict, palettes_dir: Path) -> dict[str, "Image.Image"]:
                     raise RenderError(
                         f"{shape['id']}.json row {y} col {x}: char '{char}' not defined in resolved palette '{palette_name}'"
                     )
-                px[x, y] = hex_to_rgba(palette[char])
+                value = palette[char]
+                if isinstance(value, dict):
+                    gradient_pixels.setdefault(char, []).append((x, y))
+                else:
+                    px[x, y] = hex_to_rgba(value)
+        for char, pixels in gradient_pixels.items():
+            grad = palette[char]
+            axis = grad["axis"]
+            c_from = hex_to_rgba(grad["from"])
+            c_to = hex_to_rgba(grad["to"])
+            coords = [axis_coord(x, y, axis) for x, y in pixels]
+            cmin, cmax = min(coords), max(coords)
+            span = cmax - cmin
+            for x, y in pixels:
+                t = 0.0 if span == 0 else (axis_coord(x, y, axis) - cmin) / span
+                px[x, y] = lerp_rgba(c_from, c_to, t)
         images[output_name] = img
     return images
 
