@@ -10,6 +10,7 @@
     "f": "#6E6E6E",
     "p": "#6E6E6E",
     "a": "#6E6E6E",
+    "o": "#272727",
     "g": { "from": "#C8C8C8", "to": "#5A5A5A", "axis": "diag" },
     "v": { "from": "#C8C8C8", "to": "#5A5A5A", "axis": "y" }
   }
