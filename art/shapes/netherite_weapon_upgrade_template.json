@@ -1,0 +1,25 @@
+{
+  "id": "netherite_weapon_upgrade_template",
+  "size": 16,
+  "outputs": {
+    "netherite_weapon_upgrade_template": "netherite"
+  },
+  "rows": [
+    "................",
+    "...BBBBBBBB.....",
+    "...BvvvvvvvBs...",
+    "...BvvvvvvvBs...",
+    "...BvvBvvvvBs...",
+    "...BvvvBvvvBs...",
+    "...BvvvvvBvBs...",
+    "...BvvvvvvBBs...",
+    "...BvvvvvvvvBs..",
+    "...BvvvvvvvBs...",
+    "...BvvvvvvvBs...",
+    "...BevvvvvvBs...",
+    "...BBBBBBBBs....",
+    "................",
+    "................",
+    "................"
+  ]
+}

@@ -67,7 +67,21 @@ object SpecRegistry {
         roleCache = null
     }
 
+    /**
+     * P2-017: synchronized to close the invalidate-during-build race. The benign-race
+     * note in the class doc covered concurrent build-then-overwrite (both threads
+     * compute the same map content). It did NOT cover the case where
+     * invalidateRoleCache() fires (TAGS_LOADED on server thread) mid-way through a
+     * concurrent client-thread tooltip build, which would write stale tag data
+     * back to roleCache AFTER invalidate set it null. @Synchronized linearizes the
+     * build with both invalidate and any concurrent build, eliminating the race.
+     */
+    @Synchronized
     private fun buildRoleCacheAndStore(): Map<Item, WeaponSpec> {
+        // Re-check inside the monitor: another thread may have completed the
+        // build between our lookup() probe (roleCache?: ...) and our acquisition
+        // of the lock. Return the existing cache to avoid duplicate work.
+        roleCache?.let { return it }
         val out = mutableMapOf<Item, WeaponSpec>()
         for ((tagStr, spec) in byRoleTag) {
             val tag = parseItemTagKey(tagStr)

@@ -1,0 +1,27 @@
+{
+  "id": "longsword",
+  "size": 16,
+  "outputs": {
+    "longsword": "iron",
+    "longsword_diamond": "diamond",
+    "longsword_netherite": "netherite"
+  },
+  "rows": [
+    ".............sss",
+    "............sBBs",
+    "...........sBBBs",
+    "..........sBBBs.",
+    ".........sBBBs..",
+    "........sBBBs...",
+    "..oo...sBBBs....",
+    "..obo.sBBBs.....",
+    "...oboBBBs......",
+    "...oboBBs.......",
+    "....oboo........",
+    "...kwobbo.......",
+    "..kWo.oobo......",
+    "oowo....oo......",
+    "obo.............",
+    "ooo............."
+  ]
+}

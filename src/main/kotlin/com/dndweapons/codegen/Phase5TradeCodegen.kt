@@ -3,6 +3,7 @@ package com.dndweapons.codegen
 
 import com.dndweapons.acquisition.AcquisitionCatalog
 import com.dndweapons.acquisition.VillagerTradeEntry
+import com.dndweapons.catalog.Weapons
 import java.io.File
 
 /**
@@ -17,6 +18,22 @@ import java.io.File
  * is edited.
  */
 fun main() {
+    // P2-013: validate every trade weapon id against the canonical Weapons.ALL
+    // catalog BEFORE emitting JSON. Catches typos / removed entries before they
+    // ship as committed JSON files MC silently drops at load time.
+    val known: Set<String> = Weapons.ALL.map { it.id }.toSet()
+    val unknown = mutableListOf<String>()
+    for ((professionId, levels) in AcquisitionCatalog.VILLAGER_TRADES) {
+        for ((level, trades) in levels) {
+            for (t in trades) {
+                if (t.weapon !in known) unknown += "$professionId/$level: ${t.weapon}"
+            }
+        }
+    }
+    require(unknown.isEmpty()) {
+        "Phase5TradeCodegen: unknown weapon id(s) in AcquisitionCatalog.VILLAGER_TRADES: $unknown"
+    }
+
     val outputRoot = File("src/main/resources/data/dndweapons/villager_trades")
     outputRoot.mkdirs()
     var written = 0
@@ -28,7 +45,7 @@ fun main() {
             written++
         }
     }
-    println("Phase5TradeCodegen: wrote $written trade JSONs to ${outputRoot.path}")
+    println("Phase5TradeCodegen: wrote $written trade JSONs to ${outputRoot.path} (validated against ${known.size} known weapon ids)")
 }
 
 private fun buildJson(professionId: String, level: Int, trades: List<VillagerTradeEntry>): String {

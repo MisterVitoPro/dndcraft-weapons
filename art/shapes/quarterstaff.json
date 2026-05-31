@@ -1,0 +1,27 @@
+{
+  "id": "quarterstaff",
+  "size": 16,
+  "outputs": {
+    "quarterstaff": "hardwood",
+    "quarterstaff_diamond": "hardwood_diamond",
+    "quarterstaff_netherite": "hardwood_netherite"
+  },
+  "rows": [
+    "..............fa",
+    ".............fBg",
+    "............Bgs.",
+    "...........Bgs..",
+    "..........Bgs...",
+    ".........Bgs....",
+    "........Bgs.....",
+    ".......Bgs......",
+    "......Bgs.......",
+    ".....Bgs........",
+    "....Bgs.........",
+    "...Bgs..........",
+    "..Bgs...........",
+    ".Bgs............",
+    "afg.............",
+    "................"
+  ]
+}

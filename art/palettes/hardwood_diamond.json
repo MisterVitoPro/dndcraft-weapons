@@ -1,0 +1,7 @@
+{
+  "extends": "hardwood",
+  "colors": {
+    "a": "#7DF2EE",
+    "i": "#4DD2D6"
+  }
+}

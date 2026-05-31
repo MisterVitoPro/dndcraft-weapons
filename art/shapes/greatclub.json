@@ -1,0 +1,27 @@
+{
+  "id": "greatclub",
+  "size": 16,
+  "outputs": {
+    "greatclub": "hardwood",
+    "greatclub_diamond": "hardwood_diamond",
+    "greatclub_netherite": "hardwood_netherite"
+  },
+  "rows": [
+    "................",
+    "............BBBg",
+    "...........BBBgs",
+    "..........BBBags",
+    ".........BBBggas",
+    "........BBBgggs.",
+    ".......BBBggs...",
+    "......BBBgs.....",
+    ".....BBBgs......",
+    "....BBggs.......",
+    "...BBgs.........",
+    "..Bggs..........",
+    "..Bgs...........",
+    ".Bgs............",
+    ".gs.............",
+    "................"
+  ]
+}

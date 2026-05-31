@@ -23,6 +23,9 @@ run/
 .DS_Store
 Thumbs.db
 
+# Claude Code local config and skills (kept local, not shared via repo)
+.claude/
+
 # Stonecutter cache
 .stonecutter/
 versions/*/build/
@@ -46,3 +49,4 @@ prismlauncher-*/
 # common Minecraft instance scaffolding if it lands near the repo
 instances/
 .minecraft/
+docs/plan-runner/

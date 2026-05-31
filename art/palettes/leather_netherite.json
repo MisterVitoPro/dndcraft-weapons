@@ -1,0 +1,7 @@
+{
+  "extends": "leather",
+  "colors": {
+    "a": "#4A3A38",
+    "e": "#6B2A1A"
+  }
+}

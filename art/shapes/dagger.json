@@ -1,0 +1,27 @@
+{
+  "id": "dagger",
+  "size": 16,
+  "outputs": {
+    "dagger": "iron",
+    "dagger_diamond": "diamond",
+    "dagger_netherite": "netherite"
+  },
+  "rows": [
+    "................",
+    "................",
+    "................",
+    "..........sss...",
+    ".........sBBs...",
+    "........sBBBs...",
+    ".......sBBBs....",
+    "....oo.sBBBs....",
+    "....oboBBBs.....",
+    ".....oboBs......",
+    ".....oboo.......",
+    "....kwobo.......",
+    "...kWo.obo......",
+    "..oowo..oo......",
+    "..obo...........",
+    "..ooo..........."
+  ]
+}

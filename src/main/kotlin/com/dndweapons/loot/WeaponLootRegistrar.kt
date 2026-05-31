@@ -40,8 +40,13 @@ import net.minecraft.world.level.storage.loot.providers.number.ConstantValue
  */
 object WeaponLootRegistrar {
 
+    // P2-009: include a >=26.1.2 branch BEFORE >=1.21.11 because 26 > 1
+        // would otherwise satisfy the 1.21.11 check and mis-report the MC
+        // version string on 26.1.2 builds.
     private const val MOD_VERSION_STRING: String =
-        //? if >=1.21.11 {
+        //? if >=26.1.2 {
+        /*"26.1.2"*/
+        //?} else if >=1.21.11 {
         /*"1.21.11"*/
         //?} else if >=1.21.4 {
         /*"1.21.4"*/
@@ -94,8 +99,11 @@ object WeaponLootRegistrar {
             }
         }
         AcquisitionCatalog.MOB_DROPS[tableId]?.let { drop ->
-            if (drop.ironPct > 0)      builder.withPool(buildMobPool(drop, Tier.IRON))
-            if (drop.netheritePct > 0) builder.withPool(buildMobPool(drop, Tier.NETHERITE))
+            // P2-012: gate withPool on a non-null pool so a missing weapon
+            // registration doesn't produce an empty-pool LootTable that MC's
+            // evaluator can throw on.
+            if (drop.ironPct > 0)      buildMobPool(drop, Tier.IRON)?.let { builder.withPool(it) }
+            if (drop.netheritePct > 0) buildMobPool(drop, Tier.NETHERITE)?.let { builder.withPool(it) }
         }
     }
 
@@ -120,27 +128,63 @@ object WeaponLootRegistrar {
 
     private fun buildStructurePool(entry: StructureLoot): LootPool.Builder {
         val pool = LootPool.lootPool().setRolls(ConstantValue.exactly(1.0f))
-        // Weighted weapon entries: each weapon shares the chancePct weight equally.
-        val perWeaponWeight = entry.chancePct / entry.weapons.size
-        for (weaponId in entry.weapons) {
-            val item: Item = WeaponLookup.byId(weaponId, entry.tier) ?: continue
+        // P1-006: guard empty list - chancePct / 0 would throw ArithmeticException.
+        if (entry.weapons.isEmpty()) {
+            pool.add(EmptyLootItem.emptyItem().setWeight(maxOf(100 - entry.chancePct, 1)))
+            return pool
+        }
+        // P2-011: resolve items FIRST, then compute per-weapon weight from the
+        // resolved count so a partially-skipped pool doesn't distort probabilities.
+        val items: List<Item> = entry.weapons.mapNotNull { id ->
+            val item = WeaponLookup.byId(id, entry.tier)
+            if (item == null) {
+                // P2-010: log a warning per skip so unregistered weapon ids surface
+                // in dev logs instead of silently shrinking the pool.
+                DndWeaponsMod.LOGGER.warn(
+                    "LootPool skipped unregistered weapon '{}' (tier={})", id, entry.tier
+                )
+            }
+            item
+        }
+        if (items.isEmpty()) {
+            pool.add(EmptyLootItem.emptyItem().setWeight(maxOf(100 - entry.chancePct, 1)))
+            return pool
+        }
+        val perWeaponWeight = maxOf(entry.chancePct / items.size, 1)
+        for (item in items) {
             pool.add(
                 LootItem.lootTableItem(item)
                     .apply(SetItemCountFunction.setCount(ConstantValue.exactly(1.0f)))
-                    .setWeight(maxOf(perWeaponWeight, 1))
+                    .setWeight(perWeaponWeight)
             )
         }
         pool.add(EmptyLootItem.emptyItem().setWeight(maxOf(100 - entry.chancePct, 1)))
         return pool
     }
 
-    private fun buildMobPool(drop: MobDrop, tier: Tier): LootPool.Builder {
-        val pool = LootPool.lootPool().setRolls(ConstantValue.exactly(1.0f))
+    /** Test-only access to the otherwise-private structure pool builder. Used by
+     *  WeaponLootRegistrarGuardTest to assert the P1-006 guard. */
+    internal fun buildStructurePoolForTest(entry: StructureLoot): LootPool.Builder =
+        buildStructurePool(entry)
+
+    /**
+     * P2-012: returns null when the requested mob pool cannot be built (no
+     * resolvable items). Caller gates `builder.withPool(...)` on the non-null
+     * result so MC's loot-table evaluator never sees an entry-less pool.
+     */
+    private fun buildMobPool(drop: MobDrop, tier: Tier): LootPool.Builder? {
         val pct = if (tier == Tier.IRON) drop.ironPct else drop.netheritePct
+        val pool = LootPool.lootPool().setRolls(ConstantValue.exactly(1.0f))
         if (tier == Tier.NETHERITE && drop.ironWeapon == null) {
             // Warden case: random selection across all 27 netherite-tier weapons.
             // Each weapon entry has weight 1; empty entry weight balances the (100-pct).
             val netheriteItems = WeaponLookup.allNetherite()
+            if (netheriteItems.isEmpty()) {
+                DndWeaponsMod.LOGGER.warn(
+                    "MobPool skipped: no netherite-tier items resolvable for random-drop mob"
+                )
+                return null
+            }
             val perItemWeight = maxOf(pct / netheriteItems.size, 1)
             for (item in netheriteItems) {
                 pool.add(
@@ -152,8 +196,13 @@ object WeaponLootRegistrar {
             pool.add(EmptyLootItem.emptyItem().setWeight(maxOf(100 - pct, 1)))
         } else {
             // Iron OR netherite for a mob that has a single thematic weapon id.
-            val weaponId = drop.ironWeapon ?: return pool   // defensive; netherite-only handled above
-            val item = WeaponLookup.byId(weaponId, tier) ?: return pool
+            val weaponId = drop.ironWeapon ?: return null   // defensive; netherite-only handled above
+            val item = WeaponLookup.byId(weaponId, tier) ?: run {
+                DndWeaponsMod.LOGGER.warn(
+                    "MobPool skipped unregistered weapon '{}' (tier={})", weaponId, tier
+                )
+                return null
+            }
             pool.add(
                 LootItem.lootTableItem(item)
                     .apply(SetItemCountFunction.setCount(ConstantValue.exactly(1.0f)))
