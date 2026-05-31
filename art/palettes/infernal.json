@@ -1,1 +1,11 @@
-{ "extends": null, "colors": { "B": "#5A1A14", "b": "#3A120E", "s": "#1E0A08", "e": "#6B2A1A" } }
+{
+  "extends": null,
+  "colors": {
+    "B": "#5A1A14",
+    "b": "#3A120E",
+    "s": "#1E0A08",
+    "e": "#6B2A1A",
+    "g": { "from": "#5A1A14", "to": "#1E0A08", "axis": "diag" },
+    "v": { "from": "#5A1A14", "to": "#1E0A08", "axis": "y" }
+  }
+}
