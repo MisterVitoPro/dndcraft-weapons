@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # Loom launches a separate JVM per MC version. 1.20.1 needs JDK 17;
-      # 1.21.x and 26.1.2 need JDK 21+. Install both so toolchain
+      # 1.21.x needs JDK 21; 26.1.2 needs JDK 25+. Install all so toolchain
       # auto-discovery finds them.
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -37,8 +37,14 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      # The last setup-java sets JAVA_HOME to JDK 21 (correct for Gradle launch).
-      # JDK 17 is still on disk for Gradle's toolchain auto-discovery.
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      # The last setup-java sets JAVA_HOME to JDK 25 (correct for Gradle launch).
+      # JDK 17 and 21 are still on disk for Gradle's toolchain auto-discovery.
 
       - name: Strip local JDK override from gradle.properties
         run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
@@ -88,6 +94,12 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
 
       - name: Strip local JDK override from gradle.properties
         run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
