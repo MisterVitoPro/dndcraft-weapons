@@ -155,6 +155,12 @@ object AcquisitionCatalog {
     fun validate() {
         val errors = mutableListOf<String>()
         for ((tableId, loot) in STRUCTURE_LOOT) {
+            // P1-006: empty weapons lists would crash buildStructurePool via /0;
+            // catch them up front in validate().
+            if (loot.weapons.isEmpty()) {
+                errors += "structure $tableId: empty weapons list"
+                continue
+            }
             for (w in loot.weapons) {
                 if (WeaponLookup.byId(w, loot.tier) == null) {
                     errors += "structure $tableId: $w (${loot.tier})"
@@ -164,6 +170,13 @@ object AcquisitionCatalog {
         for ((mobId, drop) in MOB_DROPS) {
             drop.ironWeapon?.let { w ->
                 if (WeaponLookup.byId(w, Tier.IRON) == null) errors += "mob $mobId iron: $w"
+                // P2-008: also verify the netherite-tier item exists when this mob
+                // has a netherite drop (Wither Skeleton, Piglin Brute). Without this
+                // check a missing netherite registration only surfaces when the mob
+                // actually rolls a netherite drop at runtime.
+                if (drop.netheritePct > 0 && WeaponLookup.byId(w, Tier.NETHERITE) == null) {
+                    errors += "mob $mobId netherite: ${w}_netherite"
+                }
             }
         }
         for ((profession, levels) in VILLAGER_TRADES) {

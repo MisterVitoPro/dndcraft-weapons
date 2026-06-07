@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "dndweapons:diamond_weapon_upgrade_template"
+  },
+  "base": {
+    "item": "dndweapons:scimitar"
+  },
+  "addition": {
+    "tag": "c:gems/diamond"
+  },
+  "result": {
+    "item": "dndweapons:scimitar_diamond"
+  }
+}

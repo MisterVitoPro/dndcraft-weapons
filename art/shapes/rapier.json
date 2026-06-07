@@ -1,0 +1,27 @@
+{
+  "id": "rapier",
+  "size": 16,
+  "outputs": {
+    "rapier": "iron",
+    "rapier_diamond": "diamond",
+    "rapier_netherite": "netherite"
+  },
+  "rows": [
+    ".............sss",
+    "............sBBs",
+    "...........sBBBs",
+    "..........sBBBs.",
+    ".........sBBBs..",
+    "........sBBBs...",
+    "...oo..sBBBs....",
+    "...ooo.BBBs.....",
+    "...oBoBBBs......",
+    "...ooBoBs.......",
+    "....ooBoo.......",
+    "...kwoBoo.......",
+    "..kWo..ooo......",
+    ".oowo...........",
+    ".obo............",
+    ".ooo............"
+  ]
+}

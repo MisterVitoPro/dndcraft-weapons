@@ -23,11 +23,11 @@
     ]
   },
   "depends": {
-    "fabricloader": ">=0.16.0",
-    "minecraft": ">=1.20.1",
-    "java": ">=17",
+    "fabricloader": ">=${loader_min}",
+    "minecraft": "${mc_version_range}",
+    "java": ">=${java_min}",
     "fabric-api": "*",
-    "fabric-language-kotlin": ">=1.10.0"
+    "fabric-language-kotlin": ">=${flk_min}"
   },
   "mixins": [
     "dndweapons.mixins.json"

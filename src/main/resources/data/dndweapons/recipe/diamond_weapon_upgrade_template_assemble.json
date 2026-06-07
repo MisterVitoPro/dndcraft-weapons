@@ -1,7 +1,7 @@
 {
   "type": "minecraft:smithing_transform",
-  "template": "minecraft:netherite_upgrade_smithing_template",
-  "base":     "dndweapons:diamond_template_core",
-  "addition": "#c:gems/diamond",
+  "template": { "item": "minecraft:netherite_upgrade_smithing_template" },
+  "base":     { "item": "dndweapons:diamond_template_core" },
+  "addition": { "tag": "c:gems/diamond" },
   "result":   { "id": "dndweapons:diamond_weapon_upgrade_template" }
 }

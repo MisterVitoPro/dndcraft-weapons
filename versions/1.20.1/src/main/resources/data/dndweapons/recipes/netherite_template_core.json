@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "dndweapons:netherite_template_fragment" },
+    { "item": "dndweapons:netherite_template_fragment" },
+    { "item": "dndweapons:netherite_template_fragment" },
+    { "item": "dndweapons:netherite_template_fragment" },
+    { "item": "dndweapons:infernal_binding" }
+  ],
+  "result": { "item": "dndweapons:netherite_template_core", "count": 1 }
+}

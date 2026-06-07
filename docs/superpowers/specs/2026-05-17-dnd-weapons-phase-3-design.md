@@ -255,6 +255,38 @@ abstract class PlayerAttackMixin {
 
 Per-epoch concern: only the local-variable name/ordinal can shift across the 5 versions. Mitigated by the Wave-1 smoke task that compiles and runs the mixin on 1.21.4 alone before per-version fan-out. If a version breaks, a single-line `//?` fork on the `@ModifyVariable` parameters fixes it.
 
+**Implementation update (QA Swarm 2026-05-18, P1-005):** The shipped mixin uses
+`@ModifyArg` on the `hurt`/`hurtOrSimulate` INVOKE site (index=1) instead of the
+`@ModifyVariable` sketched above. Three mixin methods cooperate:
+
+1. `@Inject(at = HEAD)` `dndweapons_captureTarget` records the primary target
+   Entity into a per-instance `ThreadLocal`.
+2. `@ModifyArg(target = hurt/hurtOrSimulate, index = 1)` `dndweapons_modifyAttackDamage`
+   reads the ThreadLocal, applies the DnD modifier only on the FIRST invocation
+   (the primary strike), then clears the flag so subsequent INVOKEs (sweep
+   damage) skip the modifier.
+3. `@Inject(at = TAIL)` `dndweapons_clearTarget` clears the ThreadLocal on every
+   method exit including exception paths.
+
+Why this design over the spec sketch:
+- **LVT immunity**: `@ModifyArg` keys on the call-site descriptor, not on a
+  local-variable name/ordinal. Robust across 5 MC versions without per-version
+  forks on the LVT.
+- **Sweep-entity guard**: vanilla `Player.attack` issues `hurt`/`hurtOrSimulate`
+  once for the primary target and again per neighbouring entity in the sweep
+  loop. Without the ThreadLocal flag the DnD modifier would multiply collateral
+  damage. The spec scopes the modifier to one deliberate strike.
+- **TAIL not RETURN**: `@Inject(at = RETURN)` only fires on normal returns. If
+  any downstream mod or future MC code throws inside `Player.attack` between
+  HEAD and RETURN, the ThreadLocal would retain a stale Entity reference until
+  the worker thread next executes the method. TAIL fires on every exit
+  including exception paths, eliminating the leak.
+
+The fork on the INVOKE descriptor (hurt vs hurtOrSimulate) is still required
+and lives on the `@ModifyArg` annotation: `<1.21.4` uses `hurt`, `>=1.21.4`
+uses `hurtOrSimulate`. Both have identical `(DamageSource, float) -> boolean`
+signatures so the index=1 parameter is the same in both.
+
 #### `AttributeCompat.kt` — HEAVY extension
 
 In the Epoch C (`>= 1.20.5`) `applyTo` branch, after the speed modifier and before `.build()`, add:
@@ -550,3 +582,53 @@ These are intentionally not pinned here; the plan-writing step resolves them:
 - **Final translation key spelling** for tooltip strings. Drafted in Section 3.6 (`tooltip.dndweapons.stat_block`, `tooltip.dndweapons.bonus.finesse_sprint`, etc.); the writing-plans agent finalizes and ensures all keys land in `en_us.json`.
 - **`CommonLifecycleEvents.TAGS_LOADED` exact import path and event-name** per version (Fabric API has reorganized this once or twice). Resolved at plan time per version.
 - **`TagKey` parsing helper** — whether to use `TagKey.create(Registries.ITEM, ResourceLocation.parse(s))` or per-version fork. Resolved at plan time.
+
+---
+
+## 9. QA Swarm 2026-05-18 Implementation Notes
+
+These notes capture deviations from the original spec made during Phase 3 and
+discovered during the 2026-05-18 QA swarm. See `docs/qa-swarm/2026-05-18-*.md`
+for the underlying findings.
+
+### 9.1 WeaponTooltipInjector lives in ClientModInitializer (P2-002)
+
+The original §5 sequence wired `WeaponTooltipInjector.register()` into
+`DndWeaponsMod.onInitialize`. The shipped implementation moves it to
+`DndWeaponsClientMod.onInitializeClient()` because `ItemTooltipCallback` is a
+client-side API unavailable on dedicated servers - registering it from the main
+entrypoint would throw `NoClassDefFoundError` on server-only environments.
+
+The split entrypoints are declared in `fabric.mod.json` under `entrypoints.main`
+(DndWeaponsMod) and `entrypoints.client` (DndWeaponsClientMod). DndWeaponsMod
+retains an inline comment at the spot where the original spec would have called
+the injector, pointing at the client-side wiring.
+
+### 9.2 SpecRegistry.byRoleTag is keyed by String, not TagKey<Item> (P2-005)
+
+The §3 sketch declared `byRoleTag: Map<TagKey<Item>, WeaponSpec>`. The shipped
+implementation uses `Map<String, WeaponSpec>` keyed by the raw `"ns:path"`
+string. Constructing a `TagKey<Item>` at `bindRoleTag()` time would force
+`Registries.<clinit>` and transitively `BuiltInRegistries.<clinit>` to fire,
+which throws `IllegalArgumentException("Not bootstrapped")` from JVM unit
+tests that don't bootstrap Minecraft's registry. Deferring `TagKey`
+construction to `buildRoleCacheAndStore()` (called only at first lookup, which
+is guaranteed post-bootstrap on the server thread) avoids the pitfall and
+keeps the unit tests free of MC runtime dependencies.
+
+The behaviour is otherwise identical: validation of the `"ns:path"` shape
+happens eagerly at bind time so a malformed spec fails fast.
+
+### 9.3 SmithingItemRegistrar facade in Phase 4 (P2-007 - cross-phase)
+
+Phase 4 adds `com.dndweapons.registry.SmithingItemRegistrar` as a one-line
+facade over `SmithingComponentItems.registerAll()` + `SmithingTemplateItems
+.registerAll()`. This is not in any phase spec but is harmless - it just keeps
+`DndWeaponsMod.onInitialize` to a single call site for smithing registration.
+Treat it as an undocumented convenience wrapper.
+
+### 9.4 PlayerAttackMixin design (P1-005)
+
+See the "Implementation update" callout in §3 under `PlayerAttackMixin.kt` for
+the @ModifyArg + ThreadLocal + TAIL design that ships instead of the original
+@ModifyVariable sketch.

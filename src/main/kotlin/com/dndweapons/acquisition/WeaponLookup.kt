@@ -42,10 +42,24 @@ object WeaponLookup {
     /**
      * All registered netherite-tier weapons. Used by the Warden mob-drop pool
      * (random selection) and the Wither trophy event handler.
+     *
+     * P3-001: the spec id in ALL_TIERED already has "_netherite" baked in via
+     * atTier(); look it up directly instead of stripping and re-appending the
+     * suffix (which was fragile against base ids that happen to end in
+     * "_netherite" for unrelated reasons).
      */
     fun allNetherite(): List<Item> = Weapons.ALL_TIERED
         .filter { (_, tier) -> tier == Tier.NETHERITE }
-        .mapNotNull { (spec, _) -> byId(spec.id.removeSuffix("_netherite"), Tier.NETHERITE) }
+        .mapNotNull { (spec, _) ->
+            val location = rl(DndWeaponsMod.MOD_ID, spec.id)
+            //? if >=1.21.2 {
+            BuiltInRegistries.ITEM.get(location).map { it.value() }.orElse(null)
+            //?} else {
+            /*val item = BuiltInRegistries.ITEM.get(location)
+            val airItem = BuiltInRegistries.ITEM.get(rl("minecraft", "air"))
+            if (item == null || item === airItem) null else item
+            *///?}
+        }
 
     private fun rl(namespace: String, path: String): ResourceLocation {
         //? if >=1.21 {

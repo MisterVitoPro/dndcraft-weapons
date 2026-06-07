@@ -129,7 +129,10 @@ object WikiTemplates {
             "shortbow"       -> "Bow"
             "light_crossbow" -> "Crossbow"
             "trident"        -> "Trident"
-            else             -> "vanilla item"
+            // P3-007: fail loud on missing vanilla-mapped spec so a future
+            // addition can't silently render "represented by the vanilla
+            // vanilla item." (embarrassing placeholder).
+            else             -> error("renderVanillaCallout: add new vanilla-mapped spec '${spec.id}' to the when-block")
         }
         return ":information_source:  **This weapon is represented by the vanilla Minecraft " +
             "$vanillaName.** When you craft or pick up the vanilla item, it carries " +
@@ -146,6 +149,11 @@ object WikiTemplates {
             "Mob drop: **${fact.mobLabel}** -- ${fact.chancePct}% (${labelFor(fact.tier)} tier)"
         is AcquisitionFact.VillagerTrade ->
             "Villager trade: **${fact.profession}** level ${fact.level} -- ${fact.emeralds} emeralds"
+        // P3-006: "Mob drop (random netherite)" — Warden drops one of the 27 netherite
+        // weapons uniformly at random; the per-weapon page lists the source mob and
+        // total drop rate (the per-weapon chance is total / 27).
+        is AcquisitionFact.NetheriteRandomDrop ->
+            "Mob drop: **${fact.mobLabel}** -- ${fact.chancePct}% random Netherite weapon"
     }
 
     private fun propertyHookSummary(prop: Property): String = when (prop) {

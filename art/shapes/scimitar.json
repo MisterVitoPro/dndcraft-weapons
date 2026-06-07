@@ -1,0 +1,27 @@
+{
+  "id": "scimitar",
+  "size": 16,
+  "outputs": {
+    "scimitar": "iron",
+    "scimitar_diamond": "diamond",
+    "scimitar_netherite": "netherite"
+  },
+  "rows": [
+    "..............sB",
+    ".............sBB",
+    "............sbBB",
+    "...........sbBBB",
+    "..........sbBBBB",
+    ".........sbBBBBB",
+    "........sbBBBBs.",
+    ".......sbBBBs...",
+    "......sBBBs.....",
+    ".....sooBBs.....",
+    ".....oosoo......",
+    "....kwoBoo......",
+    "...kWo..ooo.....",
+    "..oowo..........",
+    "..obo...........",
+    "..ooo..........."
+  ]
+}

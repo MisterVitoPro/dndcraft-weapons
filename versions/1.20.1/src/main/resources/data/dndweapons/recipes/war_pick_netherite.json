@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "dndweapons:netherite_weapon_upgrade_template"
+  },
+  "base": {
+    "item": "dndweapons:war_pick_diamond"
+  },
+  "addition": {
+    "tag": "c:ingots/netherite"
+  },
+  "result": {
+    "item": "dndweapons:war_pick_netherite"
+  }
+}

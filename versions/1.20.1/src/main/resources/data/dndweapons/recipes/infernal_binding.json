@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["BNB", "SWS", "BNB"],
+  "key": {
+    "B": { "item": "minecraft:blaze_powder" },
+    "N": { "item": "minecraft:nether_star" },
+    "S": { "item": "minecraft:soul_sand" },
+    "W": { "item": "minecraft:wither_rose" }
+  },
+  "result": { "item": "dndweapons:infernal_binding", "count": 1 }
+}

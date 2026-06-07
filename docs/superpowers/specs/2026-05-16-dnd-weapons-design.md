@@ -103,11 +103,14 @@ dnd-weapons/
       WeaponRegistrar.kt             # interface
       WeaponRegistrarImpl.kt         # thin; delegates to AttributeCompat
     compat/
-      AttributeCompat.kt             # //? UUID-vs-Identifier modifier shim
-      ReachCompat.kt                 # vanilla vs Reach Entity Attributes
-      TradeCompat.kt                 # three trade flavors via //?
-      LootCompat.kt                  # loot v2/v3 shim via //?
-      TooltipCompat.kt               # 1.20.x appendTooltip vs 1.21+ data-component approach
+      AttributeCompat.kt             # //? UUID-vs-Identifier modifier shim (SHIPPED)
+      # NOTE (QA Swarm 2026-05-18, P2-003): the other four planned compat files
+      # were NOT extracted as separate shims. The per-epoch SAM-wiring logic for
+      # trades/loot is inlined into the registrars themselves
+      # (trade/WeaponTradeRegistrar.kt, loot/WeaponLootRegistrar.kt,
+      # loot/SmithingTemplateLootInjector.kt, trade/SmithingTemplateTrades.kt).
+      # ReachCompat is deferred (Reach is out of scope until a later phase).
+      # TooltipCompat is unused; tooltip injection lives in client/DndWeaponsClientMod.
     item/
       DndWeaponItem.kt               # base class
       DndThrownWeaponItem.kt         # extends/wraps trident
@@ -120,7 +123,8 @@ dnd-weapons/
       WeaponAttackHandler.kt         # single AttackEntityCallback subscriber; modifyDamage()
     tooltip/
       WeaponTooltipInjector.kt       # ItemTooltipCallback; works for registered + vanilla-mapped
-    ModCompat.kt                     # isModLoaded helpers
+    # ModCompat.kt was planned but never implemented; no cross-mod compat checks
+    # are currently needed. Removed per QA Swarm 2026-05-18 P3-004.
   src/main/resources/
     fabric.mod.json                  # //? per-version mod metadata
     assets/dndweapons/               # textures + en_us.json + models
@@ -186,7 +190,7 @@ dnd-weapons/
 | Sickle | 1d4 S, Light | 4 | 1.8 | - | offhand ok |
 | Spear | 1d6 P, Thrown 20/60, Versatile (1d8) | 5 / 6 versatile | 1.5 | - | throwable + versatile |
 
-**Simple Ranged (4 weapons)** — 1 vanilla-mapped (Shortbow), 3 registered
+**Simple Ranged (4 weapons)** — 2 vanilla-mapped (Shortbow, Light Crossbow), 2 registered
 
 | Weapon | DnD | Mapping / Behavior |
 |---|---|---|
@@ -511,11 +515,21 @@ Upgrade recipe example (`data/dndweapons/recipe/longsword_diamond.json`):
 ```
 
 Per-tier stats:
-| Tier | Damage | Durability | Knockback (if Heavy) | Other |
-|---|---|---|---|---|
-| Iron (base) | `spec.attackDamage` | 250 | `spec.knockbackBonus` | - |
-| Diamond | base + 2 | 1561 | base | - |
-| Netherite | base + 3 | 2031 | base + 1 | Fire-resistant |
+| Tier | Damage | Durability | Other |
+|---|---|---|---|
+| Iron (base) | `spec.attackDamage` | 250 | - |
+| Diamond | base + 1 | 1561 | - |
+| Netherite | base + 2 | 2031 | Fire-resistant |
+
+> **Reconciled 2026-05-18 (QA Swarm P1-001, P1-002):** This table previously
+> specified Diamond=`base + 2` / Netherite=`base + 3` and a Netherite
+> "Knockback (if Heavy)" column of `base + 1`. Phase 4 §3 decision-log row 3
+> overrode the damage progression to the vanilla pattern (+1 per tier above
+> iron) and chose NOT to implement tier-keyed knockback (HEAVY weapons get a
+> flat +1.0 knockback at every tier). The table above now matches
+> `Tier.damageBonus` in `src/main/kotlin/com/dndweapons/catalog/Tier.kt` and
+> `AttributeCompat.applyTo`'s flat 1.0 HEAVY knockback. See Phase 4 §2
+> decision log for the rationale.
 
 `Weapons.kt` generates all three tier variants from one `WeaponSpec` programmatically. **Vanilla-mapped weapons do NOT have these upgrade variants.**
 
@@ -789,6 +803,13 @@ Explicitly NOT in v1.0:
 - Localization beyond `en_us`
 - In-game guide book (Patchouli or similar)
 - Mod-conditional optional material tiers (Mithril, Adamantine) — framework is in place; concrete recipes deferred
+- **Custom item subclasses (QA Swarm 2026-05-18, P2-006):** Master spec §5
+  originally listed seven `Item` subclasses (DndWeaponItem, DndThrownWeaponItem,
+  DndBowItem, DndCrossbowItem, DndSlingItem, DndBlowgunItem, DndFirearmItem).
+  Only DndWeaponItem is shipped in v1.0. Weapons with `Property.THROWN`,
+  `AMMUNITION`, or `LOADING` register as plain `DndWeaponItem` without custom
+  throwing/shooting behaviour. A future "custom item" phase will introduce the
+  six missing subclasses.
 
 ---
 

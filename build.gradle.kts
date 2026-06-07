@@ -159,8 +159,22 @@ sourceSets {
 // (the per-version overlay) and ignores subsequent duplicates.
 tasks.processResources {
     inputs.property("version", project.version)
+    // P1-007: per-version fabric.mod.json depends{} expansion. Each per-version
+    // gradle.properties defines mc_version_range / java_min / loader_min / flk_min;
+    // we surface them to the fabric.mod.json `${...}` placeholders so each jar
+    // declares accurate per-version dependency constraints (instead of the loose
+    // shared baseline that previously let users load a 1.21.11 jar against a 1.10
+    // Kotlin FLK).
+    val expansionProps = mapOf(
+        "version"          to project.version,
+        "mc_version_range" to (project.findProperty("mc_version_range") ?: "*"),
+        "java_min"         to (project.findProperty("java_min") ?: "17"),
+        "loader_min"       to (project.findProperty("loader_min") ?: "0.16.0"),
+        "flk_min"          to (project.findProperty("flk_min") ?: "1.10"),
+    )
+    for ((k, v) in expansionProps) inputs.property(k, v.toString())
     filesMatching("fabric.mod.json") {
-        expand("version" to project.version)
+        expand(expansionProps)
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
@@ -170,6 +184,40 @@ tasks.processResources {
 // recipe JSON is shipped in the sources artifact, not the shared one.
 tasks.withType<org.gradle.api.tasks.bundling.Jar>().configureEach {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// P3-005 NOTE: gametest sources live under src/main/kotlin/com/dndweapons/test/
+// for historical reasons (master spec §9 specified src/gametest/ but a dedicated
+// source set was never materialized; doing so would require corresponding
+// per-version Stonecutter chiseledSrc/gametest/ directories). The classes are
+// shipped in the release JAR but only executed when the fabric-gametest harness
+// activates (vm arg `-Dfabric-api.gametest`), so the runtime footprint is zero
+// in production. Future work: extract to a real gametest source set.
+
+// ===== P0-002: 1.20.1 legacy recipe codegen =====
+
+tasks.register<JavaExec>("runPhase4LegacyCodegen") {
+    group = "codegen"
+    description = "Emit the 62 1.20.1-format Phase 4 smithing/component recipe JSONs into versions/1.20.1/."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.dndweapons.codegen.Phase4LegacyCodegen")
+    // Shared sources contain Stonecutter directives - ensure they're processed before compileKotlin.
+    dependsOn("setupChiseledBuild")
+    dependsOn("classes")
+    workingDir = rootProject.projectDir
+}
+
+// Re-run Phase 4 codegen (object-form smithing-transform recipes) - used by P0-003
+// when the shared recipe/ folder needs to be regenerated from the canonical
+// emitSmithingTransformRecipes() output.
+tasks.register<JavaExec>("runPhase4Codegen") {
+    group = "codegen"
+    description = "Re-emit the shared Phase 4 smithing-transform recipes in object form."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.dndweapons.codegen.Phase4CodegenKt")
+    dependsOn("setupChiseledBuild")
+    dependsOn("classes")
+    workingDir = rootProject.projectDir
 }
 
 // ===== Phase 6: Wiki generator =====
@@ -225,9 +273,22 @@ tasks.register("publishWiki") {
         if (cloneDir.exists()) cloneDir.deleteRecursively()
         cloneDir.parentFile.mkdirs()
 
-        providers.exec {
-            commandLine("git", "clone", "--depth", "1", url, cloneDir.absolutePath)
-        }.result.get()
+        // P2-015: helper that fails the task on non-zero exit instead of silently
+        // returning. Phase 6 spec §2 decision 17 requires "Task fails with clear error".
+        fun runGit(workdir: File?, vararg args: String) {
+            val result = providers.exec {
+                if (workdir != null) workingDir = workdir
+                commandLine(*(arrayOf("git") + args))
+                isIgnoreExitValue = true
+            }.result.get()
+            if (result.exitValue != 0) {
+                throw GradleException(
+                    "publishWiki: git ${args.joinToString(" ")} failed exit=${result.exitValue}"
+                )
+            }
+        }
+
+        runGit(null, "clone", "--depth", "1", url, cloneDir.absolutePath)
 
         // Wipe everything except .git
         cloneDir.listFiles()?.forEach { f ->
@@ -243,10 +304,7 @@ tasks.register("publishWiki") {
             else f.copyTo(dest, overwrite = true)
         }
 
-        providers.exec {
-            workingDir = cloneDir
-            commandLine("git", "add", ".")
-        }.result.get()
+        runGit(cloneDir, "add", ".")
 
         // Check whether there is anything to commit
         val status = providers.exec {
@@ -259,19 +317,14 @@ tasks.register("publishWiki") {
         }
 
         val msg = "Wiki: sync from ${project.version}"
-        providers.exec {
-            workingDir = cloneDir
-            commandLine("git", "-c", "user.email=wiki-bot@dndcraft-weapons", "-c", "user.name=Wiki Bot", "commit", "-m", msg)
-        }.result.get()
+        runGit(cloneDir, "-c", "user.email=wiki-bot@dndcraft-weapons",
+            "-c", "user.name=Wiki Bot", "commit", "-m", msg)
 
         if (dryRun) {
             logger.lifecycle("publishWiki: dry-run mode, NOT pushing.")
             return@doLast
         }
-        providers.exec {
-            workingDir = cloneDir
-            commandLine("git", "push", "origin", "HEAD")
-        }.result.get()
+        runGit(cloneDir, "push", "origin", "HEAD")
         logger.lifecycle("publishWiki: pushed to $url")
     }
 }

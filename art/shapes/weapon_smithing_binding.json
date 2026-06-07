@@ -1,0 +1,25 @@
+{
+  "id": "weapon_smithing_binding",
+  "size": 16,
+  "outputs": {
+    "weapon_smithing_binding": "tan_leather"
+  },
+  "rows": [
+    "................",
+    "................",
+    ".....BBBs.......",
+    "....BgggBs......",
+    "...BggsggBs.....",
+    "...BgsBggBs.....",
+    "...BgBBBgBs.....",
+    "...BgggggBs.....",
+    "....BBgggBs.....",
+    ".....BBggBs.....",
+    "......BggBs.....",
+    ".......BBBs.....",
+    "........ss......",
+    "................",
+    "................",
+    "................"
+  ]
+}
