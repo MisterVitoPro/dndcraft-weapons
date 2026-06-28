@@ -63,6 +63,7 @@ object SpecRegistry {
         return (roleCache ?: buildRoleCacheAndStore())[item]
     }
 
+    @Synchronized
     fun invalidateRoleCache() {
         roleCache = null
     }
