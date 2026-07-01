@@ -115,4 +115,51 @@ class WeaponTooltipBuilderTest {
         assertEquals("tooltip.dndweapons.bonus.light_dual", lines[1].translationKey)
         assertEquals("tooltip.dndweapons.bonus.finesse_sprint", lines[2].translationKey)
     }
+
+    @Test
+    fun propertyTrailingUsesTranslationKeysNotHardcodedStrings() {
+        // P1-002: Verify that property names are referenced via translation keys,
+        // not hardcoded English strings.
+        val lines = WeaponTooltipBuilder.build(Weapons.RAPIER)
+        val propertyTrailing = lines[0].args[2] as String
+
+        // Should contain translation key reference for Finesse, not the English string
+        assertTrue(
+            propertyTrailing.contains("tooltip.dndweapons.property.finesse"),
+            "Property trailing should reference translation key, not hardcoded 'Finesse'"
+        )
+    }
+
+    @Test
+    fun propertyTrailingTwoHandedUsesTranslationKey() {
+        val lines = WeaponTooltipBuilder.build(Weapons.GREATAXE)
+        val propertyTrailing = lines[0].args[2] as String
+
+        assertTrue(
+            propertyTrailing.contains("tooltip.dndweapons.property.two_handed"),
+            "Two-Handed property should use translation key"
+        )
+    }
+
+    @Test
+    fun propertyTrailingSpecialLanceUsesTranslationKey() {
+        val lines = WeaponTooltipBuilder.build(Weapons.LANCE)
+        val propertyTrailing = lines[0].args[2] as String
+
+        assertTrue(
+            propertyTrailing.contains("tooltip.dndweapons.property.special_lance"),
+            "Special Lance property should use translation key"
+        )
+    }
+
+    @Test
+    fun versatileWithDiceUsesTranslationKey() {
+        val lines = WeaponTooltipBuilder.build(Weapons.LONGSWORD)
+        val propertyTrailing = lines[0].args[2] as String
+
+        assertTrue(
+            propertyTrailing.contains("tooltip.dndweapons.property.versatile"),
+            "Versatile property should use translation key"
+        )
+    }
 }

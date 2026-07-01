@@ -53,8 +53,9 @@ object WeaponTooltipBuilder {
         DamageType.BLUDGEONING -> "tooltip.dndweapons.damage_type.bludgeoning"
     }
 
-    // Renders " · Versatile (1d10) · Finesse · Heavy · ..." style trailing segment.
+    // Renders " · tooltip.dndweapons.property.* · ... " style trailing segment using translation keys.
     // Empty string if the spec has no properties; otherwise begins with " · ".
+    // P1-002: Property names are localized via translation keys, not hardcoded.
     private fun propertyTrailing(spec: WeaponSpec): String {
         val parts = mutableListOf<String>()
         for (prop in Property.values()) {
@@ -62,11 +63,17 @@ object WeaponTooltipBuilder {
             parts += when (prop) {
                 Property.VERSATILE -> {
                     val vd = spec.versatileDice
-                    if (vd != null) "Versatile ($vd)" else "Versatile"
+                    if (vd != null) "tooltip.dndweapons.property.versatile.with_dice:$vd" else "tooltip.dndweapons.property.versatile"
                 }
-                Property.TWO_HANDED -> "Two-Handed"
-                Property.SPECIAL_LANCE -> "Special"
-                else -> prop.name.lowercase().replaceFirstChar { it.uppercaseChar() }
+                Property.TWO_HANDED -> "tooltip.dndweapons.property.two_handed"
+                Property.SPECIAL_LANCE -> "tooltip.dndweapons.property.special_lance"
+                Property.LIGHT -> "tooltip.dndweapons.property.light"
+                Property.HEAVY -> "tooltip.dndweapons.property.heavy"
+                Property.FINESSE -> "tooltip.dndweapons.property.finesse"
+                Property.REACH -> "tooltip.dndweapons.property.reach"
+                Property.THROWN -> "tooltip.dndweapons.property.thrown"
+                Property.AMMUNITION -> "tooltip.dndweapons.property.ammunition"
+                Property.LOADING -> "tooltip.dndweapons.property.loading"
             }
         }
         return if (parts.isEmpty()) "" else " · " + parts.joinToString(" · ")

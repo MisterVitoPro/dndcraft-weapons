@@ -40,10 +40,31 @@ object WeaponTooltipInjector {
     private fun TooltipLine.toComponent(): Component {
         // Args that themselves look like translation keys (start with "tooltip.dndweapons.")
         // get wrapped in Component.translatable so they resolve through the translation pipeline.
+        // P1-002: Also handle strings containing embedded translation keys (e.g., property trailing).
         val resolvedArgs: Array<Any> = args.map { arg ->
-            if (arg is String && arg.startsWith("tooltip.dndweapons.")) {
+            if (arg is String && arg.contains("tooltip.dndweapons.property.")) {
+                // P1-002: Resolve embedded translation keys in property trailing string.
+                // Format: " · tooltip.dndweapons.property.xxx · ..."
+                // Special case: "tooltip.dndweapons.property.versatile.with_dice:dice_value"
+                // We resolve each key to its component and reconstruct the string.
+                arg.split(" · ").map { part ->
+                    when {
+                        part.isEmpty() -> part
+                        part.startsWith("tooltip.dndweapons.property.versatile.with_dice:") -> {
+                            val diceValue = part.substringAfter(":")
+                            Component.translatable("tooltip.dndweapons.property.versatile.with_dice", diceValue).string
+                        }
+                        part.startsWith("tooltip.dndweapons.property.") -> {
+                            Component.translatable(part).string
+                        }
+                        else -> part
+                    }
+                }.joinToString(" · ")
+            } else if (arg is String && arg.startsWith("tooltip.dndweapons.")) {
                 Component.translatable(arg) as Any
-            } else arg
+            } else {
+                arg
+            }
         }.toTypedArray()
         val component: MutableComponent = if (resolvedArgs.isEmpty()) {
             Component.translatable(translationKey)
