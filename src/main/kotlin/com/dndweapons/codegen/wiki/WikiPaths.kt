@@ -7,6 +7,8 @@ import com.dndweapons.catalog.Category
  * Filename/URL helpers for the GitHub Wiki output. GitHub Wiki uses
  * hyphen-separated PascalCase filenames; spaces in display names map to hyphens.
  *
+ * P1-004: Validates filenames to prevent path traversal attacks.
+ *
  * Examples:
  *   "Longsword"       -> "Longsword.md"        / link target "Longsword"
  *   "Hand Crossbow"   -> "Hand-Crossbow.md"    / link target "Hand-Crossbow"
@@ -14,13 +16,31 @@ import com.dndweapons.catalog.Category
  */
 object WikiPaths {
 
+    // P1-004: Safe filename pattern - only alphanumerics, spaces, and hyphens
+    private val SAFE_FILENAME_PATTERN = Regex("^[a-zA-Z0-9\\s\\-]+$")
+
     /** Convert a WeaponSpec.displayName to a wiki page filename (with `.md`). */
     fun weaponFilename(displayName: String): String =
         "${pageSlug(displayName)}.md"
 
     /** Convert a WeaponSpec.displayName to a GitHub Wiki link target (no `.md`, hyphen-separated). */
-    fun pageSlug(displayName: String): String =
-        displayName.trim().replace(Regex("\\s+"), "-")
+    fun pageSlug(displayName: String): String {
+        val trimmed = displayName.trim()
+        // P1-004: Validate against path traversal and malicious patterns
+        validateFilename(trimmed)
+        return trimmed.replace(Regex("\\s+"), "-")
+    }
+
+    /** P1-004: Validate filename to prevent path traversal and injection attacks. */
+    private fun validateFilename(name: String) {
+        require(name.isNotEmpty()) { "Filename must not be empty" }
+        require(!name.contains("..") && !name.contains("//") && !name.contains("\\")) {
+            "Filename '$name' contains path traversal patterns (.., //, or backslashes)"
+        }
+        require(SAFE_FILENAME_PATTERN.matches(name)) {
+            "Filename '$name' contains invalid characters. Only alphanumerics, spaces, and hyphens are allowed."
+        }
+    }
 
     /** Convert a Category to its category-index filename. */
     fun categoryIndexFilename(category: Category): String =

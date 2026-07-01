@@ -37,13 +37,21 @@ object WikiGen {
         // 1. Per-weapon pages
         for (spec in allSpecs) {
             val md = WikiTemplates.renderWeaponPage(spec, lookup)
-            weaponsOut.resolve(WikiPaths.weaponFilename(spec.displayName)).writeText(md)
+            val filename = WikiPaths.weaponFilename(spec.displayName)
+            val targetPath = weaponsOut.resolve(filename).normalize()
+            // P1-004: Validate that the resolved path is still within weaponsOut
+            validatePathWithinDirectory(targetPath, weaponsOut)
+            targetPath.writeText(md)
         }
 
         // 2. Category indexes
         for (cat in Category.values()) {
             val md = WikiTemplates.renderCategoryIndex(cat, allSpecs)
-            weaponsOut.resolve(WikiPaths.categoryIndexFilename(cat)).writeText(md)
+            val filename = WikiPaths.categoryIndexFilename(cat)
+            val targetPath = weaponsOut.resolve(filename).normalize()
+            // P1-004: Validate that the resolved path is still within weaponsOut
+            validatePathWithinDirectory(targetPath, weaponsOut)
+            targetPath.writeText(md)
         }
 
         // 3. Handwritten pages (verbatim) + Home.md (mixed)
@@ -68,6 +76,15 @@ object WikiGen {
         val pageCount = allSpecs.size + Category.values().size
         val handwrittenCount = Files.list(handwrittenDir).use { it.count() }
         println("WikiGen: wrote $pageCount auto-generated pages and $handwrittenCount handwritten pages into $outDir")
+    }
+
+    /** P1-004: Validate that targetPath is within the allowed directory. */
+    private fun validatePathWithinDirectory(targetPath: Path, allowedDir: Path) {
+        val normalizedAllowed = allowedDir.normalize()
+        val normalizedTarget = targetPath.normalize()
+        require(normalizedTarget.startsWith(normalizedAllowed)) {
+            "Attempted to write file outside allowed directory: $normalizedTarget is not within $normalizedAllowed"
+        }
     }
 
     @JvmStatic
