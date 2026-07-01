@@ -97,7 +97,6 @@ object DndWeaponsMod : ModInitializer {
 
         ItemGroupEvents.modifyEntriesEvent(CREATIVE_TAB).register { entries ->
             for ((spec, _) in Weapons.ALL_TIERED) {
-                if (spec.vanillaRoleTag != null) continue
                 addToEntriesLegacy(entries, spec)
             }
         }
@@ -112,7 +111,6 @@ object DndWeaponsMod : ModInitializer {
 
         CreativeModeTabEvents.modifyOutputEvent(CREATIVE_TAB).register { output ->
             for ((spec, _) in Weapons.ALL_TIERED) {
-                if (spec.vanillaRoleTag != null) continue
                 addToEntries26(output, spec)
             }
         }

@@ -2,6 +2,7 @@ package com.dndweapons.acquisition
 
 import com.dndweapons.DndWeaponsMod
 import com.dndweapons.catalog.Tier
+import com.dndweapons.catalog.Weapons
 
 /**
  * Single declarative source of truth for Phase 5 acquisition surfaces.
@@ -29,7 +30,7 @@ object AcquisitionCatalog {
     val STRUCTURE_LOOT: Map<String, StructureLoot> = mapOf(
         // Iron-tier structures (9 entries)
         "minecraft:chests/stronghold_library" to StructureLoot(
-            weapons = listOf("quarterstaff", "whip", "sickle", "rapier"),
+            weapons = listOf("quarterstaff", "whip", "sickle", "rapier", "handaxe"),
             chancePct = 10, tier = Tier.IRON,
         ),
         "minecraft:chests/stronghold_corridor" to StructureLoot(
@@ -110,6 +111,7 @@ object AcquisitionCatalog {
             ),
             2 to listOf(
                 VillagerTradeEntry("spear",        emeralds = 4),
+                VillagerTradeEntry("javelin",      emeralds = 5),
                 VillagerTradeEntry("club",         emeralds = 4),
                 VillagerTradeEntry("greatclub",    emeralds = 5),
                 VillagerTradeEntry("light_hammer", emeralds = 7),
@@ -188,6 +190,25 @@ object AcquisitionCatalog {
                 }
             }
         }
+
+        // P2-007: Inverse coverage check - verify all tiered weapons have at least one acquisition path
+        val acquiredWeapons = mutableSetOf<String>()
+        STRUCTURE_LOOT.values.forEach { acquiredWeapons.addAll(it.weapons) }
+        MOB_DROPS.values.forEach { it.ironWeapon?.let { w -> acquiredWeapons.add(w) } }
+        VILLAGER_TRADES.values.flatMap { it.values }.flatten().forEach { acquiredWeapons.add(it.weapon) }
+
+        val missingCoverage = mutableListOf<String>()
+        for (spec in Weapons.ALL) {
+            // Only check weapons that are tiered (vanillaRoleTag == null)
+            if (spec.vanillaRoleTag != null) continue
+            if (spec.id !in acquiredWeapons) {
+                missingCoverage += spec.id
+            }
+        }
+        if (missingCoverage.isNotEmpty()) {
+            errors += "weapons without acquisition paths: $missingCoverage"
+        }
+
         if (errors.isNotEmpty()) {
             DndWeaponsMod.LOGGER.error("AcquisitionCatalog references unknown weapons: $errors")
         } else {

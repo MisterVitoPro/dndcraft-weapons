@@ -34,19 +34,23 @@ class WeaponRegistrarImpl : WeaponRegistrar {
      * (at IRON tier) regardless of how many tiers the input list contains.
      */
     override fun registerAll(entries: List<Pair<WeaponSpec, Tier>>) {
-        // 1. Vanilla-mapped specs (Shortsword, Shortbow, Light Crossbow, Trident).
-        //    We use Weapons.ALL (not the input list) because ALL_TIERED is filtered
-        //    to exclude vanilla-mapped specs; binding from ALL guarantees coverage
-        //    regardless of what the caller passes.
+        // P2-009: Combined single-pass registration of vanilla-mapped and ranged specs.
+        // Originally three separate loops over Weapons.ALL; consolidated to one pass
+        // to reduce iteration overhead during mod initialization.
         for (spec in Weapons.ALL) {
-            if (spec.isVanillaMapped) register(spec, Tier.IRON)
-        }
-        // 2. P0-001: ranged non-vanilla-mapped specs (bow/crossbow/firearm/sling/blowgun).
-        //    Per Phase 4 §1 these are NOT tiered (only melee + thrown go through the
-        //    smithing ladder). ALL_TIERED's filter excludes them, so without this loop
-        //    7 weapons (BLOWGUN, SLING, HAND_CROSSBOW, HEAVY_CROSSBOW, LONGBOW, MUSKET,
-        //    PISTOL) would never be registered as Items. Register them at IRON tier only.
-        for (spec in Weapons.ALL) {
+            // 1. Vanilla-mapped specs (Shortsword, Shortbow, Light Crossbow, Trident).
+            //    We use Weapons.ALL (not the input list) because ALL_TIERED is filtered
+            //    to exclude vanilla-mapped specs; binding from ALL guarantees coverage
+            //    regardless of what the caller passes.
+            if (spec.isVanillaMapped) {
+                register(spec, Tier.IRON)
+                continue
+            }
+            // 2. P0-001: ranged non-vanilla-mapped specs (bow/crossbow/firearm/sling/blowgun).
+            //    Per Phase 4 §1 these are NOT tiered (only melee + thrown go through the
+            //    smithing ladder). ALL_TIERED's filter excludes them, so without this loop
+            //    7 weapons (BLOWGUN, SLING, HAND_CROSSBOW, HEAVY_CROSSBOW, LONGBOW, MUSKET,
+            //    PISTOL) would never be registered as Items. Register them at IRON tier only.
             if (!spec.isVanillaMapped && spec.ranged !in setOf(RangeKind.NONE, RangeKind.THROWN)) {
                 register(spec, Tier.IRON)
             }

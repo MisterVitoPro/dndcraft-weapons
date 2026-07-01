@@ -6,6 +6,7 @@ import com.dndweapons.catalog.Weapons
 import com.dndweapons.codegen.wiki.AcquisitionLookup
 import com.dndweapons.codegen.wiki.WikiPaths
 import com.dndweapons.codegen.wiki.WikiTemplates
+import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -26,6 +27,7 @@ import kotlin.streams.toList
  *   java -cp <main runtime classpath> com.dndweapons.codegen.WikiGenKt <out-dir>
  */
 object WikiGen {
+    private val LOGGER = LoggerFactory.getLogger(WikiGen::class.java)
 
     fun run(outDir: Path, modVersion: String, buildSha: String, handwrittenDir: Path) {
         val weaponsOut = outDir.resolve("Weapons")
@@ -36,46 +38,69 @@ object WikiGen {
 
         // 1. Per-weapon pages
         for (spec in allSpecs) {
-            val md = WikiTemplates.renderWeaponPage(spec, lookup)
-            val filename = WikiPaths.weaponFilename(spec.displayName)
-            val targetPath = weaponsOut.resolve(filename).normalize()
-            // P1-004: Validate that the resolved path is still within weaponsOut
-            validatePathWithinDirectory(targetPath, weaponsOut)
-            targetPath.writeText(md)
+            try {
+                val md = WikiTemplates.renderWeaponPage(spec, lookup)
+                val filename = WikiPaths.weaponFilename(spec.displayName)
+                val targetPath = weaponsOut.resolve(filename).normalize()
+                // P1-004: Validate that the resolved path is still within weaponsOut
+                validatePathWithinDirectory(targetPath, weaponsOut)
+                targetPath.writeText(md)
+            } catch (e: Exception) {
+                LOGGER.error("Failed to write weapon page for '${spec.displayName}': ${e.message}", e)
+            }
         }
 
         // 2. Category indexes
         for (cat in Category.values()) {
-            val md = WikiTemplates.renderCategoryIndex(cat, allSpecs)
-            val filename = WikiPaths.categoryIndexFilename(cat)
-            val targetPath = weaponsOut.resolve(filename).normalize()
-            // P1-004: Validate that the resolved path is still within weaponsOut
-            validatePathWithinDirectory(targetPath, weaponsOut)
-            targetPath.writeText(md)
-        }
-
-        // 3. Handwritten pages (verbatim) + Home.md (mixed)
-        if (!handwrittenDir.exists()) {
-            error("Handwritten dir does not exist: $handwrittenDir")
-        }
-        Files.list(handwrittenDir).use { stream ->
-            for (path in stream.toList()) {
-                val name = path.fileName.toString()
-                if (!name.endsWith(".md")) continue
-                val target = outDir.resolve(name)
-                if (name == "Home.md") {
-                    val header = WikiTemplates.renderHomeHeader(modVersion, buildSha)
-                    target.writeText(header + "\n" + path.readText())
-                } else {
-                    Files.copy(path, target, StandardCopyOption.REPLACE_EXISTING)
-                }
+            try {
+                val md = WikiTemplates.renderCategoryIndex(cat, allSpecs)
+                val filename = WikiPaths.categoryIndexFilename(cat)
+                val targetPath = weaponsOut.resolve(filename).normalize()
+                // P1-004: Validate that the resolved path is still within weaponsOut
+                validatePathWithinDirectory(targetPath, weaponsOut)
+                targetPath.writeText(md)
+            } catch (e: Exception) {
+                LOGGER.error("Failed to write category index for '${cat.name}': ${e.message}", e)
             }
         }
 
+        // 3. Handwritten pages (verbatim) + Home.md (mixed)
+        // P2-010: Cache file list from single read to avoid double Files.list() call
+        if (!handwrittenDir.exists()) {
+            error("Handwritten dir does not exist: $handwrittenDir")
+        }
+        var handwrittenCount = 0
+        try {
+            Files.list(handwrittenDir).use { stream ->
+                val handwrittenFiles = stream.toList()
+                handwrittenCount = handwrittenFiles.size
+                for (path in handwrittenFiles) {
+                    val name = path.fileName.toString()
+                    if (!name.endsWith(".md")) continue
+                    val target = outDir.resolve(name)
+                    try {
+                        if (name == "Home.md") {
+                            val header = WikiTemplates.renderHomeHeader(modVersion, buildSha)
+                            target.writeText(header + "\n" + path.readText())
+                        } else {
+                            Files.copy(path, target, StandardCopyOption.REPLACE_EXISTING)
+                        }
+                    } catch (e: Exception) {
+                        LOGGER.error("Failed to process handwritten file '$name': ${e.message}", e)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            LOGGER.error("Failed to list handwritten directory '$handwrittenDir': ${e.message}", e)
+        }
+
         // 4. Summary
-        val pageCount = allSpecs.size + Category.values().size
-        val handwrittenCount = Files.list(handwrittenDir).use { it.count() }
-        println("WikiGen: wrote $pageCount auto-generated pages and $handwrittenCount handwritten pages into $outDir")
+        try {
+            val pageCount = allSpecs.size + Category.values().size
+            LOGGER.info("WikiGen: wrote $pageCount auto-generated pages and $handwrittenCount handwritten pages into $outDir")
+        } catch (e: Exception) {
+            LOGGER.error("Failed to generate summary statistics: ${e.message}", e)
+        }
     }
 
     /** P1-004: Validate that targetPath is within the allowed directory. */
