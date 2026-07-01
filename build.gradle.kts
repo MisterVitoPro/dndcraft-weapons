@@ -34,6 +34,11 @@ repositories {
     maven("https://maven.fabricmc.net/")
 }
 
+// P2-003: Enable dependency locking for build reproducibility
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 val isMojangNamed = (property("minecraft_version") as String).startsWith("26.")
 
 dependencies {
