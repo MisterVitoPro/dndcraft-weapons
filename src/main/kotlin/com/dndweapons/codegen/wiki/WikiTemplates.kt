@@ -156,18 +156,9 @@ object WikiTemplates {
             "Mob drop: **${fact.mobLabel}** -- ${fact.chancePct}% random Netherite weapon"
     }
 
-    private fun propertyHookSummary(prop: Property): String = when (prop) {
-        Property.LIGHT         -> "+1 damage when offhand also holds a Light weapon (dual-wield)"
-        Property.HEAVY         -> "+1 knockback level on hit"
-        Property.FINESSE       -> "+20% damage when attacker is sprinting"
-        Property.VERSATILE     -> "+versatile damage bonus when wielded two-handed"
-        Property.TWO_HANDED    -> "Requires both hands; offhand items prevent attack"
-        Property.REACH         -> "+1 block attack range"
-        Property.THROWN        -> "Right-click to throw as a ranged projectile"
-        Property.AMMUNITION    -> "Requires the appropriate ammo item"
-        Property.LOADING       -> "Reload animation between shots"
-        Property.SPECIAL_LANCE -> "Lance special: see weapon-specific notes (mounted bonus, off-hand restriction)"
-    }
+    // P1-008: Property descriptions sourced from centralized map instead of hardcoded strings
+    private fun propertyHookSummary(prop: Property): String =
+        PropertyDescriptions.summaryFor(prop)
 
     private fun labelFor(category: Category): String = WikiPaths.categoryLabel(category)
         .removeSuffix(" Weapons")
