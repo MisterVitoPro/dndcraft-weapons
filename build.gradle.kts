@@ -38,7 +38,14 @@ dependencies {
         // MC 26.x: client.jar ships in source-level (Mojang) names already.
         // Identity tiny v2 stub (official == named); noIntermediateMappings()
         // below tells Loom to skip the intermediary remapping step entirely.
-        mappings(files("${rootProject.projectDir}/libs/identity-mappings-26.1.2.jar"))
+        // P1-006: Validate that the identity-mappings JAR file exists before use.
+        val identityMappingsFile = file("${rootProject.projectDir}/libs/identity-mappings-26.1.2.jar")
+        require(identityMappingsFile.exists()) {
+            "Identity mappings JAR not found at ${identityMappingsFile.absolutePath}. " +
+            "This file is required for Minecraft 26.x builds. " +
+            "Please ensure the file exists or download it from the appropriate source."
+        }
+        mappings(files(identityMappingsFile))
     } else {
         mappings(loom.officialMojangMappings())
     }
