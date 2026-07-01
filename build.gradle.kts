@@ -12,11 +12,15 @@ val mcVersion = stonecutter.current.version
 val modVersion: String by project
 val modGroup: String by project
 val modId: String by project
+val minecraftVersion = property("minecraft_version") as String
 val javaRelease = (property("java_release") as String).toInt()
 
 version = "$modVersion+mc$mcVersion"
 group = modGroup
 base.archivesName.set(modId)
+
+// P1-007: Validate Java toolchain version matches Minecraft version requirements
+validateJavaToolchainVersion(minecraftVersion, javaRelease)
 
 java {
     toolchain {
@@ -333,5 +337,27 @@ tasks.register("publishWiki") {
         }
         runGit(cloneDir, "push", "origin", "HEAD")
         logger.lifecycle("publishWiki: pushed to $url")
+    }
+}
+
+// P1-007: Validate Java toolchain version matches Minecraft version requirements
+fun validateJavaToolchainVersion(minecraftVersion: String, javaRelease: Int) {
+    // Map of Minecraft versions to required Java releases
+    val javaRequirements = mapOf(
+        "1.20" to 17,
+        "1.21" to 21,
+        "26." to 25
+    )
+
+    val requiredJava = javaRequirements.entries.find { (mcPrefix, _) ->
+        minecraftVersion.startsWith(mcPrefix)
+    }?.value
+
+    if (requiredJava != null && javaRelease != requiredJava) {
+        throw GradleException(
+            "Java toolchain version mismatch: Minecraft $minecraftVersion requires Java $requiredJava, " +
+            "but gradle.properties specifies java_release=$javaRelease. " +
+            "Please update gradle.properties to use java_release=$requiredJava"
+        )
     }
 }
