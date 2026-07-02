@@ -143,6 +143,13 @@ tasks.withType<KotlinCompile>().configureEach {
     }
 }
 
+// P1-008: Ensure Stonecutter's per-version source rewriting happens before
+// compileKotlin runs. setupChiseledBuild wires chiseledSrc/ instead of src/
+// so that per-version Stonecutter directives (//? if ...) are properly processed.
+tasks.named<KotlinCompile>("compileKotlin") {
+    dependsOn("setupChiseledBuild")
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
@@ -209,6 +216,36 @@ tasks.withType<org.gradle.api.tasks.bundling.Jar>().configureEach {
 // shipped in the release JAR but only executed when the fabric-gametest harness
 // activates (vm arg `-Dfabric-api.gametest`), so the runtime footprint is zero
 // in production. Future work: extract to a real gametest source set.
+
+// P1-008: Configure Stonecutter to preprocess sources before compilation.
+// Stonecutter processes //? version directives and writes chiseledSrc/ trees,
+// but doesn't automatically wire them into the Gradle source sets. We must
+// explicitly configure each per-version project's source set to use chiseledSrc/
+// instead of src/ so that version-specific conditionals are properly removed/uncommented.
+tasks.withType<KotlinCompile>().configureEach {
+    doFirst {
+        val mcVersion = stonecutter.current.version
+        val versionDir = rootProject.file("versions/$mcVersion")
+        val isTestTask = name.contains("Test")
+        val sourceSetName = if (isTestTask) "test" else "main"
+        val chiseledSrcType = if (isTestTask) "test" else "main"
+
+        sourceSets.named(sourceSetName) {
+            val chiseledKotlin = file("$versionDir/build/chiseledSrc/$chiseledSrcType/kotlin")
+            val chiseledJava = file("$versionDir/build/chiseledSrc/$chiseledSrcType/java")
+            val chiseledResources = file("$versionDir/build/chiseledSrc/$chiseledSrcType/resources")
+            if (chiseledKotlin.exists()) {
+                kotlin.setSrcDirs(listOf(chiseledKotlin))
+            }
+            if (chiseledJava.exists()) {
+                java.setSrcDirs(listOf(chiseledJava))
+            }
+            if (chiseledResources.exists()) {
+                resources.setSrcDirs(listOf(chiseledResources))
+            }
+        }
+    }
+}
 
 // ===== P0-002: 1.20.1 legacy recipe codegen =====
 

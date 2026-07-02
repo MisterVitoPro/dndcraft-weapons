@@ -278,8 +278,8 @@ private fun runLanceMountedCase(ctx: GameTestHelper) {
     player.startRiding(mount, true, true)
     //?}
     //? if <1.21.11 {
-    /*player.startRiding(mount, true)
-    *///?}
+    player.startRiding(mount, true)
+    //?}
 
     val targetPos = BlockPos(3, 1, 3)
     val target = ctx.spawn(EntityType.PIG, targetPos) as Pig
