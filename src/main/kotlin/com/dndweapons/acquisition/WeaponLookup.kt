@@ -5,7 +5,12 @@ import com.dndweapons.catalog.Tier
 import com.dndweapons.catalog.Weapons
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.item.Item
+//? if <1.21.11 {
 import net.minecraft.resources.ResourceLocation
+//?}
+//? if >=1.21.11 {
+/*import net.minecraft.resources.Identifier as ResourceLocation
+*///?}
 
 /**
  * Resolves (base weapon id, tier) -> registered Item by consulting the Phase 4
@@ -30,9 +35,17 @@ object WeaponLookup {
         // P1-005: Validate the weapon ID before concatenation
         validateResourceLocationPath(weaponId)
         val targetId = weaponId + tier.suffix
+        //? if >=1.21 {
         val location = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, targetId)
+        //?} else {
+        /*val location = ResourceLocation(DndWeaponsMod.MOD_ID, targetId)
+        *///?}
+        //? if >=1.21.2 {
         val holder = BuiltInRegistries.ITEM.get(location)
         return if (holder.isPresent) holder.get().value() else null
+        //?} else {
+        /*return BuiltInRegistries.ITEM.get(location)
+        *///?}
     }
 
     /**
@@ -51,9 +64,17 @@ object WeaponLookup {
         .mapNotNull { (spec, _) ->
             // P1-005: Validate the spec ID before constructing the resource location
             validateResourceLocationPath(spec.id)
+            //? if >=1.21 {
             val location = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, spec.id)
+            //?} else {
+            /*val location = ResourceLocation(DndWeaponsMod.MOD_ID, spec.id)
+            *///?}
+            //? if >=1.21.2 {
             val holder = BuiltInRegistries.ITEM.get(location)
             if (holder.isPresent) holder.get().value() else null
+            //?} else {
+            /*BuiltInRegistries.ITEM.get(location)
+            *///?}
         }
 
 
