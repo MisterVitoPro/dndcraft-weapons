@@ -5,11 +5,7 @@ import com.dndweapons.catalog.Tier
 import com.dndweapons.catalog.Weapons
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.item.Item
-//? if <1.21.11 {
 import net.minecraft.resources.ResourceLocation
-//?} else {
-/*import net.minecraft.resources.Identifier as ResourceLocation
-*///?}
 
 /**
  * Resolves (base weapon id, tier) -> registered Item by consulting the Phase 4
@@ -34,16 +30,9 @@ object WeaponLookup {
         // P1-005: Validate the weapon ID before concatenation
         validateResourceLocationPath(weaponId)
         val targetId = weaponId + tier.suffix
-        val location = rl(DndWeaponsMod.MOD_ID, targetId)
-        //? if >=1.21.2 {
-        return BuiltInRegistries.ITEM.get(location)
-            .map { it.value() }
-            .orElse(null)
-        //?} else {
-        /*val item = BuiltInRegistries.ITEM.get(location)
-        val airItem = BuiltInRegistries.ITEM.get(rl("minecraft", "air"))
-        return if (item == null || item === airItem) null else item
-        *///?}
+        val location = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, targetId)
+        val holder = BuiltInRegistries.ITEM.get(location)
+        return if (holder.isPresent) holder.get().value() else null
     }
 
     /**
@@ -62,23 +51,11 @@ object WeaponLookup {
         .mapNotNull { (spec, _) ->
             // P1-005: Validate the spec ID before constructing the resource location
             validateResourceLocationPath(spec.id)
-            val location = rl(DndWeaponsMod.MOD_ID, spec.id)
-            //? if >=1.21.2 {
-            BuiltInRegistries.ITEM.get(location).map { it.value() }.orElse(null)
-            //?} else {
-            /*val item = BuiltInRegistries.ITEM.get(location)
-            val airItem = BuiltInRegistries.ITEM.get(rl("minecraft", "air"))
-            if (item == null || item === airItem) null else item
-            *///?}
+            val location = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, spec.id)
+            val holder = BuiltInRegistries.ITEM.get(location)
+            if (holder.isPresent) holder.get().value() else null
         }
 
-    private fun rl(namespace: String, path: String): ResourceLocation {
-        //? if >=1.21 {
-        return ResourceLocation.fromNamespaceAndPath(namespace, path)
-        //?} else {
-        /*return ResourceLocation(namespace, path)
-        *///?}
-    }
 
     /** P1-005: Validate resource location path to prevent injection attacks. */
     private fun validateResourceLocationPath(path: String) {
