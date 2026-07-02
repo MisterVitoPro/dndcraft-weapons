@@ -63,6 +63,7 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:${property("flk_version")}")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:${property("kotlin_version")}")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -144,24 +145,13 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 // P1-008: Ensure Stonecutter's per-version source rewriting happens before
-// Kotlin compilation. Prefer preprocessed main sources where available.
-afterEvaluate {
-    tasks.named<KotlinCompile>("compileKotlin") {
-        dependsOn("setupChiseledBuild")
-        doFirst {
-            val versionDir = File("${rootProject.projectDir}/versions/${stonecutter.current.version}")
-            val chiseledKotlin = File("${versionDir}/build/chiseledSrc/main/kotlin")
-            if (chiseledKotlin.exists()) {
-                // Clear and set only the chiseledSrc directory to avoid duplicate compilation
-                sourceSets["main"].kotlin.setSrcDirs(listOf(chiseledKotlin))
-            }
-        }
-    }
+// Kotlin compilation. The setupChiseledBuild task must complete first.
+tasks.named<KotlinCompile>("compileKotlin") {
+    dependsOn("setupChiseledBuild")
+}
 
-    tasks.named<KotlinCompile>("compileTestKotlin") {
-        dependsOn("setupChiseledBuild")
-        // Do NOT modify test source set - test files don't have version gates
-    }
+tasks.named<KotlinCompile>("compileTestKotlin") {
+    dependsOn("setupChiseledBuild")
 }
 
 tasks.withType<Test>().configureEach {
