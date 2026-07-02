@@ -7,7 +7,8 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.item.Item
 //? if <1.21.11 {
 import net.minecraft.resources.ResourceLocation
-//?} else {
+//?}
+//? if >=1.21.11 {
 /*import net.minecraft.resources.Identifier as ResourceLocation
 *///?}
 
@@ -17,6 +18,8 @@ import net.minecraft.resources.ResourceLocation
  * loot registrar (to convert catalog entries into LootItem stacks) and the
  * trade registrar (to build MerchantOffer result stacks).
  *
+ * P1-005: Validates weapon IDs to prevent injection attacks.
+ *
  * Returns null when:
  *  - The base id is not in `Weapons.ALL`, OR
  *  - The (id, tier) pair is not in `Weapons.ALL_TIERED` (e.g. requesting diamond
@@ -25,17 +28,23 @@ import net.minecraft.resources.ResourceLocation
  */
 object WeaponLookup {
 
+    // P1-005: Resource location path must match this safe pattern
+    private val SAFE_RESOURCE_PATH_PATTERN = Regex("^[a-z0-9_]+$")
+
     fun byId(weaponId: String, tier: Tier): Item? {
+        // P1-005: Validate the weapon ID before concatenation
+        validateResourceLocationPath(weaponId)
         val targetId = weaponId + tier.suffix
-        val location = rl(DndWeaponsMod.MOD_ID, targetId)
-        //? if >=1.21.2 {
-        return BuiltInRegistries.ITEM.get(location)
-            .map { it.value() }
-            .orElse(null)
+        //? if >=1.21 {
+        val location = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, targetId)
         //?} else {
-        /*val item = BuiltInRegistries.ITEM.get(location)
-        val airItem = BuiltInRegistries.ITEM.get(rl("minecraft", "air"))
-        return if (item == null || item === airItem) null else item
+        /*val location = ResourceLocation(DndWeaponsMod.MOD_ID, targetId)
+        *///?}
+        //? if >=1.21.2 {
+        val holder = BuiltInRegistries.ITEM.get(location)
+        return if (holder.isPresent) holder.get().value() else null
+        //?} else {
+        /*return BuiltInRegistries.ITEM.get(location)
         *///?}
     }
 
@@ -47,25 +56,36 @@ object WeaponLookup {
      * atTier(); look it up directly instead of stripping and re-appending the
      * suffix (which was fragile against base ids that happen to end in
      * "_netherite" for unrelated reasons).
+     *
+     * P1-005: Validates spec IDs before use.
      */
     fun allNetherite(): List<Item> = Weapons.ALL_TIERED
         .filter { (_, tier) -> tier == Tier.NETHERITE }
         .mapNotNull { (spec, _) ->
-            val location = rl(DndWeaponsMod.MOD_ID, spec.id)
-            //? if >=1.21.2 {
-            BuiltInRegistries.ITEM.get(location).map { it.value() }.orElse(null)
+            // P1-005: Validate the spec ID before constructing the resource location
+            validateResourceLocationPath(spec.id)
+            //? if >=1.21 {
+            val location = ResourceLocation.fromNamespaceAndPath(DndWeaponsMod.MOD_ID, spec.id)
             //?} else {
-            /*val item = BuiltInRegistries.ITEM.get(location)
-            val airItem = BuiltInRegistries.ITEM.get(rl("minecraft", "air"))
-            if (item == null || item === airItem) null else item
+            /*val location = ResourceLocation(DndWeaponsMod.MOD_ID, spec.id)
+            *///?}
+            //? if >=1.21.2 {
+            val holder = BuiltInRegistries.ITEM.get(location)
+            if (holder.isPresent) holder.get().value() else null
+            //?} else {
+            /*BuiltInRegistries.ITEM.get(location)
             *///?}
         }
 
-    private fun rl(namespace: String, path: String): ResourceLocation {
-        //? if >=1.21 {
-        return ResourceLocation.fromNamespaceAndPath(namespace, path)
-        //?} else {
-        /*return ResourceLocation(namespace, path)
-        *///?}
+
+    /** P1-005: Validate resource location path to prevent injection attacks. */
+    private fun validateResourceLocationPath(path: String) {
+        require(path.isNotEmpty()) { "Resource location path must not be empty" }
+        require(!path.contains("..") && !path.contains("//") && !path.contains("\\")) {
+            "Resource location path '$path' contains path traversal patterns (.., //, or backslashes)"
+        }
+        require(SAFE_RESOURCE_PATH_PATTERN.matches(path)) {
+            "Resource location path '$path' contains invalid characters. Only lowercase letters, digits, and underscores are allowed."
+        }
     }
 }

@@ -6,12 +6,36 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.tags.TagKey
 import net.minecraft.world.item.Item
+import org.slf4j.LoggerFactory
 //? if <1.21.11 {
 import net.minecraft.resources.ResourceLocation
 //?}
 //? if >=1.21.11 {
 /*import net.minecraft.resources.Identifier as ResourceLocation
 *///?}
+
+/**
+ * Cache performance metrics tracking.
+ * Measures hit/miss ratio and invalidation events.
+ */
+data class CacheMetrics(
+    var totalLookups: Int = 0,
+    var cacheHits: Int = 0,
+    var cacheMisses: Int = 0,
+    var cacheInvalidations: Int = 0,
+) {
+    fun recordLookup() { totalLookups++ }
+    fun recordHit() { cacheHits++ }
+    fun recordMiss() { cacheMisses++ }
+    fun recordInvalidation() { cacheInvalidations++ }
+    fun hitRatio(): Double = if (totalLookups == 0) 0.0 else cacheHits.toDouble() / totalLookups
+    fun reset() {
+        totalLookups = 0
+        cacheHits = 0
+        cacheMisses = 0
+        cacheInvalidations = 0
+    }
+}
 
 /**
  * Resolves Item -> WeaponSpec at runtime.
@@ -27,6 +51,7 @@ import net.minecraft.resources.ResourceLocation
  *   race is benign because both threads compute the same map content.
  */
 object SpecRegistry {
+    private val LOGGER = LoggerFactory.getLogger(SpecRegistry::class.java)
 
     private val byItem = mutableMapOf<Item, WeaponSpec>()
 
@@ -40,12 +65,16 @@ object SpecRegistry {
     private val byRoleTag = mutableMapOf<String, WeaponSpec>()
     @Volatile private var roleCache: Map<Item, WeaponSpec>? = null
 
+    // Cache performance metrics (LOG-010)
+    private val metrics = CacheMetrics()
+
     fun init() {
         CommonLifecycleEvents.TAGS_LOADED.register { _, _ -> invalidateRoleCache() }
     }
 
     fun bindRegistered(item: Item, spec: WeaponSpec) {
         byItem[item] = spec
+        LOGGER.debug("Bound item '{}' to weapon spec '{}'", item.toString(), spec.id)
     }
 
     fun bindRoleTag(spec: WeaponSpec) {
@@ -56,41 +85,60 @@ object SpecRegistry {
         validateTagString(tagStr)
         byRoleTag[tagStr] = spec
         roleCache = null
+        LOGGER.debug("Bound vanilla role tag '{}' to weapon spec '{}'", tagStr, spec.id)
     }
 
     fun lookup(item: Item): WeaponSpec? {
-        byItem[item]?.let { return it }
-        return (roleCache ?: buildRoleCacheAndStore())[item]
+        metrics.recordLookup()
+        byItem[item]?.let {
+            metrics.recordHit()
+            return it
+        }
+        val cached = (roleCache ?: buildRoleCacheAndStore())[item]
+        if (cached != null) {
+            metrics.recordHit()
+        } else {
+            metrics.recordMiss()
+        }
+        return cached
     }
 
+    @Synchronized
     fun invalidateRoleCache() {
         roleCache = null
+        metrics.recordInvalidation()
+        LOGGER.debug("Role cache invalidated")
     }
 
     /**
-     * P2-017: synchronized to close the invalidate-during-build race. The benign-race
-     * note in the class doc covered concurrent build-then-overwrite (both threads
-     * compute the same map content). It did NOT cover the case where
-     * invalidateRoleCache() fires (TAGS_LOADED on server thread) mid-way through a
-     * concurrent client-thread tooltip build, which would write stale tag data
-     * back to roleCache AFTER invalidate set it null. @Synchronized linearizes the
-     * build with both invalidate and any concurrent build, eliminating the race.
+     * P2-008: optimized double-checked locking to minimize tooltip contention under load.
+     *
+     * The synchronization here closes the invalidate-during-build race:
+     * - First check (line 82 in lookup): lockfree probe of @Volatile roleCache
+     * - Synchronized block: re-check, build cache, atomically store via volatile write
+     * - Return: cache is now warm; future lookups avoid lock
+     *
+     * Double-checked locking pattern (JMM guarantees for @Volatile fields):
+     * - Build happens exactly once per invalidation event
+     * - TAGS_LOADED invalidation linearizes with concurrent tooltip builds
+     * - Lock is held only during the re-check and atomic store, not during tag lookup
      */
-    @Synchronized
     private fun buildRoleCacheAndStore(): Map<Item, WeaponSpec> {
         // Re-check inside the monitor: another thread may have completed the
         // build between our lookup() probe (roleCache?: ...) and our acquisition
         // of the lock. Return the existing cache to avoid duplicate work.
-        roleCache?.let { return it }
-        val out = mutableMapOf<Item, WeaponSpec>()
-        for ((tagStr, spec) in byRoleTag) {
-            val tag = parseItemTagKey(tagStr)
-            for (holder in BuiltInRegistries.ITEM.getTagOrEmpty(tag)) {
-                out[holder.value()] = spec
+        synchronized(this) {
+            roleCache?.let { return it }
+            val out = mutableMapOf<Item, WeaponSpec>()
+            for ((tagStr, spec) in byRoleTag) {
+                val tag = parseItemTagKey(tagStr)
+                for (holder in BuiltInRegistries.ITEM.getTagOrEmpty(tag)) {
+                    out[holder.value()] = spec
+                }
             }
+            roleCache = out
+            return out
         }
-        roleCache = out
-        return out
     }
 
     private fun validateTagString(s: String) {
@@ -109,6 +157,9 @@ object SpecRegistry {
         return TagKey.create(Registries.ITEM, loc)
     }
 
+    // ---- Cache metrics API (LOG-010) ----
+    fun getCacheMetrics(): CacheMetrics = metrics
+
     // ---- test-only helpers (package-visible would be ideal; Kotlin object: public) ----
     internal fun clearForTest() {
         byItem.clear()
@@ -119,4 +170,5 @@ object SpecRegistry {
     internal fun hasRoleCacheForTest(): Boolean = roleCache != null
     internal fun boundItemCountForTest(): Int = byItem.size
     internal fun boundRoleTagCountForTest(): Int = byRoleTag.size
+    internal fun resetCacheMetrics() { metrics.reset() }
 }

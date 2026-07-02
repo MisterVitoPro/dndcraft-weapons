@@ -78,4 +78,19 @@ class AcquisitionCatalogTest {
         assertNotNull(entry)
         assertEquals("1.21.1", entry!!.minVersion, "trial chambers must be gated to 1.21.1+")
     }
+
+    @Test
+    fun handaxeAppearsInStructureLoot() {
+        val hasHandaxe = AcquisitionCatalog.STRUCTURE_LOOT.values.any { it.weapons.contains("handaxe") }
+        assertTrue(hasHandaxe, "handaxe must appear in at least one structure loot table")
+    }
+
+    @Test
+    fun javelinAppearsInVillagerTrades() {
+        val hasJavelin = AcquisitionCatalog.VILLAGER_TRADES.values
+            .flatMap { it.values }
+            .flatten()
+            .any { it.weapon == "javelin" }
+        assertTrue(hasJavelin, "javelin must appear in at least one villager trade")
+    }
 }

@@ -12,11 +12,15 @@ val mcVersion = stonecutter.current.version
 val modVersion: String by project
 val modGroup: String by project
 val modId: String by project
+val minecraftVersion = property("minecraft_version") as String
 val javaRelease = (property("java_release") as String).toInt()
 
 version = "$modVersion+mc$mcVersion"
 group = modGroup
 base.archivesName.set(modId)
+
+// P1-007: Validate Java toolchain version matches Minecraft version requirements
+validateJavaToolchainVersion(minecraftVersion, javaRelease)
 
 java {
     toolchain {
@@ -30,6 +34,11 @@ repositories {
     maven("https://maven.fabricmc.net/")
 }
 
+// P2-003: Enable dependency locking for build reproducibility
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 val isMojangNamed = (property("minecraft_version") as String).startsWith("26.")
 
 dependencies {
@@ -38,7 +47,14 @@ dependencies {
         // MC 26.x: client.jar ships in source-level (Mojang) names already.
         // Identity tiny v2 stub (official == named); noIntermediateMappings()
         // below tells Loom to skip the intermediary remapping step entirely.
-        mappings(files("${rootProject.projectDir}/libs/identity-mappings-26.1.2.jar"))
+        // P1-006: Validate that the identity-mappings JAR file exists before use.
+        val identityMappingsFile = file("${rootProject.projectDir}/libs/identity-mappings-26.1.2.jar")
+        require(identityMappingsFile.exists()) {
+            "Identity mappings JAR not found at ${identityMappingsFile.absolutePath}. " +
+            "This file is required for Minecraft 26.x builds. " +
+            "Please ensure the file exists or download it from the appropriate source."
+        }
+        mappings(files(identityMappingsFile))
     } else {
         mappings(loom.officialMojangMappings())
     }
@@ -47,6 +63,7 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:${property("flk_version")}")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:${property("kotlin_version")}")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -127,6 +144,16 @@ tasks.withType<KotlinCompile>().configureEach {
     }
 }
 
+// P1-008: Ensure Stonecutter's per-version source rewriting happens before
+// Kotlin compilation. The setupChiseledBuild task must complete first.
+tasks.named<KotlinCompile>("compileKotlin") {
+    dependsOn("setupChiseledBuild")
+}
+
+tasks.named<KotlinCompile>("compileTestKotlin") {
+    dependsOn("setupChiseledBuild")
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
@@ -193,6 +220,7 @@ tasks.withType<org.gradle.api.tasks.bundling.Jar>().configureEach {
 // shipped in the release JAR but only executed when the fabric-gametest harness
 // activates (vm arg `-Dfabric-api.gametest`), so the runtime footprint is zero
 // in production. Future work: extract to a real gametest source set.
+
 
 // ===== P0-002: 1.20.1 legacy recipe codegen =====
 
@@ -326,5 +354,27 @@ tasks.register("publishWiki") {
         }
         runGit(cloneDir, "push", "origin", "HEAD")
         logger.lifecycle("publishWiki: pushed to $url")
+    }
+}
+
+// P1-007: Validate Java toolchain version matches Minecraft version requirements
+fun validateJavaToolchainVersion(minecraftVersion: String, javaRelease: Int) {
+    // Map of Minecraft versions to required Java releases
+    val javaRequirements = mapOf(
+        "1.20" to 17,
+        "1.21" to 21,
+        "26." to 25
+    )
+
+    val requiredJava = javaRequirements.entries.find { (mcPrefix, _) ->
+        minecraftVersion.startsWith(mcPrefix)
+    }?.value
+
+    if (requiredJava != null && javaRelease != requiredJava) {
+        throw GradleException(
+            "Java toolchain version mismatch: Minecraft $minecraftVersion requires Java $requiredJava, " +
+            "but gradle.properties specifies java_release=$javaRelease. " +
+            "Please update gradle.properties to use java_release=$requiredJava"
+        )
     }
 }

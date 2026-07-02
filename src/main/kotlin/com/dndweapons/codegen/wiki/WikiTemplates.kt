@@ -134,11 +134,24 @@ object WikiTemplates {
             // vanilla item." (embarrassing placeholder).
             else             -> error("renderVanillaCallout: add new vanilla-mapped spec '${spec.id}' to the when-block")
         }
+        // SEC-004: Sanitize displayName to prevent Markdown injection
+        val safeName = sanitizeMarkdown(spec.displayName)
+        val safeVanillaName = sanitizeMarkdown(vanillaName)
         return ":information_source:  **This weapon is represented by the vanilla Minecraft " +
-            "$vanillaName.** When you craft or pick up the vanilla item, it carries " +
-            "the ${spec.displayName} identity: tooltip stat block, combat hooks, and " +
+            "$safeVanillaName.** When you craft or pick up the vanilla item, it carries " +
+            "the $safeName identity: tooltip stat block, combat hooks, and " +
             "role tag. No separate item is registered."
     }
+
+    /**
+     * SEC-004: Sanitize strings for safe Markdown rendering.
+     * Escapes special Markdown characters that could break the output format.
+     */
+    private fun sanitizeMarkdown(input: String): String =
+        input.replace("`", "\\`")
+             .replace("[", "\\[")
+             .replace("]", "\\]")
+             .replace("|", "\\|")
 
     private fun renderFactLine(fact: AcquisitionFact): String = when (fact) {
         is AcquisitionFact.StructureChest -> {
@@ -156,18 +169,9 @@ object WikiTemplates {
             "Mob drop: **${fact.mobLabel}** -- ${fact.chancePct}% random Netherite weapon"
     }
 
-    private fun propertyHookSummary(prop: Property): String = when (prop) {
-        Property.LIGHT         -> "+1 damage when offhand also holds a Light weapon (dual-wield)"
-        Property.HEAVY         -> "+1 knockback level on hit"
-        Property.FINESSE       -> "+20% damage when attacker is sprinting"
-        Property.VERSATILE     -> "+versatile damage bonus when wielded two-handed"
-        Property.TWO_HANDED    -> "Requires both hands; offhand items prevent attack"
-        Property.REACH         -> "+1 block attack range"
-        Property.THROWN        -> "Right-click to throw as a ranged projectile"
-        Property.AMMUNITION    -> "Requires the appropriate ammo item"
-        Property.LOADING       -> "Reload animation between shots"
-        Property.SPECIAL_LANCE -> "Lance special: see weapon-specific notes (mounted bonus, off-hand restriction)"
-    }
+    // P1-008: Property descriptions sourced from centralized map instead of hardcoded strings
+    private fun propertyHookSummary(prop: Property): String =
+        PropertyDescriptions.summaryFor(prop)
 
     private fun labelFor(category: Category): String = WikiPaths.categoryLabel(category)
         .removeSuffix(" Weapons")
@@ -179,7 +183,10 @@ object WikiTemplates {
     }
 
     private fun labelFor(p: Property): String =
-        p.name.lowercase().replaceFirstChar(Char::titlecase).replace('_', ' ')
+        // PERF-001: Use more efficient string building for property labels
+        p.name.lowercase()
+            .replace('_', ' ')
+            .replaceFirstChar(Char::titlecase)
 
     private fun labelFor(r: RangeKind): String = when (r) {
         RangeKind.NONE     -> "Melee"
