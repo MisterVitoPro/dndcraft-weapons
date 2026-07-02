@@ -17,6 +17,8 @@ import com.dndweapons.catalog.WeaponSpec
  *   - Reach/TwoHanded/Thrown/Ammunition/Loading are out of Phase 3 scope.
  */
 object WeaponTooltipBuilder {
+    // PERF-003: Cache Property.values() to avoid repeated reflection
+    private val PROPERTY_VALUES = Property.values()
 
     fun build(spec: WeaponSpec): List<TooltipLine> {
         val out = mutableListOf<TooltipLine>()
@@ -58,7 +60,7 @@ object WeaponTooltipBuilder {
     // P1-002: Property names are localized via translation keys, not hardcoded.
     private fun propertyTrailing(spec: WeaponSpec): String {
         val parts = mutableListOf<String>()
-        for (prop in Property.values()) {
+        for (prop in PROPERTY_VALUES) {
             if (prop !in spec.properties) continue
             parts += when (prop) {
                 Property.VERSATILE -> {
