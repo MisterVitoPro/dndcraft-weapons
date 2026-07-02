@@ -276,7 +276,8 @@ private fun runLanceMountedCase(ctx: GameTestHelper) {
     val mount = ctx.spawn(EntityType.PIG, mountPos) as Pig
     //? if >=1.21.11 {
     player.startRiding(mount, true, true)
-    //? } else {
+    //? }
+    //? if <1.21.11 {
     player.startRiding(mount, true)
     //? }
 
