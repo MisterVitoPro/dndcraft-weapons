@@ -210,7 +210,15 @@ object AcquisitionCatalog {
         }
 
         if (errors.isNotEmpty()) {
-            DndWeaponsMod.LOGGER.error("AcquisitionCatalog references unknown weapons: $errors")
+            // LOG-011: Enhanced diagnostic context in validation error messages
+            DndWeaponsMod.LOGGER.error(
+                "AcquisitionCatalog validation failed ({} errors): " +
+                "Missing or misregistered items found in loot tables and trades",
+                errors.size
+            )
+            for ((i, error) in errors.withIndex()) {
+                DndWeaponsMod.LOGGER.error("  [{}] {}", i + 1, error)
+            }
         } else {
             DndWeaponsMod.LOGGER.info(
                 "AcquisitionCatalog validated: ${STRUCTURE_LOOT.size} structures, " +
